@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+from pathlib import Path
+
+from .config import load_config
+from .synchronizer import synchronize
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Sincronizador local auditavel (dry-run por padrao).")
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--snapshot", type=Path, default=Path("runtime/snapshots/latest.json"))
+    parser.add_argument("--artifacts", type=Path, default=Path("runtime/artifacts/latest"))
+    parser.add_argument("--mode", choices=("dry-run", "generate-sql", "apply-local"), default="dry-run")
+    parser.add_argument("--database-url", help="URL PostgreSQL local; exigida somente em apply-local.")
+    parser.add_argument("--allow-host", action="append", default=[], help="Host adicional explicitamente permitido para desenvolvimento.")
+    args = parser.parse_args()
+    with args.input.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    print(json.dumps(synchronize(rows, load_config(args.config), args.snapshot, args.artifacts, args.mode, args.database_url, set(args.allow_host)), ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

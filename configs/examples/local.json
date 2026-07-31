@@ -1,0 +1,6 @@
+{
+  "source_id": "fixture_contacts",
+  "key_column": "id",
+  "table_name": "mirror_records",
+  "local_host": "127.0.0.1"
+}

@@ -1,0 +1,49 @@
+# Dados sensíveis e arquivos de entrada
+/data/*
+!/data/.gitkeep
+!/data/README.md
+!/data/fixtures/
+!/data/fixtures/**
+
+# Outputs gerados
+/outputs/*
+!/outputs/.gitkeep
+!/outputs/README.md
+!/outputs/examples/
+!/outputs/examples/**
+
+# Estado e artefatos locais de execucao
+/runtime/*
+!/runtime/.gitkeep
+!/runtime/snapshots/.gitkeep
+!/runtime/artifacts/.gitkeep
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Dependências e ambientes
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+vendor/
+
+# Logs
+*.log
+logs/
+
+# Cache e temporários
+.cache/
+.tmp/
+temp/
+.DS_Store
+Thumbs.db
+
+# Builds genéricos
+dist/
+build/
+.next/
+out/
