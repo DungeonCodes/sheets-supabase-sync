@@ -40,6 +40,10 @@ def with_tombstones(current: Snapshot, removed: list[Record]) -> Snapshot:
     return Snapshot(current.source_id, current.columns, records, current.created_at)
 
 
+def has_blocking_schema_change(result: DiffResult) -> bool:
+    return bool(result.missing_columns or result.possible_renames or result.incompatible_types)
+
+
 def _duplicates(snapshot: Snapshot) -> list[str]:
     hashes: dict[str, list[str]] = {}
     for record in snapshot.records.values():

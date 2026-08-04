@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from datetime import date
 from typing import Any
 
 
@@ -31,4 +32,14 @@ def infer_type(values: list[Any]) -> str:
         return "integer"
     if all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in non_empty):
         return "numeric"
+    if all(isinstance(value, date) or isinstance(value, str) and _is_iso_date(value) for value in non_empty):
+        return "date"
     return "text"
+
+
+def _is_iso_date(value: str) -> bool:
+    try:
+        date.fromisoformat(value)
+        return True
+    except ValueError:
+        return False

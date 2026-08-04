@@ -171,5 +171,6 @@ class SyncTests(unittest.TestCase):
 
     def test_migration_uses_official_filename_layout(self) -> None:
         migrations = list((Path(__file__).parents[1] / "supabase" / "migrations").glob("*.sql"))
-        self.assertEqual(1, len(migrations))
-        self.assertRegex(migrations[0].name, r"^\d{14}_[a-z0-9_]+\.sql$")
+        self.assertGreaterEqual(len(migrations), 1)
+        for migration in migrations:
+            self.assertRegex(migration.name, r"^\d{14}_[a-z0-9_]+\.sql$")

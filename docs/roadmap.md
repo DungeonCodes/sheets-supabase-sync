@@ -2,7 +2,8 @@
 
 ## Fase 1
 
-- Sincronizador Python, Supabase local, fixtures e validacao offline/local.
+- Sincronizador Python, Supabase local, fixtures, fontes isoladas por instituicao e validacao offline/local.
+- Contratos de fonte, diagnostico `doctor`, regras de alerta, logging seguro e testes offline por categoria.
 
 ## Fase 2
 
@@ -14,4 +15,4 @@
 
 ## Fase futura
 
-- Agendamento, filas e retentativas; avaliar Inngest apenas se volume e concorrencia justificarem.
+- Agendamento, filas e retentativas; avaliar Inngest apenas se volume e concorrencia justificarem. Nao ha scheduler implantado nesta fase.

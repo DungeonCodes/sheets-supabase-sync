@@ -1,8 +1,9 @@
 # Workflow
 
-1. Uma resposta e registrada no Google Forms e aparece no Google Sheets.
+1. Uma fonte representa uma planilha e uma aba de uma instituicao.
 2. Na Fase 1, um CSV ficticio representa a leitura da origem.
-3. O sincronizador normaliza colunas e valores, calcula hashes e compara o snapshot anterior.
-4. Ele registra linhas novas, alteradas, removidas, restauradas e duplicadas; tambem sinaliza mudancas de schema.
-5. Sao gerados snapshot, manifest JSON, relatorio Markdown e SQL idempotente para revisao.
-6. Em etapa posterior, o SQL revisado sera aplicado apenas no Supabase local; APIs reais entram na Fase 2.
+3. O sincronizador normaliza cabeçalhos para identificadores seguros, detecta colisões e propõe a tabela espelho da fonte.
+4. Ele calcula hashes, compara snapshot, preserva payload bruto e identifica linhas e schema.
+5. Mudanças bloqueantes (coluna ausente, renomeacao possivel ou tipo destrutivo) geram artefatos e exigem revisao humana, sem aplicar nem atualizar snapshot.
+6. Fontes vencidas sao elegiveis a cada intervalo configurado (180 minutos no exemplo); uma falha nao interrompe as demais.
+7. Google Sheets real e um scheduler de provedor entram em fases posteriores.

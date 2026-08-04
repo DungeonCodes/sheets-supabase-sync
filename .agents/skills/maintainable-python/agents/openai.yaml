@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintainable Python"
+  short_description: "Guia para Python simples e testavel"
+  default_prompt: "Implemente ou refatore Python com responsabilidades pequenas, dependencias explicitas e testes por comportamento."

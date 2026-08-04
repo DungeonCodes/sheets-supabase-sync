@@ -1,0 +1,28 @@
+{
+  "institution": {
+    "name": "instituicao-exemplo"
+  },
+  "supabase": {
+    "project_mode": "isolated"
+  },
+  "sources": [
+    {
+      "name": "pesquisa-satisfacao",
+      "spreadsheet_id": "exemplo",
+      "sheet_name": "Respostas",
+      "target_table": "pesquisa_satisfacao",
+      "business_key": ["id_resposta"],
+      "sync_interval_minutes": 180,
+      "enabled": true
+    },
+    {
+      "name": "avaliacao-trilhas",
+      "spreadsheet_id": "exemplo",
+      "sheet_name": "Trilhas",
+      "target_table": "avaliacao_trilhas",
+      "business_key": ["id_avaliacao"],
+      "sync_interval_minutes": 180,
+      "enabled": true
+    }
+  ]
+}

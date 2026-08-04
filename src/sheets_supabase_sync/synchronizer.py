@@ -6,10 +6,10 @@ from typing import Any
 
 from .artifacts import markdown_report, write_artifacts
 from .config import SyncConfig
-from .diff import compare, with_tombstones
+from .diff import compare, has_blocking_schema_change, with_tombstones
 from .executors import apply_sql_locally
 from .snapshot import build_snapshot, snapshot_from_dict, snapshot_to_dict
-from .sql_generator import generate_sql
+from .sql_generator import generate_schema_request_sql, generate_sql
 
 
 def synchronize(
@@ -32,8 +32,12 @@ def synchronize(
         raise ValueError("Snapshot invalido ou corrompido; interrompendo para evitar comparacao insegura.") from error
     result = compare(current, previous)
     sql = generate_sql(result, config.table_name, config.source_id)
-    manifest = {"source_id": config.source_id, "mode": mode, "dry_run": mode != "apply-local", "counts": {"new": len(result.new), "changed": len(result.changed), "removed": len(result.removed), "restored": len(result.restored), "duplicates": len(result.duplicates)}, "schema_pending": {"new_columns": result.new_columns, "missing_columns": result.missing_columns, "possible_renames": result.possible_renames, "incompatible_types": result.incompatible_types}}
+    blocked = has_blocking_schema_change(result)
+    manifest = {"source_id": config.source_id, "mode": mode, "dry_run": mode != "apply-local", "blocked": blocked, "counts": {"new": len(result.new), "changed": len(result.changed), "removed": len(result.removed), "restored": len(result.restored), "duplicates": len(result.duplicates)}, "schema_pending": {"new_columns": result.new_columns, "missing_columns": result.missing_columns, "possible_renames": result.possible_renames, "incompatible_types": result.incompatible_types}}
     write_artifacts(artifact_dir, manifest, markdown_report(result), sql)
+    if mode == "apply-local" and blocked:
+        apply_sql_locally(generate_schema_request_sql(result, config.source_id), database_url, allowed_hosts)
+        raise ValueError("Mudanca de schema bloqueante exige revisao humana")
     if mode == "apply-local":
         apply_sql_locally(sql, database_url, allowed_hosts)
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
