@@ -7,3 +7,7 @@
 5. Mudanças bloqueantes (coluna ausente, renomeacao possivel ou tipo destrutivo) geram artefatos e exigem revisao humana, sem aplicar nem atualizar snapshot.
 6. Fontes vencidas sao elegiveis a cada intervalo configurado (180 minutos no exemplo); uma falha nao interrompe as demais.
 7. Google Sheets real e um scheduler de provedor entram em fases posteriores.
+
+## Preparacao do schema institucional
+
+A baseline ativa cria apenas as tabelas operacionais e seus controles de acesso. O fluxo de primeira fonte ainda devera propor e criar sua tabela espelho em uma etapa explicita. Em 2026-08-04, a baseline foi validada estaticamente, por lint e por `supabase db push --dry-run`; nenhuma migration, seed ou tabela espelho foi aplicada remotamente.

@@ -10,3 +10,4 @@
 8. [Roadmap](roadmap.md) — fases concluídas e pendentes.
 9. [Rastreabilidade](traceability.md) — requisito para implementação.
 10. [Decisões](decisions/) — ADRs aceitos.
+11. [Histórico das migrations da PoC](history/initial-migrations-poc/README.md) — arquivos nunca aplicados e mantidos apenas para auditoria.

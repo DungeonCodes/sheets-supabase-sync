@@ -44,7 +44,18 @@ Execute somente com Docker disponivel. O aplicador em Python recusa hosts remoto
 
 ## Status
 
-Status: fundacao tecnica concluida; validacao end-to-end local pendente.
+Status:
+
+- dominio e sincronizacao validados offline;
+- baseline institucional consolidada e validada em dry-run, ainda nao aplicada;
+- integracao PostgreSQL/Supabase local pendente;
+- Google Sheets real pendente;
+- agendamento de producao pendente.
+
+As tres migrations da PoC, nunca aplicadas, foram preservadas em
+[`docs/history/initial-migrations-poc/`](docs/history/initial-migrations-poc/README.md).
+A unica migration ativa aguarda revisao humana antes do primeiro deploy. Depois de aplicada,
+ela nao devera ser reescrita: mudancas futuras deverao ser migrations incrementais.
 
 ## Modos de execucao
 
@@ -77,6 +88,6 @@ O comando retorna 0 para saudavel, 1 para aviso e 2 para falha, sem exibir crede
 
 ## Limitacoes
 
-Concluido: normalizacao, hash deterministico, snapshot, diff, artefatos, varredura antissegredo, migrations e testes offline. Pendente: validar o executor contra um Supabase local com Docker, API real do Google Sheets e politicas RLS por usuario/organizacao.
+Concluido: normalizacao, hash deterministico, snapshot, diff, artefatos, varredura antissegredo, baseline SQL e testes offline. A baseline habilita RLS nas tabelas operacionais, revoga acesso de `anon` e `authenticated` e reserva escrita ao backend privilegiado. Ela foi inspecionada com lint e `supabase db push --dry-run`, mas nenhuma migration foi aplicada. Permanecem pendentes a validacao do executor contra PostgreSQL/Supabase local, a API real do Google Sheets e a criacao das tabelas espelho por uma sincronizacao real.
 
 Consulte [docs/architecture.md](docs/architecture.md), [docs/workflow.md](docs/workflow.md), [docs/security.md](docs/security.md) e [docs/roadmap.md](docs/roadmap.md).

@@ -2,12 +2,17 @@
 
 ## Fase 1
 
-- Sincronizador Python, Supabase local, fixtures, fontes isoladas por instituicao e validacao offline/local.
+- Sincronizador Python, fixtures, fontes isoladas por instituicao e validacao offline.
 - Contratos de fonte, diagnostico `doctor`, regras de alerta, logging seguro e testes offline por categoria.
+- Baseline institucional consolidada, lintada e validada em dry-run; aplicacao ainda pendente de revisao humana.
+
+## Pendente local
+
+- Docker, `psql`, Supabase local, `db reset`, execucao real das migrations, rollback, advisory lock, concorrencia e E2E local.
 
 ## Fase 2
 
-- API real do Google Sheets, Supabase de homologacao e planilha piloto anonimizada.
+- Aplicacao revisada da baseline no Supabase de homologacao, API real do Google Sheets e planilha piloto ficticia/anonimizada.
 
 ## Fase 3
 
