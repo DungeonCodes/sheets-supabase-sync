@@ -1,23 +1,25 @@
 # Roadmap
 
-## Fase 1
+O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orientacao.md) ampliou o projeto. A sequência detalhada, os gates e os aceites estão no [plano de implementação](activity-3/implementation-plan.md).
 
-- Sincronizador Python, fixtures, fontes isoladas por instituicao e validacao offline.
-- Contratos de fonte, diagnostico `doctor`, regras de alerta, logging seguro e testes offline por categoria.
-- Baseline institucional consolidada, corrigida e aplicada ao Supabase de staging; cinco tabelas operacionais vazias e nenhuma tabela espelho.
+## Estado atual
 
-## Pendente local
+- Núcleo Python offline: snapshots, diff, contratos, schema drift, SQL auditável, isolamento por fonte, health, logs seguros e testes; leitor Google read-only implementado com transporte HTTP isolado.
+- Baseline institucional: aplicada no staging em 2026-08-05 e reconciliada em 2026-08-06 por histórico, catálogo e Data API somente de leitura; cinco tabelas vazias, 27 constraints, 14 índices, RLS/grants coerentes e nenhuma policy.
+- Ausentes: leitura Google autorizada da fixture privada (GET real retornou 403), raw integrado, staging/Star Schema, BI, RLS/RBAC hierárquico, e-mail, estudo completo de custos/free tiers, onboarding e Draw.io.
 
-- Docker, `psql`, Supabase local, `db reset`, execucao real das migrations, rollback, advisory lock, concorrencia e E2E local.
+## Fases oficiais de execução
 
-## Fase 2
+0. Fundação e banco.
+1. Ingestão Google Sheets.
+2. Raw e sincronização.
+3. Qualidade e schema drift.
+4. Modelagem analítica.
+5. BI e segurança hierárquica.
+6. Observabilidade e alertas.
+7. Viabilidade e operação.
+8. Fluxograma e apresentação.
 
-- API real do Google Sheets, planilha piloto ficticia/anonimizada e primeira sincronizacao manual end-to-end no staging.
+## Próximo passo
 
-## Fase 3
-
-- Interface Next.js, execucao manual, acompanhamento de sincronizacoes e dashboard.
-
-## Fase futura
-
-- Agendamento, filas e retentativas; avaliar Inngest apenas se volume e concorrencia justificarem. Nao ha scheduler implantado nesta fase.
+**Revisar externamente a autorização e repetir a leitura read-only.** Configuração e confirmação humana passaram, mas a API respondeu 403 antes dos metadados. A Fase 2 permanece bloqueada. Decisões empresariais continuam em [open-decisions.md](activity-3/open-decisions.md); quase tempo real, BI ou ferramenta adicional não devem ser presumidos.

@@ -1,6 +1,9 @@
 # Runbook
 
 - **Sem permissao ou credencial revogada:** classifique como `authorization` ou `authentication`, interrompa apenas a fonte e corrija a credencial no mecanismo seguro.
+- **403 antes dos metadados Google:** não repetir em loop nem alterar acesso automaticamente. Um responsável confere se a Sheets API está habilitada no projeto da credencial, se a mesma Service Account recebeu acesso de Leitor e se a fixture configurada é a pretendida. Reexecute somente o diagnóstico read-only e registre apenas a categoria.
+- **Google 429/5xx/timeout:** observe categoria, tentativa e atraso sanitizados; respeite `Retry-After`, deixe o retry limitado encerrar e reduza a cadência se recorrente. Não repita manualmente em loop.
+- **Revogação Google:** remova o compartilhamento da planilha, desabilite/rotacione a chave pelo responsável autorizado e remova a cópia local. Nunca cole chave, e-mail completo ou ID da planilha no chamado.
 - **Sheet ou aba inexistente:** classifique como `not_found`, confira `spreadsheet_id` e `sheet_name`.
 - **Schema bloqueante:** revise o manifest e `schema_change_requests`; nao renomeie, remova coluna ou altere tipo automaticamente.
 - **Supabase indisponivel ou migration ausente:** execute `doctor`, confira Supabase local e aplique migrations somente no ambiente local.

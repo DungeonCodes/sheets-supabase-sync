@@ -39,3 +39,7 @@ Configuracoes e credenciais de backend selecionam o projeto da instituicao. A op
 Antes do primeiro deploy, as tres migrations da PoC foram arquivadas e substituidas por uma baseline unica, sem multitenancy ou operacoes destrutivas. As migrations antigas nunca foram aplicadas; a nova baseline foi apenas lintada e validada em dry-run e aguarda revisao humana. Quando aplicada, nao devera ser reescrita: evolucoes posteriores usarao migrations incrementais.
 
 Decisoes substituidas: nenhuma ADR aceita. A consolidacao substitui apenas migrations locais nao aplicadas da PoC.
+
+## Evolucao registrada em 2026-08-06
+
+A observacao de 2026-08-04 acima permanece como registro historico anterior ao deploy. A baseline corrigida foi posteriormente aplicada em 2026-08-05. Em 2026-08-06, inspecao independente e somente de leitura confirmou historico local/remoto convergente, cinco tabelas operacionais vazias, constraints e indices esperados, RLS/grants coerentes e Data API acessivel. A baseline continua imutavel; futuras mudancas exigem migrations incrementais.

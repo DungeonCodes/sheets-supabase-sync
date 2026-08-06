@@ -1,6 +1,6 @@
 # sheets-supabase-sync
 
-Sincronizador auditavel para levar respostas de Google Forms/Google Sheets ao Supabase sem perder os dados brutos. Cada instituicao usa um projeto Supabase exclusivo; cada planilha+aba configurada alimenta uma tabela espelho independente. Esta Fase 1 opera offline com CSVs de fixture; a integracao com a API Google ainda nao foi implementada.
+Sincronizador auditavel para levar respostas de Google Forms/Google Sheets ao Supabase sem perder os dados brutos. Cada instituicao usa um projeto Supabase exclusivo; cada planilha+aba configurada alimenta uma tabela espelho independente. O leitor Google Sheets somente leitura está implementado e testado offline; a tentativa real recebeu 403 antes dos metadados e a Fase 1 continua aberta.
 
 ## Arquitetura
 
@@ -15,15 +15,18 @@ Nao ha `organization_id`, `tenant_id` ou relacionamentos automaticos entre tabel
 ## Pre-requisitos
 
 - Python 3.12 ou superior;
+- ambiente virtual local para as dependências Python;
 - opcionalmente Docker e Supabase CLI para a validacao de integracao local.
 
 ## Instalacao e uso local
 
-Nao ha dependencias de terceiros na Fase 1. No PowerShell:
+No PowerShell, crie o ambiente virtual do projeto e instale as dependências declaradas:
 
 ```powershell
 $env:PYTHONPATH = "$PWD\src"
-python -m sheets_supabase_sync.cli --config configs/examples/local.json --input data/fixtures/contacts.csv
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m sheets_supabase_sync.cli --config configs/examples/local.json --input data/fixtures/contacts.csv
 ./scripts/test.ps1
 ```
 
@@ -47,9 +50,9 @@ Execute somente com Docker disponivel. O aplicador em Python recusa hosts remoto
 Status:
 
 - dominio e sincronizacao validados offline;
-- baseline institucional corrigida e aplicada ao staging em 2026-08-05;
+- baseline institucional corrigida, aplicada em 2026-08-05 e validada por inspecao somente de leitura em 2026-08-06;
 - integracao PostgreSQL/Supabase local pendente;
-- Google Sheets real pendente;
+- leitor Google Sheets read-only implementado e validado por testes offline; tentativa real bloqueada por `authorization` antes dos metadados;
 - agendamento de producao pendente.
 
 As tres migrations da PoC, nunca aplicadas, foram preservadas em
@@ -63,6 +66,12 @@ rollback completo; o campo conflitante foi renomeado de `current_schema` para
 `previous_schema`, e testes, lint e dry-run passaram novamente. A segunda tentativa,
 explicitamente autorizada em 2026-08-05, aplicou somente a baseline corrigida. O seed
 nao foi executado e nenhuma tabela espelho ou linha de dados foi criada.
+
+Em 2026-08-06, uma reconciliacao independente e somente de leitura confirmou uma
+migration local e uma remota na mesma versao, as cinco tabelas operacionais, 27
+constraints, 14 indices, RLS habilitado, zero policies, grants restritos ao backend,
+Data API acessivel e zero linhas. Nenhum identificador de projeto ou credencial foi
+registrado.
 
 ## Modos de execucao
 
@@ -90,12 +99,26 @@ O nucleo lista fontes vencidas e executa cada uma isoladamente; um scheduler de 
 python -m sheets_supabase_sync.cli doctor
 python -m sheets_supabase_sync.cli doctor --format json
 py scripts/verify-credentials.py --local-only
+.\.venv\Scripts\python.exe scripts\verify-google-sheets.py --confirm-fictitious
 ```
 
-O comando retorna 0 para saudavel, 1 para aviso e 2 para falha, sem exibir credenciais. Consulte [docs/testing.md](docs/testing.md), [docs/monitoring.md](docs/monitoring.md) e [docs/runbook.md](docs/runbook.md).
+O diagnóstico Google exige revisão humana prévia de que a fixture é fictícia, usa apenas `spreadsheets.readonly`, não exibe células e não acessa Supabase. Consulte [docs/testing.md](docs/testing.md), [docs/monitoring.md](docs/monitoring.md), [docs/runbook.md](docs/runbook.md) e [limites da API](docs/activity-3/google-sheets-api-limits.md).
 
 ## Limitacoes
 
-Concluido: normalizacao, hash deterministico, snapshot, diff, artefatos, varredura antissegredo, baseline SQL, testes offline e primeira aplicacao da baseline no staging. A baseline habilita RLS nas tabelas operacionais, revoga acesso de `anon` e `authenticated` e reserva escrita ao backend privilegiado. Permanecem pendentes a verificacao independente de grants/RLS pelo catalogo PostgreSQL, a API real do Google Sheets e a criacao das tabelas espelho por uma sincronizacao real.
+Concluido: normalizacao, hash deterministico, snapshot, diff, artefatos, varredura antissegredo, baseline SQL, aplicacao no staging, validação independente do catálogo remoto e implementação local do leitor Google read-only com retry seguro. Permanecem pendentes a prova Google real com fixture fictícia, RLS/RBAC hierarquico para a camada analitica e a criacao das tabelas espelho por uma sincronizacao real.
 
 Consulte [docs/architecture.md](docs/architecture.md), [docs/workflow.md](docs/workflow.md), [docs/security.md](docs/security.md) e [docs/roadmap.md](docs/roadmap.md).
+
+## Atividade 3 — sistema ETL para clientes
+
+O [documento oficial](docs/decisions/20260806_inicie_etl_clientes_orientacao.md) passa a ser a principal fonte de requisitos. A auditoria de 2026-08-06 não implementou funcionalidades nem aplicou migrations e produziu:
+
+- [matriz de 40 requisitos](docs/activity-3/requirements-traceability.md);
+- [análise de lacunas](docs/activity-3/gap-analysis.md);
+- [plano por fases](docs/activity-3/implementation-plan.md);
+- [registro de riscos](docs/activity-3/risk-register.md);
+- [decisões empresariais pendentes](docs/activity-3/open-decisions.md);
+- [checkpoints de validação](docs/activity-3/validation-checkpoints.md).
+
+O estado técnico da baseline no staging foi reconciliado e validado somente por leitura em 2026-08-06. A configuração e a revisão humana da fixture passaram, mas o GET real recebeu 403. O próximo gate único é **revisar externamente API, identidade e compartilhamento e repetir o diagnóstico read-only**. A Fase 2 não foi iniciada.
