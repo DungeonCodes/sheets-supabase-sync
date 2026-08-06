@@ -6,6 +6,8 @@ O pacote separa dominio (`sources`, `identifiers`, `mirror_schema`, `scheduling`
 
 Na Fase 1, `google_sheets` contém somente o modelo determinístico, parsing e orquestração da leitura; `google_transport` é a borda HTTP GET autenticada; `google_config` valida configuração e credencial externa. O transporte implementa uma interface local pequena e pode ser substituído por fake nos testes. O leitor não importa Supabase, não gera SQL, não transforma regras de negócio e não persiste dados.
 
+Na Fase 2A, `raw_sync` concentra contrato, hashes, snapshots e diff sem rede; `raw_sync_service` coordena dry-run e transação local in-memory; `raw_repository` isola a avaliação do schema e os comandos PostgreSQL parametrizados. A semântica desejada combina histórico append-only com estado atual por fonte/chave. A baseline atual suporta somente o primeiro aspecto, portanto a fronteira PostgreSQL permanece bloqueada até uma migration incremental aprovada.
+
 As tabelas operacionais `data_sources`, `sync_runs`, `raw_import_rows`, `import_errors` e `schema_change_requests` fornecem trilha de auditoria e usam chaves estrangeiras somente entre si. Dados brutos ficam em JSONB tanto na tabela espelho quanto em `raw_import_rows`.
 
 ## Baseline do banco

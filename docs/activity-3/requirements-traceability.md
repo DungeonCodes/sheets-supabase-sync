@@ -36,7 +36,7 @@ Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inaltera
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | ING-01 | Mapear e gerir quotas/rate limits de Google Forms, Google Sheets e APIs. | `partially_validated` | `google-sheets-api-limits.md`; retry integrado com backoff, jitter, orçamento, `Retry-After`; testes 429/503/timeout | Sem rate limiter global, carga multi-fonte ou conferência da cota efetiva do projeto; Forms não foi avaliado. | Limites oficiais citados; orçamento de chamadas, backoff+jitter e teste de 429 integrados. | crítica | Fase 1; conector real | R-02, R-17 |
 | ING-02 | Definir frequência: batch periódico ou evento quase em tempo real, alinhada ao cliente. | `partially_validated` | `sync_interval_minutes`, `due_sources` e exemplo de 180 min | Cadência empresarial e SLA não decididos; scheduler não implantado. | Decisão registrada, scheduler repetível e atraso máximo monitorado. | alta | OD-01, OD-03, OD-05 | R-08, R-13 |
-| ING-03 | Capturar Google Forms/Sheets por webhooks, conectores Python ou APIs. | `implemented_not_validated` | leitor/transporte HTTP v4 read-only; 29 testes offline; GET real de metadados em 2026-08-06 retornou 403 sanitizado | Token foi aceito até a chamada da API, mas a planilha não ficou acessível e nenhum metadado/célula foi lido; causa da autorização precisa de revisão externa. | Planilha fictícia lida pela API real sem segredo exposto, com timeout e erros testados. | crítica | Revisão de API/compartilhamento/identidade; Fase 1 | R-02, R-05, R-19 |
+| ING-03 | Capturar Google Forms/Sheets por webhooks, conectores Python ou APIs. | `partially_validated` | leitor/transporte HTTP v4 read-only; 29 testes offline; diagnóstico real encontrou a aba e leu 7 colunas/5 linhas em 2026-08-06 | Não há execução multi-fonte, scheduler ou validação Google Forms; a leitura real foi comprovada apenas para a fixture fictícia. | Planilha fictícia lida pela API real sem segredo exposto, com timeout e erros testados. | crítica | Fase 2; revisão de frequência | R-02, R-05, R-19 |
 
 ## 4. Processamento, qualidade e resiliência
 
@@ -53,7 +53,7 @@ Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inaltera
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | STORE-01 | Definir banco analítico/Data Warehouse com capacidade e escala sem degradação. | `planned` | PostgreSQL/Supabase foi escolhido apenas para base operacional | Não há decisão analítica, benchmark ou estimativa de capacidade. | ADR compara opções e benchmark comprova metas de volume/consulta. | alta | OD-02/03/10; Fases 4 e 7 | R-04, R-13, R-18 |
-| STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | `raw_import_rows.payload_json` e constraints confirmados no staging; tabela vazia; snapshots locais | Sincronizador não persiste `raw_import_rows`; camada staging não existe; retenção indefinida. | Duas cargas persistem raw auditável/idempotente e staging separada, com retenção testada. | crítica | Fases 2, 4 e 7 | R-04, R-06, R-12 |
+| STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | baseline raw confirmada; contrato/snapshot/diff local e dry-run real de 5 linhas; ADR 20260806 de semântica raw | `raw_import_rows` não suporta estado por chave, tombstone ou versão; nenhuma escrita ocorreu; retenção indefinida. | Duas cargas persistem raw auditável/idempotente e staging separada, com retenção testada. | crítica | migration incremental aprovada; Fases 2B, 4 e 7 | R-04, R-06, R-12, R-20 |
 | STORE-03 | Transformar em SQL para Star Schema ou Snowflake, com fatos e dimensões. | `planned` | SQL atual é somente upsert de espelho operacional | Caso de negócio, staging, dimensões, fato, métricas e reconciliação ausentes. | Star Schema funcional, consultas testadas e métricas reconciliadas. | crítica | Fase 4; definição de caso de negócio | R-10, R-13 |
 | STORE-04 | Aplicar controle hierárquico de visualização por RLS/RBAC. | `partially_validated` | catálogo remoto: RLS nas cinco tabelas operacionais, zero policies, `anon`/`authenticated` sem acesso e backend autorizado | Não há policies hierárquicas, papéis, escopo por usuário nem teste com identidades distintas. | Dois ou mais escopos demonstrados; consultas negativas não retornam dados indevidos. | crítica | OD-06; Fase 5; modelo de identidade | R-15 |
 
@@ -97,7 +97,7 @@ Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inaltera
 
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| AVAIL-01 | Em falha de servidor/API/dashboard, exibir último dado válido em vez de tela de erro. | `partially_validated` | snapshot só avança após fluxo permitido; drift bloqueante preserva snapshot; tombstones testados | Não há tabela analítica/dashboard, backup nem teste de indisponibilidade. | Falha simulada mantém consulta BI no último conjunto reconciliado e registra recuperação. | crítica | Fases 2, 5 e 6; OD-13/15 | R-08, R-09, R-10, R-12 |
+| AVAIL-01 | Em falha de servidor/API/dashboard, exibir último dado válido em vez de tela de erro. | `partially_validated` | snapshot local só avança após commit; falhas simuladas de início/commit/finalização restauram o último snapshot local | Sem estado raw remoto, tabela analítica/dashboard, backup ou teste de indisponibilidade. | Falha simulada mantém consulta BI no último conjunto reconciliado e registra recuperação. | crítica | migration incremental; Fases 2B, 5 e 6; OD-13/15 | R-08, R-09, R-10, R-12, R-20 |
 
 ## 11. Segurança, credenciais e LGPD
 
@@ -151,6 +151,29 @@ A revisão humana confirmou fixture privada, exclusivamente fictícia e comparti
 | `PROC-03` | `partially_validated` | categoria real `authorization` registrada sem payload ou identificador | `partially_validated` | métricas de sucesso e centralização | leitura autorizada com contagens sanitizadas |
 | `SEC-01` | `partially_validated` | credencial externa, escopo único e token não exposto em falha real | `partially_validated` | cofre/rotação/owner e autorização coerente | revisão de identidade e exercício de revogação |
 | `SEC-02` | `validated` | saída real e traceback não contiveram segredo, URL, ID ou célula | `validated` | controle contínuo | repetir scanner após sucesso |
+
+## Checkpoint de integração Google aprovado em 2026-08-06
+
+Após a habilitação da Sheets API e o ajuste do nome da aba, o diagnóstico real executou com a fixture privada e fictícia confirmada. A API autenticou, a planilha ficou acessível, a aba foi localizada e a leitura retornou 7 colunas e 5 linhas. A saída permaneceu sanitizada; nenhum conteúdo de célula foi exibido.
+
+| Requisito | Status anterior | Nova evidência real | Status atual | Gate ainda aberto | Próximo teste necessário |
+| --- | --- | --- | --- | --- | --- |
+| `ING-01` | `partially_validated` | execução real sem retry e dentro do orçamento; quotas não foram excedidas | `partially_validated` | rate limiter global, 429 real e carga multi-fonte | teste de carga fictício |
+| `ING-02` | `partially_validated` | duração real de aproximadamente 1,9 s para uma execução | `partially_validated` | frequência/SLA empresarial e scheduler | decisão de cadência e teste repetido |
+| `ING-03` | `implemented_not_validated` | autenticação, planilha, aba, cabeçalho e linhas comprovados em leitura real | `partially_validated` | Forms, múltiplas fontes e operação contínua | integração de uma segunda fixture fictícia |
+| `PROC-03` | `partially_validated` | métricas reais sanitizadas: 7 colunas, 5 linhas, zero vazias, zero retries | `partially_validated` | centralização e retenção | persistir execução somente na Fase 2 |
+| `SEC-01` | `partially_validated` | escopo read-only e leitura real sem exposição de token/ID/células | `partially_validated` | cofre, owner e rotação | exercício de revogação controlada |
+| `SEC-02` | `validated` | diagnóstico real permaneceu sanitizado | `validated` | controle contínuo | scanner após cada execução |
+
+## Checkpoint local da Fase 2A em 2026-08-06
+
+| Requisito | Status anterior | Nova evidência | Status atual | Gate ainda aberto | Próximo teste necessário |
+| --- | --- | --- | --- | --- | --- |
+| `STORE-02` | `partially_validated` | dry-run real: 5 linhas, 5 novas e zero persistidas; contrato raw e incompatibilidade do schema testados | `partially_validated` | migration incremental, duas escritas e retenção | Fase 2B controlada após autorização |
+| `AVAIL-01` | `partially_validated` | rollback local preserva snapshot em falhas de início/commit/finalização | `partially_validated` | último válido remoto e camada servida | rollback transacional no staging autorizado |
+| `PROC-02` | `validated` | lock local recusa concorrência sem espera indefinida | `validated` | advisory lock PostgreSQL não executado | teste local de banco após migration |
+| `PROC-03` | `partially_validated` | dry-run registra somente contagens, hashes e duração sanitizados | `partially_validated` | retenção e centralização | execução controlada persistida |
+| `SEC-01` | `partially_validated` | payload raw não foi logado; ADR explicita PII/retenção pendentes | `partially_validated` | classificação, cofre e política LGPD | revisão de retenção antes de escrita |
 
 ## Totais desta auditoria
 

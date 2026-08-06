@@ -1,6 +1,6 @@
 # sheets-supabase-sync
 
-Sincronizador auditavel para levar respostas de Google Forms/Google Sheets ao Supabase sem perder os dados brutos. Cada instituicao usa um projeto Supabase exclusivo; cada planilha+aba configurada alimenta uma tabela espelho independente. O leitor Google Sheets somente leitura está implementado e testado offline; a tentativa real recebeu 403 antes dos metadados e a Fase 1 continua aberta.
+Sincronizador auditavel para levar respostas de Google Forms/Google Sheets ao Supabase sem perder os dados brutos. Cada instituicao usa um projeto Supabase exclusivo; cada planilha+aba configurada alimenta uma tabela espelho independente. O leitor Google Sheets somente leitura está implementado, testado offline e comprovado com fixture fictícia real; a persistência ainda não foi iniciada.
 
 ## Arquitetura
 
@@ -52,7 +52,7 @@ Status:
 - dominio e sincronizacao validados offline;
 - baseline institucional corrigida, aplicada em 2026-08-05 e validada por inspecao somente de leitura em 2026-08-06;
 - integracao PostgreSQL/Supabase local pendente;
-- leitor Google Sheets read-only implementado e validado por testes offline; tentativa real bloqueada por `authorization` antes dos metadados;
+- leitor Google Sheets read-only implementado, validado offline e comprovado com 7 colunas/5 linhas fictícias;
 - agendamento de producao pendente.
 
 As tres migrations da PoC, nunca aplicadas, foram preservadas em
@@ -121,4 +121,4 @@ O [documento oficial](docs/decisions/20260806_inicie_etl_clientes_orientacao.md)
 - [decisões empresariais pendentes](docs/activity-3/open-decisions.md);
 - [checkpoints de validação](docs/activity-3/validation-checkpoints.md).
 
-O estado técnico da baseline no staging foi reconciliado e validado somente por leitura em 2026-08-06. A configuração e a revisão humana da fixture passaram, mas o GET real recebeu 403. O próximo gate único é **revisar externamente API, identidade e compartilhamento e repetir o diagnóstico read-only**. A Fase 2 não foi iniciada.
+O estado técnico da baseline no staging foi reconciliado e validado somente por leitura em 2026-08-06. Após habilitação da Sheets API e correção da aba, a leitura real da fixture passou. A Fase 2A concluiu snapshot, diff e dry-run local de 5 linhas sem persistência. A Fase 2B está bloqueada: a baseline não possui estado raw único por fonte/chave, tombstone nem versionamento; uma migration incremental revisada será necessária antes de qualquer escrita no staging.

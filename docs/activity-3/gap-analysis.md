@@ -18,7 +18,7 @@ O alcance é local/offline. Esses itens não comprovam Google, Supabase end-to-e
 
 ## 2. Implementado, mas ainda não validado
 
-- Leitor Google Sheets v4 somente leitura, autenticação oficial por Service Account, normalização mínima, erros tipados e retry seguro têm testes offline. A chamada real chegou à API, mas recebeu 403 antes dos metadados (`ING-03`).
+- Leitor Google Sheets v4 somente leitura, autenticação oficial por Service Account, normalização mínima, erros tipados e retry seguro têm testes offline e leitura real da fixture fictícia; a primeira tentativa 403 foi resolvida após habilitar a API e ajustar a aba (`ING-03`).
 - A estrutura, o runbook, o `doctor`, as fixtures e a CI preparam manutenção diária, mas não houve exercício por operador independente (`MAINT-01`).
 - A documentação e a arquitetura favorecem continuidade por outro profissional, mas não houve handoff real (`MAINT-02`).
 
@@ -31,17 +31,17 @@ O alcance é local/offline. Esses itens não comprovam Google, Supabase end-to-e
 - Quotas/rate limit: limites oficiais, 429, backoff+jitter, `Retry-After`, orçamento e telemetria local foram implementados; faltam cota efetiva, rate limiter global e carga multi-fonte (`ING-01`).
 - Frequência: configuração e seleção de fontes vencidas existem; a cadência e o scheduler operacional não (`ING-02`).
 - Observabilidade: eventos seguros, health e tabelas existem; centralização, retenção e alertas reais não (`PROC-03`).
-- Raw: DDL, payload JSON e snapshots existem; o fluxo Python não persiste `raw_import_rows` (`STORE-02`).
+- Raw: contrato, snapshot/diff, tombstone e dry-run real existem localmente; o schema remoto atual não suporta estado idempotente por chave nem exclusão lógica (`STORE-02`).
 - RLS/RBAC: RLS bloqueia acesso frontend às tabelas operacionais, mas não há hierarquia ou policies por escopo (`STORE-04`).
 - Último dado válido: snapshots não avançam em drift bloqueante, mas não há camada servida/BI nem recuperação testada (`AVAIL-01`).
 - Credenciais: arquivos locais ignorados e sanitização existem; falta cofre, rotação e ownership (`SEC-01`).
 
 ## 4. Não implementado
 
-- Resolver a autorização 403 e comprovar metadados, aba, cabeçalho e linhas da fixture privada.
+- Operação contínua, múltiplas fontes, scheduler e integração Google Forms.
 - Rate limiter global e telemetria centralizada de quotas.
 - Scheduler implantado e quase tempo real/eventos.
-- Persistência raw ponta a ponta e camada staging.
+- Persistência raw ponta a ponta e camada staging; a Fase 2B depende de migration incremental para estado por chave, tombstone e versionamento.
 - Modelo analítico, Star Schema/Snowflake, fatos, dimensões e transformações SQL analíticas.
 - Ferramenta de BI, dashboard, tempos de carregamento e filtros de usuário.
 - Alertas por e-mail, deduplicação e mensagem de recuperação.
@@ -84,7 +84,7 @@ Toda pesquisa temporal deverá ser datada e citar documentação oficial; suposi
 
 | Capacidade | Estado real | Classificação |
 | --- | --- | --- |
-| Google Sheets API real | GET real executado com token em memória e escopo read-only; API respondeu 403 antes de retornar metadados. | implementado; autorização remota bloqueada |
+| Google Sheets API real | GET real executado com token em memória e escopo read-only; aba encontrada, 7 colunas e 5 linhas fictícias lidas. | parcialmente validado; operação contínua pendente |
 | Quotas e rate limit | Quotas oficiais documentadas; retry integrado com jitter, orçamento e `Retry-After`; sem coordenação global. | parcial |
 | Batch versus quase tempo real | Intervalo configurável e seleção de vencidas; decisão/SLA e scheduler ausentes. | parcial / decisão externa |
 | Backoff exponencial | Integrado ao leitor para 429/5xx/timeout/rede, com jitter, `Retry-After` e testes offline. | implementado, validação real pendente |
@@ -114,4 +114,4 @@ Google Sheets fictício → Python → Supabase Raw → transformação SQL simp
 → tabela analítica → consulta pronta para BI
 ```
 
-A fundação do staging permanece validada e nenhuma escrita ocorreu neste gate. O próximo passo único é **revisar externamente a autorização da Sheets API/fixture e repetir o diagnóstico read-only**. A Fase 2 não pode começar antes da leitura fictícia bem-sucedida.
+A fundação do staging permanece validada e nenhuma escrita ocorreu neste gate. A Fase 2A comprovou o dry-run contra a fixture real (5 novas, zero persistidas). O próximo passo único é **revisar e autorizar uma migration incremental de estado raw**; a Fase 2B permanece bloqueada até então.

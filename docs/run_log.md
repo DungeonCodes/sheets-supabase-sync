@@ -58,3 +58,19 @@ O diagnóstico pelo `.venv` obteve contexto de autenticação em memória, mas o
 Resultado: zero abas, colunas, linhas ou células retornadas; nenhum retry; nenhuma escrita Google/Supabase; nenhum segredo, URL ou identificador completo exibido. Cenários locais de configuração ausente, aba inexistente, cabeçalho duplicado, timeout, 429 e sanitização passaram por mocks. `ING-03` permanece `implemented_not_validated` e a Fase 1 segue aberta.
 
 Próximo gate único: revisão externa da habilitação da API, correspondência da Service Account compartilhada e fixture configurada; depois repetir o diagnóstico read-only. Fase 2 não iniciada.
+
+## 2026-08-06 — integração Google Sheets aprovada
+
+Após a habilitação manual da Sheets API e o ajuste do nome da aba, o diagnóstico read-only passou no `.venv`: autenticação aprovada, planilha acessível, uma aba encontrada, 7 colunas, 5 linhas, zero linhas vazias, zero retries e duração de 1.913 ms. O teste de integração Google opt-in passou em 1.534 s.
+
+Nenhum conteúdo de célula, cabeçalho, token, URL, ID completo ou e-mail foi exibido. Nenhuma escrita Google ou Supabase ocorreu. A evidência comprova `ING-03` como `partially_validated` no escopo da fixture fictícia; quotas, scheduler, múltiplas fontes e persistência continuam fora da Fase 1.
+
+Fase 1 encerrada no escopo aprovado da leitura Google. Próximo marco: Fase 2 — persistência raw e sincronização idempotente no Supabase staging, ainda sem execução nesta tarefa.
+
+## 2026-08-06 — Fase 2A raw e idempotência local
+
+Foi avaliada a baseline aplicada sem executar SQL remoto. `raw_import_rows` registra captura por execução, mas sua unicidade é apenas por execução/número de linha; não há estado único por fonte/chave, tombstone ou identidade de versão. A lacuna bloqueia a Fase 2B e está registrada na ADR `20260806_phase_2a_raw_semantics.md`; nenhuma migration foi criada.
+
+O domínio local produziu snapshot e hashes determinísticos, diff por chave de negócio configurável, tombstones, plano de primeira carga, lock sem espera e rollback in-memory. O dry-run read-only da fixture retornou 5 linhas lidas, 5 novas, zero alteradas/removidas/restauradas/inalteradas e zero persistidas, em 1.686 ms. Apenas hashes prefixados foram exibidos; não houve acesso ou escrita no Supabase.
+
+Próximo gate único: revisão e autorização humana de uma migration incremental de estado raw. A Fase 2B não foi iniciada.

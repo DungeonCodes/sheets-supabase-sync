@@ -27,7 +27,9 @@ Fixture esperada: uma aba privada compartilhada apenas como leitora, cabeçalho 
 
 Para habilitar o teste de integração, além das três configurações locais, o operador deve definir na sessão `RUN_GOOGLE_SHEETS_INTEGRATION=1` e `GOOGLE_TEST_DATA_CONFIRMED_FICTITIOUS=1` após a revisão humana. A ausência desses gates produz skip explícito.
 
-Checkpoint real de 2026-08-06: configuração e confirmação humana estavam presentes, mas tanto o diagnóstico quanto o teste opt-in receberam 403 `authorization` no GET inicial de metadados. Nenhum cabeçalho ou valor foi lido. O teste remoto é considerado reprovado, não pulado; integrações Supabase/`psql` continuam puladas quando seus requisitos locais não existem.
+Checkpoint real de 2026-08-06: após habilitar a Sheets API e corrigir o nome da aba, o diagnóstico e o teste opt-in passaram. Foram lidas 7 colunas e 5 linhas fictícias; nenhum cabeçalho ou valor foi impresso. O 403 da tentativa anterior permanece como histórico; integrações Supabase/`psql` continuam fora desta fase.
+
+Fase 2A acrescenta testes offline para primeira carga, repetição idêntica, inserção, alteração, remoção, restauração, reordenação, chave vazia/duplicada, rollback local, falhas de início/commit/finalização, lock e comandos PostgreSQL parametrizados. O dry-run real lê a fixture e gera plano sem importar ou acessar Supabase.
 
 ## Baseline de migrations
 

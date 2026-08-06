@@ -18,7 +18,7 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | Cinco tabelas operacionais | migration `20260804000000` | catálogo remoto: cinco tabelas, 27 constraints, 14 índices e zero linhas | `validated` |
 | RLS/revokes operacionais | migration `20260804000000` | catálogo: RLS nas cinco, zero policies, `anon`/`authenticated` sem acesso e backend com grants esperados | `validated` |
 | Data API da fundação | configuração segura | verificação somente de leitura: HTTP 200 | `validated` |
-| Google Sheets real | leitor HTTP v4 read-only e Service Account implementados | 29 testes offline; GET real retornou 403 antes dos metadados | `implemented_not_validated` |
+| Google Sheets real | leitor HTTP v4 read-only e Service Account implementados | 29 testes offline; diagnóstico e opt-in reais: 7 colunas/5 linhas fictícias | `partially_validated` |
 | Raw persistido pelo pipeline | DDL existe; escrita integrada não | nenhum E2E | `planned` |
 | Staging/Star Schema/BI | inexistente | nenhuma evidência | `planned` |
 | E-mail e scheduler implantado | regras/configuração parciais | nenhum transporte/provider | `planned` |

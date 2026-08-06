@@ -10,6 +10,7 @@
 - **Falhas consecutivas:** investigue apos o terceiro alerta critico; as demais fontes permanecem independentes.
 - **Snapshot corrompido:** preserve o arquivo para analise, restaure uma copia conhecida e execute dry-run.
 - **Sincronizacao travada/duplicidade:** aguarde ou recuse a segunda execucao da mesma fonte; use advisory lock transacional quando o banco local estiver ativo.
+- **Fase 2B bloqueada por schema raw:** não escreva em `raw_import_rows` para simular estado atual. Mantenha o dry-run, registre a lacuna e aguarde migration incremental revisada para chave por fonte, tombstone e versionamento.
 - **Mudanca apos a baseline:** nunca edite a migration `20260804000000` ja aplicada. Crie uma nova migration incremental, rode testes, lint e dry-run e obtenha revisao humana antes do deploy.
 - **Historico de migrations divergente:** interrompa a implantacao; nao use `migration repair` ou `db reset --linked`. Compare o historico local e remoto e escale para revisao do responsavel.
 - **Migration da PoC encontrada como ativa:** mova-a somente apos confirmar sua copia em `docs/history/initial-migrations-poc/`; arquivos historicos devem permanecer com extensao `.sql.txt` e nunca ser executados.

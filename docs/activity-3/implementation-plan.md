@@ -5,7 +5,7 @@ Plano incremental derivado da [matriz oficial](requirements-traceability.md). Ne
 ## Sequência de marcos
 
 1. Fundação reconciliada em 2026-08-06: aplicação registrada, catálogo, RLS, grants, Data API e ausência de dados comprovados somente por leitura.
-2. Fase 1 implementada e validada offline; tentativa real em 2026-08-06 recebeu 403. Próximo gate único: **revisar externamente a autorização e repetir a leitura read-only**.
+2. Fase 1 implementada, validada offline e comprovada com fixture real fictícia em 2026-08-06; próximo marco: **iniciar Fase 2 — persistência raw e sincronização idempotente**.
 3. O marco posterior continua sendo o MVP ponta a ponta fictício; a escrita raw não foi iniciada.
 
 ## Fase 0 — Fundação e banco
@@ -48,11 +48,13 @@ Plano incremental derivado da [matriz oficial](requirements-traceability.md). Ne
 
 **Checkpoint local de 2026-08-06:** leitor tipado e transporte HTTP GET v4 implementados com escopo único read-only, configuração externa, normalização mínima, backoff+jitter/`Retry-After`, logs allowlist e diagnóstico sanitizado. Quotas oficiais foram documentadas e 29 testes Google offline passaram. A fase permanece aberta: não houve token, chamada real, contagem real nem comprovação da permissão de leitora.
 
-**Checkpoint remoto de 2026-08-06:** configuração e revisão humana passaram; o token permaneceu em memória e o GET de metadados retornou 403 `authorization`, sem retry e sem conteúdo. O teste opt-in reproduziu a falha. A Fase 1 permanece aberta e `ING-03` não foi promovido. Antes de repetir, um responsável deve conferir, sem registrar identificadores, se a Sheets API está habilitada no projeto da credencial, se o compartilhamento corresponde à mesma Service Account e se a fixture configurada é a pretendida. Nenhuma correção de permissão foi executada automaticamente.
+**Checkpoint remoto de 2026-08-06:** após habilitação da Sheets API e ajuste da aba, o token permaneceu em memória, a planilha foi acessada, a aba foi localizada e 7 colunas/5 linhas fictícias foram lidas em aproximadamente 1,9 s, sem retry. O teste opt-in passou. O histórico anterior de 403 permanece documentado; a Fase 1 está concluída no alcance da fixture, sem persistência ou transformação.
 
 ## Fase 2 — Raw e sincronização
 
 **Objetivo:** persistir dados brutos, criar snapshots, calcular diferenças, garantir idempotência e preservar o último dado válido.
+
+**Checkpoint 2A de 2026-08-06:** contrato tipado, snapshot determinístico, diff por chave, tombstones, lock local, rollback local e dry-run real foram implementados. A fixture resultou em 5 linhas novas e zero persistidas. A baseline não oferece unicidade por fonte/chave, exclusão lógica ou versionamento raw; a Fase 2B exige migration incremental aprovada. Nenhuma migration foi criada ou aplicada.
 
 **Entregáveis:** escrita transacional em `data_sources`, `sync_runs`, `raw_import_rows` e tabela espelho; chave idempotente; tombstones; checkpoint/manifest; recuperação do último snapshot válido.
 

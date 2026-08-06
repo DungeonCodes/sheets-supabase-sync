@@ -95,6 +95,38 @@ A Fase 1 não está concluída. Próximo gate único: executar `verify-google-sh
 
 A Fase 1 permanece aberta. Próximo gate único: revisar habilitação da API, identidade compartilhada e fixture configurada, sem expor valores, e repetir o diagnóstico read-only. A Fase 2 não foi iniciada.
 
+## Checkpoint remoto aprovado da Fase 1 em 2026-08-06
+
+| Gate | Resultado | Evidência ou pendência |
+| --- | --- | --- |
+| 1. Requisitos | aprovado com restrição | `ING-03` avançou para `partially_validated`; escopo limitado à fixture fictícia |
+| 2. Arquitetura | aprovado | leitor e transporte permaneceram independentes do Supabase |
+| 3. Segurança | aprovado | Service Account read-only, token em memória, fixture fictícia e saída sanitizada |
+| 4. Custos | aprovado com restrição | uma leitura real de 7 colunas/5 linhas; quotas e escala futura continuam abertas |
+| 5. Testes | aprovado | diagnóstico real e teste opt-in passaram; suíte local permanece verde |
+| 6. Operação | aprovado com restrição | duração/retries/contagens observados; sem scheduler, centralização ou persistência |
+| 7. Documentação | aprovado | histórico do 403 preservado e sucesso documentado |
+| 8. Rollback | aprovado | nenhuma escrita ocorreu; não há alteração remota a reverter |
+| 9. Validação humana | aprovado para a fixture | dados fictícios, compartilhamento de Leitor e habilitação da API confirmados |
+
+A Fase 1 pode ser encerrada no escopo da leitura da fixture privada fictícia. O próximo marco é a Fase 2, que exigirá gates próprios antes de qualquer escrita no Supabase.
+
+## Checkpoint local da Fase 2A em 2026-08-06
+
+| Gate | Resultado | Evidência ou pendência |
+| --- | --- | --- |
+| 1. Requisitos | aprovado com restrição | `STORE-02`/`AVAIL-01` receberam evidência local, sem promoção ampla |
+| 2. Arquitetura | aprovado | domínio raw, serviço local e repositório PostgreSQL estão separados |
+| 3. Segurança | aprovado com restrição | fixture fictícia, hashes sanitizados e zero payload persistido; LGPD/retenção abertas |
+| 4. Custos | inconclusivo | 5 linhas não dimensionam storage ou retenção |
+| 5. Testes | aprovado localmente | 18 cenários raw offline e dry-run real aprovados |
+| 6. Operação | aprovado com restrição | lock, rollback e métricas existem localmente; sem health persistido |
+| 7. Documentação | aprovado | ADR de semântica raw e lacuna de schema registrados |
+| 8. Rollback | aprovado no alcance local | falha preserva snapshot local; nenhum remoto foi alterado |
+| 9. Validação humana | pendente | migration incremental e futura escrita exigem aprovação separada |
+
+A Fase 2A está concluída somente localmente. A Fase 2B está bloqueada pela incompatibilidade do schema raw atual; não criar ou aplicar migration é parte deste checkpoint.
+
 ## Resultado permitido do gate
 
 - **Aprovado:** toda evidência obrigatória existe e as pendências não comprometem o aceite.

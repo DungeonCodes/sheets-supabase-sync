@@ -12,8 +12,10 @@ O `service_role` pertence exclusivamente ao backend e nunca ao cliente. Cada ins
 - Logs contêm somente categoria, tentativa, duração e contagens; título, cabeçalho, células, URL, token, e-mail e ID completo não são registrados.
 - Revogação: remover imediatamente o compartilhamento da planilha, desabilitar/rotacionar a chave no projeto Google autorizado e invalidar a cópia local; registrar o incidente de forma sanitizada.
 - Produção exigirá classificação de PII, minimização e, quando decidido, anonimização antes da camada analítica. A PoC não autoriza dados reais.
-- Em 2026-08-06, chamadas GET reais falharam com `authorization` sem expor token, e-mail, URL, ID ou célula. A correção deve ser feita pelo responsável, conferindo API/identidade/compartilhamento; o diagnóstico nunca amplia permissões.
+- Em 2026-08-06, a primeira tentativa GET falhou com `authorization`; após habilitar a API e corrigir a aba, a leitura real passou sem expor token, e-mail, URL, ID ou célula. O diagnóstico nunca amplia permissões.
 
 A baseline ativa revoga acesso das funcoes `anon` e `authenticated` as tabelas operacionais e concede acesso ao backend privilegiado. Isso nao substitui a revisao de grants e policies antes de qualquer exposicao ao frontend. `raw_import_rows` pode conter dados pessoais brutos; politica de retencao, minimizacao e descarte ainda precisa ser definida antes do piloto.
+
+Na Fase 2A, payload raw permanece somente em memória no dry-run. Hashes de chave e conteúdo não são logados integralmente e não substituem proteção de PII. Nenhuma escrita raw é permitida até que retenção, minimização e a migration incremental de estado/tombstone sejam revisadas.
 
 As migrations da PoC que continham remocao de estruturas existem somente como arquivos historicos `.sql.txt` e nao sao executaveis pelo Supabase CLI. A baseline aplicada nao contem operacoes destrutivas. Em 2026-08-05, somente essa baseline foi aplicada ao staging, sem seed ou dados. Em 2026-08-06, consultas `SELECT` ao catalogo confirmaram RLS nas cinco tabelas, zero policies, ausencia de acesso de `anon` e `authenticated`, grants esperados ao backend e zero linhas. Isso valida a fundacao fechada, mas nao implementa o RLS/RBAC hierarquico exigido para usuarios da futura camada analitica.
