@@ -1,15 +1,9 @@
 from __future__ import annotations
 
 import json
-import re
 
+from .identifiers import validate_identifier
 from .models import DiffResult, Record
-
-
-def _identifier(value: str) -> str:
-    if not re.fullmatch(r"[a-z][a-z0-9_]*", value):
-        raise ValueError("Identificador SQL invalido")
-    return value
 
 
 def _literal(value: object) -> str:
@@ -17,7 +11,7 @@ def _literal(value: object) -> str:
 
 
 def generate_sql(diff: DiffResult, table_name: str, source_id: str) -> str:
-    table = _identifier(table_name)
+    table = validate_identifier(table_name)
     source = source_id.replace("'", "''")
     statements = ["BEGIN;", "-- Revisar antes de executar. Nenhuma alteracao de schema e automatica."]
     for record in [*diff.new, *diff.changed, *diff.restored]:
@@ -38,13 +32,13 @@ def generate_sql(diff: DiffResult, table_name: str, source_id: str) -> str:
 
 
 def generate_schema_request_sql(diff: DiffResult, source_name: str) -> str:
-    current = {"missing_columns": diff.missing_columns, "possible_renames": diff.possible_renames, "incompatible_types": diff.incompatible_types}
+    previous = {"missing_columns": diff.missing_columns, "possible_renames": diff.possible_renames, "incompatible_types": diff.incompatible_types}
     proposed = {"new_columns": diff.new_columns}
     escaped = source_name.replace("'", "''")
     return (
         "BEGIN;\n"
-        "INSERT INTO public.schema_change_requests (data_source_id, change_type, current_schema, proposed_schema) "
-        "SELECT id, 'blocked_schema_change', " + _literal(current) + ", " + _literal(proposed) +
+        "INSERT INTO public.schema_change_requests (data_source_id, change_type, previous_schema, proposed_schema) "
+        "SELECT id, 'blocked_schema_change', " + _literal(previous) + ", " + _literal(proposed) +
         " FROM public.data_sources WHERE name = '" + escaped + "';\n"
         "COMMIT;\n"
     )

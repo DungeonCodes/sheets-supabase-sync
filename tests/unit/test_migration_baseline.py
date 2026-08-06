@@ -31,6 +31,15 @@ class MigrationBaselineTests(unittest.TestCase):
         for field in ("last_attempt_at", "last_success_at", "last_failure_at", "consecutive_failures", "last_duration_ms", "last_rows_read", "last_rows_inserted", "last_rows_updated", "last_rows_deleted", "last_rows_restored"):
             self.assertIn(field, self.baseline)
 
+    def test_schema_change_request_uses_unambiguous_jsonb_fields(self) -> None:
+        self.assertRegex(self.baseline, r"\bprevious_schema\s+jsonb\s+not null")
+        self.assertRegex(self.baseline, r"\bproposed_schema\s+jsonb\s+not null")
+        self.assertNotRegex(self.baseline, r"\bcurrent_schema\s+jsonb")
+
+        generator = (ROOT / "src" / "sheets_supabase_sync" / "sql_generator.py").read_text(encoding="utf-8")
+        self.assertIn("previous_schema, proposed_schema", generator)
+        self.assertNotIn("current_schema, proposed_schema", generator)
+
     def test_foreign_keys_reference_only_operational_tables(self) -> None:
         references = set(re.findall(r"references\s+public\.([a-z0-9_]+)", self.baseline))
         self.assertEqual({"data_sources", "sync_runs"}, references)

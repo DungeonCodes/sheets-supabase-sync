@@ -73,8 +73,9 @@ class IsolatedInstitutionTests(unittest.TestCase):
             normalize_headers(["E-mail", "E mail"])
 
     def test_reserved_header_is_refused(self) -> None:
-        with self.assertRaises(ValueError):
-            normalize_headers(["select"])
+        for identifier in ("current_schema", "current_user", "session_user", "user", "table", "select", "from", "where"):
+            with self.subTest(identifier=identifier), self.assertRaises(ValueError):
+                normalize_headers([identifier])
 
     def test_schema_sql_has_no_cross_mirror_foreign_key(self) -> None:
         schema_a = propose_schema("pesquisa_satisfacao", [{"id": 1, "nota": 5}])
@@ -108,6 +109,9 @@ class IsolatedInstitutionTests(unittest.TestCase):
         sql = generate_schema_request_sql(compare(changed, old), "pesquisa-satisfacao")
         self.assertIn("schema_change_requests", sql)
         self.assertIn("blocked_schema_change", sql)
+        self.assertIn("previous_schema", sql)
+        self.assertIn("proposed_schema", sql)
+        self.assertNotIn("current_schema", sql)
 
     def test_raw_payload_is_preserved_in_schema_sql(self) -> None:
         sql = create_table_sql(propose_schema("cadastro_participantes", [{"id": 1, "nome": "Ana"}]))

@@ -90,7 +90,7 @@ create table public.schema_change_requests (
   id uuid primary key default gen_random_uuid(),
   data_source_id uuid not null references public.data_sources(id),
   change_type text not null,
-  current_schema jsonb not null,
+  previous_schema jsonb not null,
   proposed_schema jsonb not null,
   status text not null default 'pending',
   created_at timestamptz not null default now(),

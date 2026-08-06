@@ -4,7 +4,7 @@
 
 - Sincronizador Python, fixtures, fontes isoladas por instituicao e validacao offline.
 - Contratos de fonte, diagnostico `doctor`, regras de alerta, logging seguro e testes offline por categoria.
-- Baseline institucional consolidada, lintada e validada em dry-run; aplicacao ainda pendente de revisao humana.
+- Baseline institucional consolidada, corrigida e aplicada ao Supabase de staging; cinco tabelas operacionais vazias e nenhuma tabela espelho.
 
 ## Pendente local
 
@@ -12,7 +12,7 @@
 
 ## Fase 2
 
-- Aplicacao revisada da baseline no Supabase de homologacao, API real do Google Sheets e planilha piloto ficticia/anonimizada.
+- API real do Google Sheets, planilha piloto ficticia/anonimizada e primeira sincronizacao manual end-to-end no staging.
 
 ## Fase 3
 

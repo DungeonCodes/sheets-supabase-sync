@@ -3,7 +3,28 @@ from __future__ import annotations
 import re
 
 MAX_IDENTIFIER_LENGTH = 63
-RESERVED_WORDS = frozenset({"all", "alter", "and", "as", "create", "delete", "drop", "from", "group", "insert", "join", "order", "select", "table", "update", "user", "where"})
+RESERVED_WORDS = frozenset({
+    "all",
+    "alter",
+    "and",
+    "as",
+    "create",
+    "current_schema",
+    "current_user",
+    "delete",
+    "drop",
+    "from",
+    "group",
+    "insert",
+    "join",
+    "order",
+    "select",
+    "session_user",
+    "table",
+    "update",
+    "user",
+    "where",
+})
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
 
 

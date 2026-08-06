@@ -47,15 +47,22 @@ Execute somente com Docker disponivel. O aplicador em Python recusa hosts remoto
 Status:
 
 - dominio e sincronizacao validados offline;
-- baseline institucional consolidada e validada em dry-run, ainda nao aplicada;
+- baseline institucional corrigida e aplicada ao staging em 2026-08-05;
 - integracao PostgreSQL/Supabase local pendente;
 - Google Sheets real pendente;
 - agendamento de producao pendente.
 
 As tres migrations da PoC, nunca aplicadas, foram preservadas em
 [`docs/history/initial-migrations-poc/`](docs/history/initial-migrations-poc/README.md).
-A unica migration ativa aguarda revisao humana antes do primeiro deploy. Depois de aplicada,
-ela nao devera ser reescrita: mudancas futuras deverao ser migrations incrementais.
+A unica migration ativa foi registrada no staging e nao deve mais ser reescrita:
+mudancas futuras deverao ser migrations incrementais.
+
+A primeira tentativa de aplicacao, em 2026-08-04, falhou com `SQLSTATE 42601`
+antes do registro da migration. Em 2026-08-05, a inspecao somente leitura confirmou
+rollback completo; o campo conflitante foi renomeado de `current_schema` para
+`previous_schema`, e testes, lint e dry-run passaram novamente. A segunda tentativa,
+explicitamente autorizada em 2026-08-05, aplicou somente a baseline corrigida. O seed
+nao foi executado e nenhuma tabela espelho ou linha de dados foi criada.
 
 ## Modos de execucao
 
@@ -82,12 +89,13 @@ O nucleo lista fontes vencidas e executa cada uma isoladamente; um scheduler de 
 ```powershell
 python -m sheets_supabase_sync.cli doctor
 python -m sheets_supabase_sync.cli doctor --format json
+py scripts/verify-credentials.py --local-only
 ```
 
 O comando retorna 0 para saudavel, 1 para aviso e 2 para falha, sem exibir credenciais. Consulte [docs/testing.md](docs/testing.md), [docs/monitoring.md](docs/monitoring.md) e [docs/runbook.md](docs/runbook.md).
 
 ## Limitacoes
 
-Concluido: normalizacao, hash deterministico, snapshot, diff, artefatos, varredura antissegredo, baseline SQL e testes offline. A baseline habilita RLS nas tabelas operacionais, revoga acesso de `anon` e `authenticated` e reserva escrita ao backend privilegiado. Ela foi inspecionada com lint e `supabase db push --dry-run`, mas nenhuma migration foi aplicada. Permanecem pendentes a validacao do executor contra PostgreSQL/Supabase local, a API real do Google Sheets e a criacao das tabelas espelho por uma sincronizacao real.
+Concluido: normalizacao, hash deterministico, snapshot, diff, artefatos, varredura antissegredo, baseline SQL, testes offline e primeira aplicacao da baseline no staging. A baseline habilita RLS nas tabelas operacionais, revoga acesso de `anon` e `authenticated` e reserva escrita ao backend privilegiado. Permanecem pendentes a verificacao independente de grants/RLS pelo catalogo PostgreSQL, a API real do Google Sheets e a criacao das tabelas espelho por uma sincronizacao real.
 
 Consulte [docs/architecture.md](docs/architecture.md), [docs/workflow.md](docs/workflow.md), [docs/security.md](docs/security.md) e [docs/roadmap.md](docs/roadmap.md).
