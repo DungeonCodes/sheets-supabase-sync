@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Mapping, Sequence
+from typing import Iterable, Mapping, Sequence
 
 from .errors import ErrorCode, SyncError
 from .hashing import deterministic_hash
@@ -68,6 +68,17 @@ class RawChangePlan:
         }
 
 
+def compute_snapshot_hash(source_hash: str, header: Sequence[str], records: Iterable[RawRecord]) -> str:
+    return deterministic_hash({
+        "source_hash": source_hash,
+        "header": tuple(header),
+        "records": [
+            {"key_hash": record.key_hash, "content_hash": record.content_hash, "deleted": record.deleted}
+            for record in sorted(records, key=lambda item: item.key_hash)
+        ],
+    })
+
+
 def build_raw_snapshot(
     source: RawSyncSource,
     header: Sequence[str],
@@ -91,14 +102,7 @@ def build_raw_snapshot(
             raise SyncError(ErrorCode.VALIDATION, "Chave de negocio duplicada")
         content_hash = deterministic_hash(values)
         records[key_hash] = RawRecord(input_row.source_row_number, key_hash, content_hash, values)
-    snapshot_hash = deterministic_hash({
-        "source_hash": source.source_hash,
-        "header": normalized_header,
-        "records": [
-            {"key_hash": record.key_hash, "content_hash": record.content_hash, "deleted": record.deleted}
-            for record in sorted(records.values(), key=lambda item: item.key_hash)
-        ],
-    })
+    snapshot_hash = compute_snapshot_hash(source.source_hash, normalized_header, records.values())
     return RawSnapshot(source.source_hash, normalized_header, records, snapshot_hash, read_at)
 
 
@@ -134,12 +138,5 @@ def apply_tombstones(plan: RawChangePlan) -> RawSnapshot:
             tombstone_values,
             deleted=True,
         )
-    snapshot_hash = deterministic_hash({
-        "source_hash": plan.snapshot.source_hash,
-        "header": plan.snapshot.header,
-        "records": [
-            {"key_hash": record.key_hash, "content_hash": record.content_hash, "deleted": record.deleted}
-            for record in sorted(records.values(), key=lambda item: item.key_hash)
-        ],
-    })
+    snapshot_hash = compute_snapshot_hash(plan.snapshot.source_hash, plan.snapshot.header, records.values())
     return RawSnapshot(plan.snapshot.source_hash, plan.snapshot.header, records, snapshot_hash, plan.snapshot.created_at)

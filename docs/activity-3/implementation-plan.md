@@ -5,8 +5,9 @@ Plano incremental derivado da [matriz oficial](requirements-traceability.md). Ne
 ## Sequência de marcos
 
 1. Fundação reconciliada em 2026-08-06: aplicação registrada, catálogo, RLS, grants, Data API e ausência de dados comprovados somente por leitura.
-2. Fase 1 implementada, validada offline e comprovada com fixture real fictícia em 2026-08-06; próximo marco: **iniciar Fase 2 — persistência raw e sincronização idempotente**.
-3. O marco posterior continua sendo o MVP ponta a ponta fictício; a escrita raw não foi iniciada.
+2. Fase 1 implementada, validada offline e comprovada com fixture real fictícia em 2026-08-06.
+3. Fase 2A concluída localmente e migration incremental de estado raw criada em 2026-08-06, sem aplicação; próximo marco: **revisão humana do DDL e autorização da Fase 2B**.
+4. O marco posterior continua sendo o MVP ponta a ponta fictício; a escrita raw não foi iniciada.
 
 ## Fase 0 — Fundação e banco
 
@@ -54,7 +55,9 @@ Plano incremental derivado da [matriz oficial](requirements-traceability.md). Ne
 
 **Objetivo:** persistir dados brutos, criar snapshots, calcular diferenças, garantir idempotência e preservar o último dado válido.
 
-**Checkpoint 2A de 2026-08-06:** contrato tipado, snapshot determinístico, diff por chave, tombstones, lock local, rollback local e dry-run real foram implementados. A fixture resultou em 5 linhas novas e zero persistidas. A baseline não oferece unicidade por fonte/chave, exclusão lógica ou versionamento raw; a Fase 2B exige migration incremental aprovada. Nenhuma migration foi criada ou aplicada.
+**Checkpoint 2A de 2026-08-06:** contrato tipado, snapshot determinístico, diff por chave, tombstones, lock local, rollback local e dry-run real foram implementados. A fixture resultou em 5 linhas novas e zero persistidas. A baseline não oferece unicidade por fonte/chave, exclusão lógica ou versionamento raw; a Fase 2B exige migration incremental aprovada. Nenhuma migration foi criada ou aplicada neste checkpoint.
+
+**Checkpoint de schema de 2026-08-06:** a migration incremental `20260806120000_add_raw_current_state.sql` foi projetada e criada, separando `raw_import_rows` (histórico do que foi observado) de `raw_current_rows` (estado atual por fonte e chave). É aditiva, sem operação destrutiva, e a baseline permanece byte a byte inalterada. Testes estruturais e comportamentais offline passaram; `migration list`, `db lint --linked` e `db push --dry-run` foram aprovados; o dry-run real da fixture foi repetido. A migration **não** foi aplicada e o DDL **não** foi executado em PostgreSQL real, porque Docker e `psql` estão ausentes. A Fase 2B continua não iniciada e depende de autorização humana.
 
 **Entregáveis:** escrita transacional em `data_sources`, `sync_runs`, `raw_import_rows` e tabela espelho; chave idempotente; tombstones; checkpoint/manifest; recuperação do último snapshot válido.
 

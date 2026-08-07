@@ -31,7 +31,7 @@ O alcance é local/offline. Esses itens não comprovam Google, Supabase end-to-e
 - Quotas/rate limit: limites oficiais, 429, backoff+jitter, `Retry-After`, orçamento e telemetria local foram implementados; faltam cota efetiva, rate limiter global e carga multi-fonte (`ING-01`).
 - Frequência: configuração e seleção de fontes vencidas existem; a cadência e o scheduler operacional não (`ING-02`).
 - Observabilidade: eventos seguros, health e tabelas existem; centralização, retenção e alertas reais não (`PROC-03`).
-- Raw: contrato, snapshot/diff, tombstone e dry-run real existem localmente; o schema remoto atual não suporta estado idempotente por chave nem exclusão lógica (`STORE-02`).
+- Raw: contrato, snapshot/diff, tombstone e dry-run real existem localmente; a migration incremental que separa histórico e estado atual foi criada e testada offline, mas não foi aplicada nem executada em PostgreSQL real, e o schema remoto continua sem estado idempotente por chave (`STORE-02`).
 - RLS/RBAC: RLS bloqueia acesso frontend às tabelas operacionais, mas não há hierarquia ou policies por escopo (`STORE-04`).
 - Último dado válido: snapshots não avançam em drift bloqueante, mas não há camada servida/BI nem recuperação testada (`AVAIL-01`).
 - Credenciais: arquivos locais ignorados e sanitização existem; falta cofre, rotação e ownership (`SEC-01`).
@@ -41,7 +41,7 @@ O alcance é local/offline. Esses itens não comprovam Google, Supabase end-to-e
 - Operação contínua, múltiplas fontes, scheduler e integração Google Forms.
 - Rate limiter global e telemetria centralizada de quotas.
 - Scheduler implantado e quase tempo real/eventos.
-- Persistência raw ponta a ponta e camada staging; a Fase 2B depende de migration incremental para estado por chave, tombstone e versionamento.
+- Persistência raw ponta a ponta e camada staging; a migration incremental de estado existe, porém a Fase 2B depende de autorização humana e de execução real do DDL.
 - Modelo analítico, Star Schema/Snowflake, fatos, dimensões e transformações SQL analíticas.
 - Ferramenta de BI, dashboard, tempos de carregamento e filtros de usuário.
 - Alertas por e-mail, deduplicação e mensagem de recuperação.
@@ -90,7 +90,7 @@ Toda pesquisa temporal deverá ser datada e citar documentação oficial; suposi
 | Backoff exponencial | Integrado ao leitor para 429/5xx/timeout/rede, com jitter, `Retry-After` e testes offline. | implementado, validação real pendente |
 | Isolamento por fonte | Batch captura falha de uma fonte e continua; teste aprovado. | validado offline |
 | Schema drift | Tipos, colunas, possível rename e bloqueio cobertos. | validado offline; integração pendente |
-| Dados brutos | Estrutura SQL, payload JSON e snapshot; sem persistência integrada. | parcial |
+| Dados brutos | Estrutura SQL de histórico e de estado atual, payload JSON e snapshot; sem persistência integrada e sem migration aplicada. | parcial |
 | Staging | Nenhuma camada específica. | não implementado |
 | Star Schema / fato / dimensão | Nenhum objeto ou transformação analítica. | não implementado |
 | Ferramenta de BI | Nenhuma escolha ou conexão. | bloqueado por decisão |
@@ -114,4 +114,4 @@ Google Sheets fictício → Python → Supabase Raw → transformação SQL simp
 → tabela analítica → consulta pronta para BI
 ```
 
-A fundação do staging permanece validada e nenhuma escrita ocorreu neste gate. A Fase 2A comprovou o dry-run contra a fixture real (5 novas, zero persistidas). O próximo passo único é **revisar e autorizar uma migration incremental de estado raw**; a Fase 2B permanece bloqueada até então.
+A fundação do staging permanece validada e nenhuma escrita ocorreu neste gate. A Fase 2A comprovou o dry-run contra a fixture real (5 novas, zero persistidas). Em 2026-08-06 a migration incremental de estado raw foi criada e validada offline, e o dry-run foi repetido com o mesmo resultado. O próximo passo único é **a revisão humana do DDL e a autorização de sua aplicação**; a Fase 2B permanece bloqueada até então.

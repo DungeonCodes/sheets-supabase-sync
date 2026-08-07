@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import unittest
 from pathlib import Path
@@ -8,16 +9,23 @@ from pathlib import Path
 ROOT = Path(__file__).parents[2]
 MIGRATIONS = ROOT / "supabase" / "migrations"
 HISTORY = ROOT / "docs" / "history" / "initial-migrations-poc"
+BASELINE = MIGRATIONS / "20260804000000_initial_isolated_institution_schema.sql"
+# Digest da baseline aplicada ao staging em 2026-08-05. Ela e imutavel: qualquer
+# evolucao deve ocorrer por migration incremental, nunca por edicao deste arquivo.
+BASELINE_DIGEST = "53f6326e1c50e9ddd6c50037e40d00ad7afc26c290fc53e64ebd1358fdae2f5d"
 
 
 class MigrationBaselineTests(unittest.TestCase):
     def setUp(self) -> None:
-        active = list(MIGRATIONS.glob("*.sql"))
-        self.assertEqual(1, len(active))
-        self.baseline = active[0].read_text(encoding="utf-8").lower()
+        self.baseline = BASELINE.read_text(encoding="utf-8").lower()
 
-    def test_exactly_one_active_baseline_and_archives_are_inert(self) -> None:
-        self.assertRegex(next(MIGRATIONS.glob("*.sql")).name, r"^\d{14}_initial_isolated_institution_schema\.sql$")
+    def test_applied_baseline_is_untouched(self) -> None:
+        self.assertEqual(BASELINE_DIGEST, hashlib.sha256(BASELINE.read_bytes()).hexdigest())
+
+    def test_baseline_is_the_oldest_migration_and_archives_are_inert(self) -> None:
+        active = sorted(path.name for path in MIGRATIONS.glob("*.sql"))
+        self.assertEqual(BASELINE.name, active[0])
+        self.assertRegex(active[0], r"^\d{14}_initial_isolated_institution_schema\.sql$")
         self.assertEqual(3, len(list(HISTORY.glob("*.sql.txt"))))
         self.assertEqual([], list(HISTORY.glob("*.sql")))
 

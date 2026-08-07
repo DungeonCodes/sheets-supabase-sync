@@ -53,12 +53,15 @@ Status:
 - baseline institucional corrigida, aplicada em 2026-08-05 e validada por inspecao somente de leitura em 2026-08-06;
 - integracao PostgreSQL/Supabase local pendente;
 - leitor Google Sheets read-only implementado, validado offline e comprovado com 7 colunas/5 linhas fictícias;
+- migration incremental de estado raw criada em 2026-08-06, validada offline e nao aplicada;
 - agendamento de producao pendente.
 
 As tres migrations da PoC, nunca aplicadas, foram preservadas em
 [`docs/history/initial-migrations-poc/`](docs/history/initial-migrations-poc/README.md).
-A unica migration ativa foi registrada no staging e nao deve mais ser reescrita:
-mudancas futuras deverao ser migrations incrementais.
+A baseline registrada no staging nao deve mais ser reescrita: mudancas futuras
+sao migrations incrementais. Em 2026-08-06 foi criada a primeira delas,
+`20260806120000_add_raw_current_state.sql`, que separa historico e estado raw
+atual. Ela e aditiva e permanece **nao aplicada** em qualquer ambiente.
 
 A primeira tentativa de aplicacao, em 2026-08-04, falhou com `SQLSTATE 42601`
 antes do registro da migration. Em 2026-08-05, a inspecao somente leitura confirmou
@@ -121,4 +124,4 @@ O [documento oficial](docs/decisions/20260806_inicie_etl_clientes_orientacao.md)
 - [decisões empresariais pendentes](docs/activity-3/open-decisions.md);
 - [checkpoints de validação](docs/activity-3/validation-checkpoints.md).
 
-O estado técnico da baseline no staging foi reconciliado e validado somente por leitura em 2026-08-06. Após habilitação da Sheets API e correção da aba, a leitura real da fixture passou. A Fase 2A concluiu snapshot, diff e dry-run local de 5 linhas sem persistência. A Fase 2B está bloqueada: a baseline não possui estado raw único por fonte/chave, tombstone nem versionamento; uma migration incremental revisada será necessária antes de qualquer escrita no staging.
+O estado técnico da baseline no staging foi reconciliado e validado somente por leitura em 2026-08-06. Após habilitação da Sheets API e correção da aba, a leitura real da fixture passou. A Fase 2A concluiu snapshot, diff e dry-run local de 5 linhas sem persistência. A migration incremental que cria o estado raw atual foi projetada, criada e validada offline em 2026-08-06, mas não foi aplicada e não foi executada em PostgreSQL real. A Fase 2B continua bloqueada até revisão humana do DDL e autorização explícita.

@@ -74,3 +74,42 @@ Foi avaliada a baseline aplicada sem executar SQL remoto. `raw_import_rows` regi
 O domínio local produziu snapshot e hashes determinísticos, diff por chave de negócio configurável, tombstones, plano de primeira carga, lock sem espera e rollback in-memory. O dry-run read-only da fixture retornou 5 linhas lidas, 5 novas, zero alteradas/removidas/restauradas/inalteradas e zero persistidas, em 1.686 ms. Apenas hashes prefixados foram exibidos; não houve acesso ou escrita no Supabase.
 
 Próximo gate único: revisão e autorização humana de uma migration incremental de estado raw. A Fase 2B não foi iniciada.
+
+## 2026-08-06 — migration incremental de estado raw criada e não aplicada
+
+Foi projetada, criada e validada localmente a migration incremental
+`20260806120000_add_raw_current_state.sql`. Ela é aditiva: cria `public.raw_current_rows` com
+identidade única por fonte e chave de negócio, exclusão lógica, restauração, versionamento,
+janela de observação e vínculo com a execução; e acrescenta apenas as colunas opcionais
+`change_type` e `row_version` a `public.raw_import_rows`. Não há `DROP`, `TRUNCATE`, `DELETE FROM`,
+`ALTER COLUMN` ou renomeação. A baseline `20260804000000` não foi editada e um teste de digest
+SHA-256 passa a impedir alteração retroativa.
+
+A decisão de separar histórico e estado atual foi registrada na ADR
+`20260806_raw_current_state_migration.md`. Eventos de exclusão não são anexados ao histórico porque
+não são observados na planilha e colidiriam com a unicidade `(sync_run_id, source_row_number)` da
+baseline aplicada.
+
+O pacote recebeu o módulo de domínio `raw_state`, que traduz o plano de mudanças em transições de
+estado, e `raw_repository` passou a expor os comandos parametrizados de carga, inserção,
+atualização, tombstone, restauração e observação, além da avaliação de schema orientada à nova
+tabela. O serviço passou a separar histórico append-only de estado atual e a registrar evento
+sanitizado de sucesso e de falha.
+
+Validação local: `compileall` aprovado; 141 testes executados, 136 aprovados, 5 pulados e nenhuma
+falha; `check-docs` e `git diff --check` aprovados. Inspeção remota somente de leitura:
+`migration list` mostrou duas migrations locais e uma remota, sem divergência; `db lint --linked`
+não encontrou erro de schema; `db push --dry-run` listou somente a migration incremental. O lint
+incide sobre o schema remoto atual e, portanto, não valida o DDL novo.
+
+O dry-run real da fixture fictícia foi repetido em modo somente leitura: 7 colunas, 5 linhas, zero
+linhas vazias, zero retries, 5 novas, zero alteradas/removidas/restauradas/inalteradas, 5 comandos
+de inserção de estado e zero persistidas, em 1.571 ms. Hash sanitizado da fonte: `0540648fa393`.
+Nenhum cabeçalho, célula, identificador completo, token ou URL foi exibido.
+
+Pendências: o DDL não foi executado em PostgreSQL real porque Docker e `psql` estão ausentes nesta
+máquina e nenhuma infraestrutura foi instalada; o teste de integração local permanece bloqueado.
+Nenhuma escrita remota ocorreu e nenhum commit foi executado.
+
+Próximo gate único: revisão humana do DDL incremental e autorização explícita da Fase 2B. A Fase 2B
+não foi iniciada.

@@ -11,6 +11,8 @@ from sheets_supabase_sync.raw_sync_service import RawSynchronizationService
 
 
 NOW = datetime(2026, 8, 6, tzinfo=UTC)
+MIGRATIONS = Path(__file__).parents[2] / "supabase" / "migrations"
+BASELINE = MIGRATIONS / "20260804000000_initial_isolated_institution_schema.sql"
 
 
 def source() -> RawSyncSource:
@@ -110,23 +112,33 @@ class RawSyncTests(unittest.TestCase):
             RawSynchronizationService(repository).persist_locally(source(), ("registro_id", "valor"), rows((2, "a", "one")), NOW)
         repository.release("source-hash")
 
-    def test_schema_baseline_is_blocking_for_phase_2a(self) -> None:
-        migration = (Path(__file__).parents[2] / "supabase" / "migrations" / "20260804000000_initial_isolated_institution_schema.sql").read_text(encoding="utf-8")
-        assessment = assess_raw_schema(migration)
+    def test_baseline_alone_does_not_support_current_state(self) -> None:
+        assessment = assess_raw_schema(BASELINE.read_text(encoding="utf-8"))
         self.assertFalse(assessment.supports_phase_2a)
-        self.assertIn("raw_import_rows.current-state uniqueness", assessment.missing_capabilities)
+        self.assertIn("raw_current_rows.table", assessment.missing_capabilities)
         with self.assertRaises(SyncError) as raised:
             PostgresRawRepository(assessment).assert_supported()
         self.assertEqual(ErrorCode.SCHEMA, raised.exception.code)
 
+    def test_incremental_migration_unlocks_current_state(self) -> None:
+        declared = "\n".join(path.read_text(encoding="utf-8") for path in sorted(MIGRATIONS.glob("*.sql")))
+        assessment = assess_raw_schema(declared)
+        self.assertTrue(assessment.supports_phase_2a)
+        self.assertEqual((), assessment.missing_capabilities)
+        PostgresRawRepository(assessment).assert_supported()
+
     def test_postgres_sql_is_parameterized_and_has_transaction_lock(self) -> None:
-        self.assertIn("%s", PostgresRawRepository.find_source_sql())
-        self.assertIn("%s", PostgresRawRepository.register_source_sql())
-        self.assertIn("%s", PostgresRawRepository.start_run_sql())
-        self.assertIn("%s", PostgresRawRepository.append_raw_row_sql())
-        self.assertIn("%s", PostgresRawRepository.record_error_sql())
-        self.assertIn("%s", PostgresRawRepository.update_source_success_sql())
-        self.assertIn("%s", PostgresRawRepository.update_source_failure_sql())
+        statements = (
+            PostgresRawRepository.find_source_sql(),
+            PostgresRawRepository.register_source_sql(),
+            PostgresRawRepository.start_run_sql(),
+            PostgresRawRepository.append_raw_row_sql(),
+            PostgresRawRepository.record_error_sql(),
+            PostgresRawRepository.update_source_success_sql(),
+            PostgresRawRepository.update_source_failure_sql(),
+        )
+        for statement in statements:
+            self.assertIn("%s", statement)
         self.assertIn("pg_try_advisory_xact_lock", PostgresRawRepository.try_lock_sql())
         self.assertNotIn("registro_id", PostgresRawRepository.append_raw_row_sql())
 

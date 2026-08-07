@@ -18,6 +18,13 @@ O schema remoto não é suficiente para a Fase 2B. Antes de qualquer escrita no 
 
 Nenhuma migration foi criada ou aplicada nesta decisão. O `raw_import_rows` existente não receberá escrita até que a revisão humana aprove a semântica e a migration incremental.
 
+## Continuação
+
+Ainda em 2026-08-06, a migration incremental foi projetada e criada em
+[`20260806_raw_current_state_migration.md`](20260806_raw_current_state_migration.md), que separa
+`public.raw_current_rows` (estado atual) de `public.raw_import_rows` (histórico). Ela permanece
+**não aplicada** em qualquer ambiente e a Fase 2B continua aguardando autorização humana.
+
 ## Segurança e retenção
 
 Payload raw pode conter PII em produção. A fixture desta fase é fictícia, mas retenção, minimização, anonimização e descarte continuam decisões abertas. Hashes não substituem controles de acesso nem classificação de dados.

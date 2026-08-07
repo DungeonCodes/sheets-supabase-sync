@@ -127,6 +127,23 @@ A Fase 1 pode ser encerrada no escopo da leitura da fixture privada fictícia. O
 
 A Fase 2A está concluída somente localmente. A Fase 2B está bloqueada pela incompatibilidade do schema raw atual; não criar ou aplicar migration é parte deste checkpoint.
 
+## Checkpoint da migration incremental de estado raw em 2026-08-06
+
+| Gate | Resultado | Evidência ou pendência |
+| --- | --- | --- |
+| 1. Requisitos | aprovado com restrição | `STORE-02` e `AVAIL-01` receberam evidência de DDL e de rollback local; nenhum status amplo avançou |
+| 2. Arquitetura | aprovado | ADR registra a separação histórico/estado; `raw_state` isola as transições e a baseline permanece intacta |
+| 3. Segurança | aprovado com restrição | RLS, zero policies, `anon`/`authenticated` sem grant e backend sem `delete`; retenção, anonimização e base legal continuam abertas |
+| 4. Custos | inconclusivo | o crescimento do histórico depende da decisão sobre anexar observações inalteradas; nenhum volume real foi medido |
+| 5. Testes | aprovado localmente, reprovado em banco real | 141 testes offline, 136 aprovados e 5 pulados; o DDL não foi executado em PostgreSQL porque Docker e `psql` estão ausentes |
+| 6. Operação | aprovado com restrição | runbook cobre a migration não aplicada e o tombstone versus LGPD; sem execução operacional |
+| 7. Documentação | aprovado | arquitetura, segurança, testes, runbook, roadmap, riscos, rastreabilidade e run log atualizados |
+| 8. Rollback | aprovado no alcance local | falhas de histórico, de estado e de finalização preservam a versão anterior; nada foi alterado remotamente |
+| 9. Validação humana | pendente | revisão do DDL e autorização da aplicação não foram concedidas |
+
+A migration está criada e **não aplicada**. A Fase 2B permanece bloqueada; o gate 5 só poderá ser
+fechado com execução do DDL em PostgreSQL real.
+
 ## Resultado permitido do gate
 
 - **Aprovado:** toda evidência obrigatória existe e as pendências não comprometem o aceite.

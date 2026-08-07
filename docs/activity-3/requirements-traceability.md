@@ -53,7 +53,7 @@ Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inaltera
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | STORE-01 | Definir banco analítico/Data Warehouse com capacidade e escala sem degradação. | `planned` | PostgreSQL/Supabase foi escolhido apenas para base operacional | Não há decisão analítica, benchmark ou estimativa de capacidade. | ADR compara opções e benchmark comprova metas de volume/consulta. | alta | OD-02/03/10; Fases 4 e 7 | R-04, R-13, R-18 |
-| STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | baseline raw confirmada; contrato/snapshot/diff local e dry-run real de 5 linhas; ADR 20260806 de semântica raw | `raw_import_rows` não suporta estado por chave, tombstone ou versão; nenhuma escrita ocorreu; retenção indefinida. | Duas cargas persistem raw auditável/idempotente e staging separada, com retenção testada. | crítica | migration incremental aprovada; Fases 2B, 4 e 7 | R-04, R-06, R-12, R-20 |
+| STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | baseline raw confirmada; contrato/snapshot/diff local e dry-run real de 5 linhas; ADRs 20260806 de semântica raw e de migration incremental; DDL de `raw_current_rows` criado | migration não aplicada e não executada em PostgreSQL real; nenhuma escrita ocorreu; retenção indefinida. | Duas cargas persistem raw auditável/idempotente e staging separada, com retenção testada. | crítica | autorização humana da migration; Fases 2B, 4 e 7 | R-04, R-06, R-12, R-20 |
 | STORE-03 | Transformar em SQL para Star Schema ou Snowflake, com fatos e dimensões. | `planned` | SQL atual é somente upsert de espelho operacional | Caso de negócio, staging, dimensões, fato, métricas e reconciliação ausentes. | Star Schema funcional, consultas testadas e métricas reconciliadas. | crítica | Fase 4; definição de caso de negócio | R-10, R-13 |
 | STORE-04 | Aplicar controle hierárquico de visualização por RLS/RBAC. | `partially_validated` | catálogo remoto: RLS nas cinco tabelas operacionais, zero policies, `anon`/`authenticated` sem acesso e backend autorizado | Não há policies hierárquicas, papéis, escopo por usuário nem teste com identidades distintas. | Dois ou mais escopos demonstrados; consultas negativas não retornam dados indevidos. | crítica | OD-06; Fase 5; modelo de identidade | R-15 |
 
@@ -174,6 +174,21 @@ Após a habilitação da Sheets API e o ajuste do nome da aba, o diagnóstico re
 | `PROC-02` | `validated` | lock local recusa concorrência sem espera indefinida | `validated` | advisory lock PostgreSQL não executado | teste local de banco após migration |
 | `PROC-03` | `partially_validated` | dry-run registra somente contagens, hashes e duração sanitizados | `partially_validated` | retenção e centralização | execução controlada persistida |
 | `SEC-01` | `partially_validated` | payload raw não foi logado; ADR explicita PII/retenção pendentes | `partially_validated` | classificação, cofre e política LGPD | revisão de retenção antes de escrita |
+
+## Checkpoint da migration incremental de estado raw em 2026-08-06
+
+A migration `20260806120000_add_raw_current_state.sql` foi criada, coberta por testes offline e
+aprovada em `migration list`, `db lint --linked` e `db push --dry-run`. Ela **não** foi aplicada e o
+DDL **não** foi executado em PostgreSQL real. Nenhum status amplo avança por criação de DDL.
+
+| Requisito | Status anterior | Nova evidência | Status atual | Gate ainda aberto | Próximo teste necessário |
+| --- | --- | --- | --- | --- | --- |
+| `STORE-02` | `partially_validated` | DDL de estado atual com identidade por fonte/chave, tombstone, versão e índices; 37 testes offline de migration e estado | `partially_validated` | aplicação autorizada, duas escritas reais e retenção | aplicar em ambiente autorizado e reconciliar duas cargas |
+| `AVAIL-01` | `partially_validated` | rollback local cobre falha de histórico, de estado e de finalização preservando a versão anterior | `partially_validated` | último válido remoto e camada servida | rollback transacional em PostgreSQL real |
+| `PROC-02` | `validated` | lock local recusa concorrência; `pg_try_advisory_xact_lock` permanece declarado e não executado | `validated` | advisory lock PostgreSQL não executado | teste local de banco após aplicação |
+| `STORE-04` | `partially_validated` | nova tabela nasce com RLS, zero policies, `anon`/`authenticated` sem grant e backend sem `delete` | `partially_validated` | RLS/RBAC hierárquico | identidades fictícias com escopos distintos |
+| `DQ-03` | `partially_validated` | análise explícita de tombstone versus exclusão LGPD e de retenção por camada | `partially_validated` | base legal, retenção e anonimização | política aprovada e procedimento de descarte testado |
+| `SEC-01` | `partially_validated` | DDL sem segredo; grants mínimos ao backend | `partially_validated` | cofre, rotação e owner | exercício de revogação controlada |
 
 ## Totais desta auditoria
 
