@@ -27,6 +27,21 @@ A migration incremental `20260806120000_add_raw_current_state.sql` foi criada, v
 remoção física exige procedimento revisado por humano. Nenhum payload raw é exposto ao frontend e
 o RLS/RBAC hierárquico para dashboards continua fora desta fase.
 
+Follow-up de 2026-08-11: os default privileges locais do Supabase inicialmente concederam
+privilégios amplos a service_role. A migration pendente foi corrigida para revogar todos os
+privilégios em `raw_current_rows` de PUBLIC e das três roles antes do grant mínimo. Após reset
+local, testes reais confirmaram SELECT/INSERT/UPDATE permitidos somente para service_role e
+DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN negados; anon e authenticated seguem sem acesso.
+
+Em 2026-08-11, a migration corrigida foi aplicada ao staging. Consulta remota somente leitura
+confirmou os mesmos grants mínimos, RLS habilitado e zero policies em `raw_current_rows`; nenhuma
+linha foi inserida. Isso não substitui as pendências de retenção, LGPD e RBAC hierárquico.
+
+A terceira migration event-only, ainda somente local, reduz `raw_import_rows` a SELECT/INSERT para
+service_role e mantém anon/authenticated sem acesso e RLS sem policies. Tombstones não duplicam
+payload nem content hash. A conexão PostgreSQL é injetada e não aparece nos logs; eventos registram
+somente contagens/categorias sanitizadas.
+
 Análise de tratamento de dados, atualizada nesta etapa:
 
 - **PII em payload:** `raw_current_rows.payload_json` e `raw_import_rows.payload_json` guardam a
@@ -53,3 +68,10 @@ Nada disso declara a LGPD atendida. Base legal, política de retenção, minimiz
 procedimento de descarte continuam pendências abertas (R-06, `DQ-03`, `OBJ-03`).
 
 As migrations da PoC que continham remocao de estruturas existem somente como arquivos historicos `.sql.txt` e nao sao executaveis pelo Supabase CLI. A baseline aplicada nao contem operacoes destrutivas. Em 2026-08-05, somente essa baseline foi aplicada ao staging, sem seed ou dados. Em 2026-08-06, consultas `SELECT` ao catalogo confirmaram RLS nas cinco tabelas, zero policies, ausencia de acesso de `anon` e `authenticated`, grants esperados ao backend e zero linhas. Isso valida a fundacao fechada, mas nao implementa o RLS/RBAC hierarquico exigido para usuarios da futura camada analitica.
+
+Em 2026-08-11, a terceira migration event-only foi aplicada isoladamente ao
+staging. Introspecao somente-leitura confirmou que `raw_import_rows` manteve
+RLS sem policies e grants minimos (service_role somente SELECT/INSERT), sem
+ampliar acesso de anon ou authenticated. `raw_current_rows` manteve
+SELECT/INSERT/UPDATE para service_role e negacao dos privilegios elevados.
+Nenhum dado foi inserido e nenhuma integracao Google foi executada.

@@ -181,6 +181,29 @@ A migration `20260806120000_add_raw_current_state.sql` foi criada, coberta por t
 aprovada em `migration list`, `db lint --linked` e `db push --dry-run`. Ela **não** foi aplicada e o
 DDL **não** foi executado em PostgreSQL real. Nenhum status amplo avança por criação de DDL.
 
+Follow-up em 2026-08-11: o PostgreSQL local confirmou o DDL e seus comportamentos transacionais,
+mas revelou DELETE efetivo para `service_role` em `raw_current_rows`. Assim, a evidência reduz o
+risco de aplicação do DDL, mas não altera os requisitos amplos: uma migration corretiva de menor
+privilégio continua obrigatória antes de qualquer escrita em staging.
+
+Correção em 2026-08-11: a mesma migration pendente passou a revogar o ACL herdado e foi reaplicada
+somente no PostgreSQL local. Os testes de grants positivos e negativos, rollback e advisory lock
+passaram; o gate específico da migration está aprovado para staging, sem alterar os requisitos
+amplos de LGPD, retenção ou RBAC hierárquico.
+
+Deploy em 2026-08-11: a migration foi aplicada ao staging permitido e o catálogo read-only
+confirmou tabela, constraints, RLS, zero policies, grants mínimos e zero linhas. `STORE-02`
+permanece `partially_validated`: a persistência por sincronização controlada ainda não ocorreu.
+
+Gate de integração em 2026-08-11: a semântica event-only exige tombstone no histórico, mas o
+CHECK aplicado o rejeita e a chave por linha física é ambígua para ausências inferidas. `STORE-02`,
+`AVAIL-01` e `PROC-02` não avançam para escrita integrada até evolução de schema e adaptador
+transacional locais, conforme ADR 20260811.
+
+Follow-up local de 2026-08-11: a terceira migration e o adaptador transacional foram exercitados em
+PostgreSQL real. Event-only, rollback e lock por fonte passaram; os requisitos permanecem parciais
+até aplicação autorizada da migration e sincronização fictícia no staging.
+
 | Requisito | Status anterior | Nova evidência | Status atual | Gate ainda aberto | Próximo teste necessário |
 | --- | --- | --- | --- | --- | --- |
 | `STORE-02` | `partially_validated` | DDL de estado atual com identidade por fonte/chave, tombstone, versão e índices; 37 testes offline de migration e estado | `partially_validated` | aplicação autorizada, duas escritas reais e retenção | aplicar em ambiente autorizado e reconciliar duas cargas |
@@ -201,3 +224,19 @@ DDL **não** foi executado em PostgreSQL real. Nenhum status amplo avança por c
 | `blocked` | 4 |
 | `out_of_scope` | 0 |
 | **Total** | **40** |
+
+## Continuidade: deploy event-only no staging (2026-08-11)
+
+A migration incremental `20260811150000_make_raw_import_event_only.sql` foi
+aplicada isoladamente ao staging apos preflight e dry-run. A validacao
+somente-leitura confirmou eventos `insert/update/tombstone/restore`, UNIQUE
+`(sync_run_id, data_source_id, row_key_hash)`, remocao da unicidade fisica e
+representacao de tombstone sem posicao, hash ou payload inventados. Nao houve
+leitura Google, sincronizacao ou dados nas tabelas operacionais.
+
+## Tentativa de integracao controlada (2026-08-11)
+
+A leitura da fixture ficticia e o plano de 5 inserts passaram. A conexao
+PostgreSQL direta ao staging falhou antes da transacao, portanto nao houve
+persistencia, evento ou sync_run. STORE-02 permanece parcialmente validado ate
+que a conectividade do adaptador seja disponibilizada.

@@ -15,12 +15,28 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | Snapshots, diff, tombstones e SQL | `snapshot.py`, `diff.py`, `sql_generator.py` | `test_sync.py` | `validated` |
 | Logs/health locais | `observability.py`, `health.py` | unit | `partially_validated` |
 | Histórico da baseline | migration `20260804000000` | `migration list`: duas versões locais, uma remota, sem divergência | `validated` |
-| Estado raw atual por fonte/chave | migration `20260806120000` (não aplicada); `raw_state.py`, `raw_repository.py` | `test_migration_raw_state.py`, `test_raw_state.py`; `lint` e `push --dry-run` aprovados | `implemented_not_validated` |
+| Estado raw atual por fonte/chave | migration `20260806120000` aplicada no staging; `raw_state.py`, `raw_repository.py` | PostgreSQL local e catálogo remoto: DDL, constraints, grants, RLS, transações e advisory lock; tabelas vazias | `validated` |
 | Cinco tabelas operacionais | migration `20260804000000` | catálogo remoto: cinco tabelas, 27 constraints, 14 índices e zero linhas | `validated` |
 | RLS/revokes operacionais | migration `20260804000000` | catálogo: RLS nas cinco, zero policies, `anon`/`authenticated` sem acesso e backend com grants esperados | `validated` |
 | Data API da fundação | configuração segura | verificação somente de leitura: HTTP 200 | `validated` |
 | Google Sheets real | leitor HTTP v4 read-only e Service Account implementados | 29 testes offline; diagnóstico e opt-in reais: 7 colunas/5 linhas fictícias | `partially_validated` |
-| Raw persistido pelo pipeline | DDL de histórico e de estado existem; escrita integrada não | nenhum E2E; migration não aplicada | `planned` |
+| Raw persistido pelo pipeline | DDL de histórico e de estado existem no staging; escrita integrada não | catálogo remoto vazio; nenhum E2E de sincronização | `planned` |
+
+O gate de 2026-08-11 definiu `raw_import_rows` como event-only. A persistência integrada continua
+`requires_changes`: o schema atual não representa tombstone sem ambiguidade e o adaptador
+PostgreSQL transacional ainda não existe. A decisão está em `decisions/20260811_raw_import_event_only_semantics.md`.
+
+Follow-up local: terceira migration, adaptador `psycopg`, event-only, rollback e concorrência foram
+validados em PostgreSQL real. O gate agora está `approved_for_staging`; o staging continua com as
+duas migrations anteriores e sem sincronização.
+
+Follow-up de deploy: a terceira migration foi aplicada e o catálogo remoto agora está validado para
+event-only. A persistência integrada continua planejada; o staging permanece vazio.
+
+Follow-up de integração em 2026-08-11: a fixture fictícia foi lida em modo
+readonly e seu dry-run aprovou 5 inserções planejadas. A persistência integrada
+permanece bloqueada por conectividade PostgreSQL direta ao staging; a falha
+ocorreu antes da transação e o staging continua vazio.
 | Staging/Star Schema/BI | inexistente | nenhuma evidência | `planned` |
 | E-mail e scheduler implantado | regras/configuração parciais | nenhum transporte/provider | `planned` |
 

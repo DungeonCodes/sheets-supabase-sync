@@ -112,6 +112,18 @@ class RawSyncTests(unittest.TestCase):
             RawSynchronizationService(repository).persist_locally(source(), ("registro_id", "valor"), rows((2, "a", "one")), NOW)
         repository.release("source-hash")
 
+    def test_invalid_external_snapshot_is_rejected_before_lock(self) -> None:
+        repository = InMemoryRawStateRepository()
+        with self.assertRaises(SyncError):
+            RawSynchronizationService(repository).persist_locally(
+                source(),
+                ("registro_id", "valor"),
+                rows((2, "a", "one"), (3, "a", "duplicate")),
+                NOW,
+            )
+        self.assertTrue(repository.try_acquire("source-hash"))
+        repository.release("source-hash")
+
     def test_baseline_alone_does_not_support_current_state(self) -> None:
         assessment = assess_raw_schema(BASELINE.read_text(encoding="utf-8"))
         self.assertFalse(assessment.supports_phase_2a)

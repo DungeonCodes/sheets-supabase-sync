@@ -144,6 +144,23 @@ A Fase 2A está concluída somente localmente. A Fase 2B está bloqueada pela in
 A migration está criada e **não aplicada**. A Fase 2B permanece bloqueada; o gate 5 só poderá ser
 fechado com execução do DDL em PostgreSQL real.
 
+## Follow-up PostgreSQL local em 2026-08-11
+
+O DDL foi executado e testado em PostgreSQL local real: catálogo, PK/FKs/CHECKs, UNIQUE, RLS, zero
+policies, estados idempotentes, rollback e advisory lock concorrente passaram. As fixtures foram
+revertidas. A suíte offline passou (141 testes, 136 aprovados, 5 pulados) e o remoto em modo
+leitura/dry-run mostrou uma pendência e lint limpo. O gate continua **reprovado** porque
+`service_role` tem DELETE efetivo em `raw_current_rows`, contrário ao menor privilégio esperado.
+O aceite para staging requer uma migration incremental corretiva e repetição do teste de grants.
+
+## Correção de grants em 2026-08-11
+
+A mesma migration pendente foi corrigida (nenhuma terceira migration): REVOKE explícito removeu o
+ACL herdado de PUBLIC, anon, authenticated e service_role, seguido do grant mínimo. O reset local,
+as verificações de catálogo e testes por role aprovaram todos os privilégios positivos e negativos.
+Com regressão raw, suíte, lint e dry-run verdes, o gate local está **aprovado para staging**;
+permanece pendente apenas a autorização humana de aplicação.
+
 ## Resultado permitido do gate
 
 - **Aprovado:** toda evidência obrigatória existe e as pendências não comprometem o aceite.
@@ -151,3 +168,35 @@ fechado com execução do DDL em PostgreSQL real.
 - **Reprovado:** qualquer condição de bloqueio ocorreu. A fase permanece aberta.
 
 Skips de integração contam como informação, não como aprovação do comportamento pulado. Evidência documental de execução anterior não substitui repetição quando o ambiente ou requisito mudou.
+
+## Deploy da migration incremental no staging em 2026-08-11
+
+Com autorização humana, somente `20260806120000_add_raw_current_state.sql` foi aplicada. O
+histórico ficou convergente e a inspeção read-only confirmou DDL, constraints, RLS, zero policies,
+grants mínimos e tabelas operacionais vazias. A Fase 2B não foi executada; seu próximo gate é uma
+sincronização controlada de fixture exclusivamente fictícia, sob autorização separada.
+
+## Gate event-only local em 2026-08-11
+
+A terceira migration, o driver Python e a unidade transacional passaram no Supabase local. O diff
+definitivo ocorre sob advisory lock; eventos e estado compartilham commit/rollback. Ciclo completo,
+quatro falhas controladas e concorrência por fonte passaram. O gate está aprovado para staging,
+mas nenhuma migration ou sincronização foi aplicada remotamente nesta etapa.
+
+## Deploy validado no staging: migration event-only (2026-08-11)
+
+Foi aplicado exclusivamente `20260811150000_make_raw_import_event_only.sql`.
+O historico remoto/local ficou em 3/3, sem pendencias ou divergencias. A
+introspecao de catalogo confirmou o schema event-only, a UNIQUE logica, a
+ausencia da UNIQUE por posicao, RLS e grants sem regressao. As tabelas
+operacionais estavam vazias; nao houve leitura Google, fixture ou DML de dados.
+
+Classificacao: `deployed_validated`. Proximo checkpoint: primeira
+sincronizacao integrada controlada da fixture ficticia.
+
+## Integracao Google para staging interrompida (2026-08-11)
+
+Fixture ficticia lida com 5 linhas e 7 colunas; dry-run com 5 novos estados e
+5 eventos insert. A conexao PostgreSQL direta falhou antes de lock e
+transacao. Contagens remotas seguiram zeradas. Classificacao: `blocked`;
+proximo checkpoint unico: conectividade direta para o adaptador transacional.

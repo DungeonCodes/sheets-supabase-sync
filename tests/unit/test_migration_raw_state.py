@@ -14,15 +14,14 @@ BASELINE_NAME = "20260804000000_initial_isolated_institution_schema.sql"
 
 class IncrementalRawStateMigrationTests(unittest.TestCase):
     def setUp(self) -> None:
-        incremental = [path for path in sorted(MIGRATIONS.glob("*.sql")) if path.name != BASELINE_NAME]
-        self.assertEqual(1, len(incremental), "esperada exatamente uma migration incremental")
-        self.path = incremental[0]
+        self.path = MIGRATIONS / "20260806120000_add_raw_current_state.sql"
+        self.assertTrue(self.path.exists())
         self.sql = self.path.read_text(encoding="utf-8").lower()
 
     def test_migration_is_named_and_ordered_after_the_baseline(self) -> None:
         self.assertRegex(self.path.name, r"^\d{14}_add_raw_current_state\.sql$")
         self.assertGreater(self.path.name[:14], BASELINE_NAME[:14])
-        self.assertEqual(2, len(list(MIGRATIONS.glob("*.sql"))))
+        self.assertEqual(3, len(list(MIGRATIONS.glob("*.sql"))))
 
     def test_migration_has_no_destructive_statement(self) -> None:
         for token in ("drop ", "truncate ", "delete from", "alter column", "rename"):
@@ -68,14 +67,22 @@ class IncrementalRawStateMigrationTests(unittest.TestCase):
 
     def test_row_level_security_is_enabled_and_frontend_has_no_access(self) -> None:
         self.assertIn("alter table public.raw_current_rows enable row level security", self.sql)
-        self.assertIn("revoke all on table public.raw_current_rows from anon, authenticated", self.sql)
+        self.assertIn(
+            "revoke all privileges on table public.raw_current_rows from public, anon, authenticated, service_role",
+            self.sql,
+        )
         self.assertNotIn("create policy", self.sql)
         self.assertNotIn("to anon", self.sql)
         self.assertNotIn("to authenticated", self.sql)
 
-    def test_backend_grant_excludes_physical_deletion(self) -> None:
+    def test_backend_grant_is_exactly_the_minimum_contract(self) -> None:
         grants = re.findall(r"grant ([a-z, ]+) on table public\.raw_current_rows to service_role", self.sql)
         self.assertEqual(["select, insert, update"], [grant.strip() for grant in grants])
+        self.assertNotIn("grant all", self.sql)
+        self.assertNotIn("grant delete", self.sql)
+        self.assertNotIn("grant truncate", self.sql)
+        self.assertNotIn("grant references", self.sql)
+        self.assertNotIn("grant trigger", self.sql)
 
     def test_migration_has_no_secret_and_no_multitenant_field(self) -> None:
         self.assertEqual([], scan_secrets(self.path.read_text(encoding="utf-8")))

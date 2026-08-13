@@ -67,3 +67,35 @@ instalada. O dry-run real da fixture foi repetido após a mudança e retornou 7 
 5 novas, 5 comandos de inserção de estado e zero persistidas.
 
 Em 2026-08-05, a baseline corrigida foi aplicada ao staging. Em 2026-08-06, `migration list`, `inspect db`, geração de tipos, consultas `SELECT` via Management API e Data API reconciliaram o estado: cinco tabelas vazias, 27 constraints, 14 índices, RLS e grants coerentes. O dump schema-only não rodou sem Docker, mas deixou de ser necessário para o catálogo porque `supabase db query --linked` permitiu as consultas somente de leitura. Os testes de integração local continuam pulados sem Docker e `psql`.
+
+Follow-up de 2026-08-11: PostgreSQL local executou as duas migrations e validou DDL, constraints,
+idempotência, rollback e advisory lock com fixtures descartadas. A suíte offline permaneceu verde
+(141/136/0, 5 pulados); os opt-in existentes continuaram pulados pela ausência de `psql` no host.
+O gate de segurança reprovou: `service_role` tem DELETE efetivo em `raw_current_rows`; não há
+aprovação para staging até uma correção incremental e nova validação local.
+
+No follow-up de 2026-08-11, a própria migration pendente passou a revogar todos os privilégios
+preexistentes antes do grant mínimo. Após `supabase db reset` exclusivamente local, o catálogo e
+testes com `SET ROLE service_role` confirmaram SELECT/INSERT/UPDATE permitidos e
+DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN negados; a regressão raw, rollback e advisory lock
+também passou. A suíte offline permaneceu em 141 testes, 136 aprovados, 5 pulados e zero falhas.
+
+Deploy em 2026-08-11: o staging aplicou somente a migration incremental. Inspeção agregada
+read-only confirmou o mesmo catálogo e contratos de grant, sem linhas nas tabelas operacionais;
+lint remoto final passou. Nenhum teste de sincronização ou escrita de fixture foi iniciado.
+
+Checkpoint event-only de 2026-08-11: `scripts/test-integration.ps1` passou a usar o driver Python,
+sem depender de `psql` no host. Três testes PostgreSQL locais cobrem ciclo completo, quatro pontos
+de rollback e concorrência. A suíte offline executou 150 testes (142 aprovados, 8 pulados); o opt-in
+PostgreSQL executou 3/3. O dry-run remoto lista somente a terceira migration.
+
+Deploy event-only em 2026-08-11: a terceira migration foi aplicada ao staging. Introspecao
+read-only confirmou CHECK, nulabilidade, UNIQUE logica, grants, RLS/policies e tabelas vazias.
+Nenhuma integracao Google foi executada.
+
+Gate integrado interrompido em 2026-08-11: a leitura read-only da fixture
+fictícia passou (5 linhas, 7 colunas, zero retries), e o dry-run gerou 5 novas
+identidades sem persistir. A abertura da conexão PostgreSQL direta ao staging
+falhou antes de iniciar transação ou lock. As contagens remotas permaneceram
+zero; não houve segunda sincronização. A suíte continuou em 150 testes, 142
+aprovados, 8 pulados e zero falhas.

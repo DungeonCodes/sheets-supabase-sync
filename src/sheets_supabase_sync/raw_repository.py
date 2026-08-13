@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Mapping, Protocol
+from typing import Callable, Mapping, Protocol
+
+import psycopg
 
 from .errors import ErrorCode, SyncError
 from .raw_state import RawCurrentRow, RawStateOperation, apply_state_command, history_change_type, plan_state_commands
-from .raw_sync import RawChangePlan, RawRecord, RawSnapshot, compute_snapshot_hash
+from .raw_sync import RawChangePlan, RawRecord, RawSnapshot, RawSyncSource, compute_snapshot_hash
 
 
 @dataclass(frozen=True)
@@ -35,7 +38,7 @@ class RawHistoryEntry:
     run_id: str
     key_hash: str
     change_type: str
-    source_row_number: int
+    source_row_number: int | None
 
 
 class RawStateRepository(Protocol):
@@ -43,7 +46,14 @@ class RawStateRepository(Protocol):
 
     def release(self, source_hash: str) -> None: ...
 
-    def load_snapshot(self, source_hash: str) -> RawSnapshot | None: ...
+    def prepare_source(self, source: RawSyncSource) -> None: ...
+
+    def load_snapshot(
+        self,
+        source_hash: str,
+        header: tuple[str, ...] = (),
+        read_at: datetime | None = None,
+    ) -> RawSnapshot | None: ...
 
     def start_run(self, source_hash: str, snapshot_hash: str) -> str: ...
 
@@ -52,6 +62,8 @@ class RawStateRepository(Protocol):
     def commit(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None: ...
 
     def finish_run(self, run_id: str) -> None: ...
+
+    def complete(self) -> None: ...
 
     def rollback(self, source_hash: str, run_id: str | None) -> None: ...
 
@@ -100,7 +112,15 @@ class InMemoryRawStateRepository:
     def release(self, source_hash: str) -> None:
         self._locks.discard(source_hash)
 
-    def load_snapshot(self, source_hash: str) -> RawSnapshot | None:
+    def prepare_source(self, source: RawSyncSource) -> None:
+        return None
+
+    def load_snapshot(
+        self,
+        source_hash: str,
+        header: tuple[str, ...] = (),
+        read_at: datetime | None = None,
+    ) -> RawSnapshot | None:
         stored = self._sources.get(source_hash)
         if stored is None:
             return None
@@ -154,6 +174,9 @@ class InMemoryRawStateRepository:
             raise SyncError(ErrorCode.DATABASE, "Falha local simulada ao finalizar execucao")
         self._runs[run_id] = "applied"
 
+    def complete(self) -> None:
+        return None
+
     def rollback(self, source_hash: str, run_id: str | None) -> None:
         checkpoint = self._checkpoints.pop(source_hash, None)
         if checkpoint is None:
@@ -168,14 +191,180 @@ class InMemoryRawStateRepository:
 
 
 class PostgresRawRepository:
-    """Limite de persistência PostgreSQL; não abre conexão nem executa SQL nesta fase."""
+    """Unidade transacional PostgreSQL para estado raw e eventos."""
 
-    def __init__(self, assessment: RawSchemaAssessment) -> None:
+    def __init__(
+        self,
+        assessment: RawSchemaAssessment,
+        database_url: str | None = None,
+        failure_injector: Callable[[str], None] | None = None,
+    ) -> None:
         self._assessment = assessment
+        self._database_url = database_url
+        self._failure_injector = failure_injector
+        self._connection: psycopg.Connection | None = None
+        self._data_source_id: str | None = None
+        self._versions: dict[str, int] = {}
 
     def assert_supported(self) -> None:
         if not self._assessment.supports_phase_2a:
             raise SyncError(ErrorCode.SCHEMA, "Schema raw atual nao suporta estado idempotente; migration incremental obrigatoria")
+
+    def try_acquire(self, source_hash: str) -> bool:
+        self.assert_supported()
+        if not self._database_url:
+            raise SyncError(ErrorCode.CONFIGURATION, "URL PostgreSQL explicita obrigatoria")
+        self._connection = psycopg.connect(self._database_url, autocommit=False)
+        with self._connection.cursor() as cursor:
+            cursor.execute(self.try_lock_sql(), (source_hash,))
+            acquired = bool(cursor.fetchone()[0])
+        if not acquired:
+            self._connection.rollback()
+            self.release(source_hash)
+        return acquired
+
+    def release(self, source_hash: str) -> None:
+        if self._connection is not None:
+            self._connection.close()
+        self._connection = None
+        self._data_source_id = None
+        self._versions = {}
+
+    def prepare_source(self, source: RawSyncSource) -> None:
+        cursor = self._cursor()
+        cursor.execute(
+            self.register_source_sql(),
+            (
+                source.logical_name,
+                source.spreadsheet_id,
+                source.sheet_name,
+                source.target_table,
+                json.dumps(source.business_key),
+            ),
+        )
+        self._data_source_id = str(cursor.fetchone()[0])
+
+    def load_snapshot(
+        self,
+        source_hash: str,
+        header: tuple[str, ...] = (),
+        read_at: datetime | None = None,
+    ) -> RawSnapshot | None:
+        cursor = self._cursor()
+        cursor.execute(self.load_current_state_sql(), (self._require_source_id(),))
+        records: dict[str, RawRecord] = {}
+        self._versions = {}
+        for key_hash, content_hash, row_number, deleted, version, payload in cursor.fetchall():
+            records[key_hash] = RawRecord(row_number or 0, key_hash, content_hash, payload or {}, deleted)
+            self._versions[key_hash] = version
+        if not records:
+            return None
+        created_at = read_at or datetime.now().astimezone()
+        return RawSnapshot(
+            source_hash,
+            header,
+            records,
+            compute_snapshot_hash(source_hash, header, records.values()),
+            created_at,
+        )
+
+    def start_run(self, source_hash: str, snapshot_hash: str) -> str:
+        cursor = self._cursor()
+        cursor.execute(self.start_run_sql(), (self._require_source_id(), snapshot_hash, "{}"))
+        run_id = str(cursor.fetchone()[0])
+        self._fail("after_sync_run")
+        return run_id
+
+    def append_history(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None:
+        inserted = False
+        for command in plan_state_commands(plan):
+            change_type = history_change_type(command.operation)
+            if change_type is None:
+                continue
+            version = self._next_version(command.operation, command.record.key_hash)
+            tombstone = command.operation is RawStateOperation.TOMBSTONE
+            self._cursor().execute(
+                self.append_raw_row_sql(),
+                (
+                    self._require_source_id(),
+                    run_id,
+                    None if tombstone else command.record.source_row_number,
+                    command.record.key_hash,
+                    None if tombstone else command.record.content_hash,
+                    None if tombstone else json.dumps(command.record.values),
+                    change_type,
+                    version,
+                ),
+            )
+            if not inserted:
+                inserted = True
+                self._fail("after_event")
+
+    def commit(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None:
+        changed = False
+        for command in plan_state_commands(plan):
+            cursor = self._cursor()
+            record = command.record
+            if command.operation is RawStateOperation.INSERT:
+                parameters = (self._require_source_id(), record.key_hash, record.content_hash, json.dumps(record.values), record.source_row_number, run_id)
+            elif command.operation is RawStateOperation.UPDATE:
+                parameters = (record.content_hash, json.dumps(record.values), record.source_row_number, run_id, self._require_source_id(), record.key_hash)
+            elif command.operation is RawStateOperation.TOMBSTONE:
+                parameters = (run_id, self._require_source_id(), record.key_hash)
+            elif command.operation is RawStateOperation.RESTORE:
+                parameters = (record.content_hash, json.dumps(record.values), record.source_row_number, run_id, self._require_source_id(), record.key_hash)
+            else:
+                parameters = (record.source_row_number, run_id, self._require_source_id(), record.key_hash)
+            cursor.execute(self.state_command_sql(command.operation), parameters)
+            returned = cursor.fetchone()
+            if returned is None:
+                raise SyncError(ErrorCode.DATABASE, "Transicao raw nao afetou o estado esperado")
+            self._versions[record.key_hash] = returned[0]
+            if not changed:
+                changed = True
+                self._fail("after_state")
+
+    def finish_run(self, run_id: str) -> None:
+        counts = getattr(self, "_active_counts", None)
+        if counts is None:
+            raise SyncError(ErrorCode.INTERNAL, "Contagens da execucao nao configuradas")
+        self._cursor().execute(
+            self.finish_run_sql(),
+            ("applied", counts["new"], counts["changed"], counts["removed"], counts["restored"], counts["unchanged"], run_id),
+        )
+
+    def set_active_plan(self, plan: RawChangePlan) -> None:
+        self._active_counts = plan.counts
+
+    def complete(self) -> None:
+        self._fail("before_commit")
+        self._require_connection().commit()
+
+    def rollback(self, source_hash: str, run_id: str | None) -> None:
+        if self._connection is not None:
+            self._connection.rollback()
+
+    def _cursor(self):
+        return self._require_connection().cursor()
+
+    def _require_connection(self) -> psycopg.Connection:
+        if self._connection is None:
+            raise SyncError(ErrorCode.DATABASE, "Transacao PostgreSQL nao iniciada")
+        return self._connection
+
+    def _require_source_id(self) -> str:
+        if self._data_source_id is None:
+            raise SyncError(ErrorCode.DATABASE, "Fonte PostgreSQL nao preparada")
+        return self._data_source_id
+
+    def _next_version(self, operation: RawStateOperation, key_hash: str) -> int:
+        if operation is RawStateOperation.INSERT:
+            return 1
+        return self._versions[key_hash] + 1
+
+    def _fail(self, point: str) -> None:
+        if self._failure_injector is not None:
+            self._failure_injector(point)
 
     @staticmethod
     def find_source_sql() -> str:
@@ -208,7 +397,7 @@ class PostgresRawRepository:
     @staticmethod
     def load_current_state_sql() -> str:
         return (
-            "SELECT row_key_hash, content_hash, source_row_number, is_deleted, version "
+            "SELECT row_key_hash, content_hash, source_row_number, is_deleted, version, payload_json "
             "FROM public.raw_current_rows WHERE data_source_id = %s"
         )
 
@@ -217,7 +406,7 @@ class PostgresRawRepository:
         return (
             "INSERT INTO public.raw_current_rows "
             "(data_source_id, row_key_hash, content_hash, payload_json, source_row_number, last_sync_run_id) "
-            "VALUES (%s, %s, %s, %s::jsonb, %s, %s)"
+            "VALUES (%s, %s, %s, %s::jsonb, %s, %s) RETURNING version"
         )
 
     @staticmethod
@@ -226,7 +415,7 @@ class PostgresRawRepository:
             "UPDATE public.raw_current_rows SET content_hash = %s, payload_json = %s::jsonb, "
             "source_row_number = %s, version = version + 1, last_seen_at = now(), updated_at = now(), "
             "last_sync_run_id = %s "
-            "WHERE data_source_id = %s AND row_key_hash = %s AND NOT is_deleted"
+            "WHERE data_source_id = %s AND row_key_hash = %s AND NOT is_deleted RETURNING version"
         )
 
     @staticmethod
@@ -234,7 +423,7 @@ class PostgresRawRepository:
         return (
             "UPDATE public.raw_current_rows SET is_deleted = true, deleted_at = now(), "
             "version = version + 1, updated_at = now(), last_sync_run_id = %s "
-            "WHERE data_source_id = %s AND row_key_hash = %s AND NOT is_deleted"
+            "WHERE data_source_id = %s AND row_key_hash = %s AND NOT is_deleted RETURNING version"
         )
 
     @staticmethod
@@ -243,7 +432,7 @@ class PostgresRawRepository:
             "UPDATE public.raw_current_rows SET is_deleted = false, deleted_at = NULL, "
             "content_hash = %s, payload_json = %s::jsonb, source_row_number = %s, "
             "version = version + 1, last_seen_at = now(), updated_at = now(), last_sync_run_id = %s "
-            "WHERE data_source_id = %s AND row_key_hash = %s AND is_deleted"
+            "WHERE data_source_id = %s AND row_key_hash = %s AND is_deleted RETURNING version"
         )
 
     @staticmethod
@@ -251,7 +440,7 @@ class PostgresRawRepository:
         return (
             "UPDATE public.raw_current_rows SET last_seen_at = now(), source_row_number = %s, "
             "last_sync_run_id = %s "
-            "WHERE data_source_id = %s AND row_key_hash = %s AND NOT is_deleted"
+            "WHERE data_source_id = %s AND row_key_hash = %s AND NOT is_deleted RETURNING version"
         )
 
     @staticmethod

@@ -53,18 +53,23 @@ class RawSynchronizationService:
     ) -> RawSyncResult:
         if self._repository is None:
             raise SyncError(ErrorCode.DATABASE, "Repositorio raw nao configurado")
+        snapshot = build_raw_snapshot(source, header, rows, read_at)
         if not self._repository.try_acquire(source.source_hash):
             raise SyncError(ErrorCode.VALIDATION, "Fonte ja possui execucao em andamento")
-        previous = self._repository.load_snapshot(source.source_hash)
         run_id: str | None = None
         run_attempted = False
         try:
-            plan = self.dry_run(source, header, rows, read_at, previous, duration_ms).plan
+            self._repository.prepare_source(source)
+            previous = self._repository.load_snapshot(source.source_hash, tuple(header), read_at)
+            plan = compare_raw_snapshots(snapshot, previous)
             run_attempted = True
             run_id = self._repository.start_run(source.source_hash, plan.snapshot.snapshot_hash)
             self._repository.append_history(source.source_hash, run_id, plan)
+            if hasattr(self._repository, "set_active_plan"):
+                self._repository.set_active_plan(plan)
             self._repository.commit(source.source_hash, run_id, plan)
             self._repository.finish_run(run_id)
+            self._repository.complete()
         except Exception as error:
             if run_attempted:
                 self._repository.rollback(source.source_hash, run_id)

@@ -44,12 +44,12 @@ def plan_state_commands(plan: RawChangePlan) -> tuple[RawStateCommand, ...]:
 
 
 def history_change_type(operation: RawStateOperation) -> str | None:
-    """Classificacao anexada ao historico; exclusao nao e observada na planilha."""
+    """Classificacao event-only; observacoes identicas nao geram historico."""
     return {
-        RawStateOperation.INSERT: "inserted",
-        RawStateOperation.UPDATE: "changed",
-        RawStateOperation.RESTORE: "restored",
-        RawStateOperation.TOUCH: "unchanged",
+        RawStateOperation.INSERT: "insert",
+        RawStateOperation.UPDATE: "update",
+        RawStateOperation.TOMBSTONE: "tombstone",
+        RawStateOperation.RESTORE: "restore",
     }.get(operation)
 
 
