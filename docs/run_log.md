@@ -250,3 +250,68 @@ estado, import_error, escrita Google ou alteração da fixture.
 
 Classificação: `blocked`. Próximo gate único: disponibilizar conectividade
 PostgreSQL direta ao staging para o adaptador transacional, sem alterar dados.
+
+## Repetição do gate de conectividade PostgreSQL em 2026-08-13
+
+Foi carregada a configuração privada local pelo mecanismo da aplicação, sem
+exibir URL, host, Project Ref ou credencial. A variável PostgreSQL foi
+identificada como endpoint Direct, na porta 5432, em vez de Session Pooler.
+Como o gate exige interrupção nessa condição, nenhuma conexão foi aberta e
+nenhum `SELECT`, `BEGIN`, advisory lock, rollback ou consulta de contagem foi
+executado. Nenhuma escrita persistente, acesso Google, sincronização, migration
+ou commit ocorreu. A versão local de `psycopg[binary]` confirmada foi 3.3.4.
+
+Classificação: `blocked`. Próximo gate único: corrigir manualmente a
+configuração privada para o Session Pooler na porta 5432 e repetir este mesmo
+gate.
+
+## Gate de conectividade PostgreSQL via Session Pooler em 2026-08-13
+
+A configuração privada foi carregada exclusivamente pelo mecanismo da
+aplicação. A presença de `SUPABASE_DB_URL` foi confirmada sem expor valor,
+credencial, hostname ou Project Ref: o endpoint é Supavisor Session Pooler,
+não é Direct e usa a porta 5432. O driver local confirmado foi
+`psycopg[binary] 3.3.4`.
+
+Em uma única tentativa com timeout curto, `psycopg` conectou e `SELECT 1`
+retornou 1. Duas transações explícitas foram abertas; em cada uma,
+`pg_try_advisory_xact_lock(hashtextextended(%s, 0))`, exatamente como no
+adaptador, adquiriu uma chave fictícia sem bloqueio. Cada transação sofreu
+`ROLLBACK`; a segunda aquisição da mesma chave retornou verdadeira, confirmando
+a liberação do lock transacional.
+
+Consultas somente de leitura confirmaram 0 linhas em `data_sources`,
+`sync_runs`, `raw_import_rows`, `raw_current_rows`, `import_errors` e
+`schema_change_requests`. As migrations locais/remotas estão em 3/3, sem
+pendência ou divergência. Não houve escrita persistente, acesso Google,
+sincronização, migration, `db push` ou commit.
+
+Classificação: `postgres_connectivity_validated`. Próximo gate único:
+autorização humana específica para a primeira sincronização integrada da
+fixture exclusivamente fictícia.
+
+## Idempotência integrada da fixture fictícia no staging em 2026-08-13
+
+Após preflight verde, endpoint Session Pooler sanitizado, migrations 3/3 e
+tabelas operacionais vazias, foram realizadas duas leituras read-only da
+fixture previamente aprovada. Cada leitura retornou 5 linhas e 7 colunas, sem
+retries e sem exibir conteúdo. O dry-run inicial previu 5 estados e 5 eventos
+insert.
+
+A primeira execução pelo fluxo transacional da aplicação criou exatamente uma
+fonte, um `sync_run` aplicado, 5 estados `raw_current_rows` e 5 eventos insert
+em `raw_import_rows`. A segunda leitura não reutilizou o snapshot anterior; a
+segunda execução concluiu com 5 inalterados e não criou eventos adicionais.
+As duas execuções usaram `psycopg`, transação PostgreSQL, advisory xact lock,
+diff sob lock e commit. A inspeção somente por agregados confirmou 2 runs
+aplicados, identidades únicas, versões 1, zero tombstones, zero updates/restores
+e `import_errors=0`.
+
+O schema permaneceu inalterado: migrations 3/3, RLS nas seis tabelas, zero
+policies e lint verde. Não houve alteração da fixture, acesso a outra planilha,
+migration, `db push`, SQL manual de escrita, nem commit Git. A suíte final
+executou 150 testes, com 142 aprovados, 8 pulados e zero falhas.
+
+Classificação: `integrated_idempotency_validated`. Próximo gate único:
+autorização humana específica para testar mudança controlada da fixture
+fictícia (update, tombstone, restore e reorder).

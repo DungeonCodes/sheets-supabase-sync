@@ -20,7 +20,7 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | RLS/revokes operacionais | migration `20260804000000` | catálogo: RLS nas cinco, zero policies, `anon`/`authenticated` sem acesso e backend com grants esperados | `validated` |
 | Data API da fundação | configuração segura | verificação somente de leitura: HTTP 200 | `validated` |
 | Google Sheets real | leitor HTTP v4 read-only e Service Account implementados | 29 testes offline; diagnóstico e opt-in reais: 7 colunas/5 linhas fictícias | `partially_validated` |
-| Raw persistido pelo pipeline | DDL de histórico e de estado existem no staging; escrita integrada não | catálogo remoto vazio; nenhum E2E de sincronização | `planned` |
+| Raw persistido pelo pipeline | `RawSynchronizationService` + `PostgresRawRepository` | staging: duas sincronizações da fixture fictícia; 5 estados, 5 inserts e repetição sem novo evento | `validated` |
 
 O gate de 2026-08-11 definiu `raw_import_rows` como event-only. A persistência integrada continua
 `requires_changes`: o schema atual não representa tombstone sem ambiguidade e o adaptador
@@ -37,6 +37,13 @@ Follow-up de integração em 2026-08-11: a fixture fictícia foi lida em modo
 readonly e seu dry-run aprovou 5 inserções planejadas. A persistência integrada
 permanece bloqueada por conectividade PostgreSQL direta ao staging; a falha
 ocorreu antes da transação e o staging continua vazio.
+
+Checkpoint integrado de 2026-08-13: com conectividade pelo Session Pooler
+validada, a primeira sincronização da fixture fictícia persistiu 5 estados e
+5 eventos insert em uma transação protegida por advisory lock. A segunda leitura
+independente e sincronização gerou 5 `unchanged` e zero eventos novos. O staging
+agora possui uma fonte e duas execuções aplicadas; versões permanecem em 1,
+`import_errors=0`, migrations 3/3, RLS habilitado e zero policies.
 | Staging/Star Schema/BI | inexistente | nenhuma evidência | `planned` |
 | E-mail e scheduler implantado | regras/configuração parciais | nenhum transporte/provider | `planned` |
 

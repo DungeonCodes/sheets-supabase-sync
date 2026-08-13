@@ -13,6 +13,16 @@ Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inaltera
 - `blocked`: depende de decisão, acesso, volume, orçamento ou dado externo ainda não fornecido.
 - `out_of_scope`: requisito conscientemente excluído do projeto. Nenhum requisito oficial foi classificado assim nesta auditoria.
 
+## Checkpoint integrado de staging em 2026-08-13
+
+Evidência posterior e sanitizada para `ING-03`, `STORE-02` e `AVAIL-01`:
+duas leituras reais da fixture exclusivamente fictícia retornaram 5 linhas e 7
+colunas. A primeira sincronização integrada criou uma fonte, 5 estados raw e 5
+eventos insert; a repetição idêntica produziu 5 inalterados e zero eventos
+adicionais. As versões permaneceram em 1, `import_errors=0` e as duas
+execuções concluíram com sucesso sob transação e advisory lock. O alcance não
+inclui alterações da fixture, drift, BI, retenção ou carga multi-fonte.
+
 ## 1. Objetivo geral
 
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |

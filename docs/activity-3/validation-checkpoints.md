@@ -200,3 +200,17 @@ Fixture ficticia lida com 5 linhas e 7 colunas; dry-run com 5 novos estados e
 5 eventos insert. A conexao PostgreSQL direta falhou antes de lock e
 transacao. Contagens remotas seguiram zeradas. Classificacao: `blocked`;
 proximo checkpoint unico: conectividade direta para o adaptador transacional.
+
+## Checkpoint de idempotência integrada no staging em 2026-08-13
+
+| Gate | Resultado | Evidência sanitizada |
+| --- | --- | --- |
+| Leitura Google | aprovado | duas leituras read-only da fixture fictícia: 5 linhas, 7 colunas e zero retries |
+| Primeira sincronização | aprovado | 1 fonte, 1 run aplicado, 5 estados novos e 5 eventos insert |
+| Repetição idêntica | aprovado | 2 runs aplicados; 5 unchanged, zero novos eventos e versões preservadas em 1 |
+| Atomicidade | aprovado | `psycopg`, Session Pooler, transação, advisory xact lock, diff sob lock e commit no caminho da aplicação |
+| Integridade | aprovado | `import_errors=0`, tombstones/update/restore=0, RLS nas 6 tabelas e zero policies |
+| Schema e regressão | aprovado | migrations 3/3 sem pendência/divergência, lint verde e 150 testes com 142 aprovados/8 pulados |
+
+Classificação: `integrated_idempotency_validated`. Próximo gate único: autorização
+específica para testar uma mudança controlada da fixture fictícia.

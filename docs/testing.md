@@ -99,3 +99,15 @@ identidades sem persistir. A abertura da conexão PostgreSQL direta ao staging
 falhou antes de iniciar transação ou lock. As contagens remotas permaneceram
 zero; não houve segunda sincronização. A suíte continuou em 150 testes, 142
 aprovados, 8 pulados e zero falhas.
+
+## Checkpoint integrado de staging em 2026-08-13
+
+Com Session Pooler na porta 5432 e `psycopg[binary] 3.3.4`, duas leituras
+independentes da fixture exclusivamente fictícia retornaram 5 linhas e 7
+colunas, sem retries. A primeira sincronização transacional criou 5 estados e
+5 eventos `insert`; a segunda encontrou 5 registros inalterados e não criou
+evento. As duas execuções usaram advisory transaction lock e commit. A prova
+agregada remota confirmou versões 1, zero tombstones e `import_errors=0`.
+Após o gate, a suíte executou 150 testes: 142 aprovados, 8 pulados e zero
+falhas; os testes PostgreSQL locais e o teste Google opt-in não foram
+habilitados nesta execução de suíte.
