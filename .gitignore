@@ -39,6 +39,9 @@ logs/
 .cache/
 .tmp/
 temp/
+# Metadados locais gerados pelo Supabase CLI; nunca versionar.
+/supabase/.temp/
+/supabase/.branches/
 .DS_Store
 Thumbs.db
 

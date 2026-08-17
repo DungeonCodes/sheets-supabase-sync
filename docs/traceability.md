@@ -1,18 +1,61 @@
 # Matriz de rastreabilidade
 
-| Requisito ou decisão | Código | Teste | Migration | Documento | Status |
-| --- | --- | --- | --- | --- | --- |
-| Projeto por instituição | `sources.py` | `test_isolated_institution.py`, `test_migration_baseline.py` | `20260804000000` | ADR 20260803 | validated_offline |
-| Fontes/tabelas espelho isoladas | `mirror_schema.py` | `test_isolated_institution.py` | sob demanda | architecture | validated_offline |
-| Identificadores seguros | `identifiers.py` | unit/security | — | security | validated_offline |
-| Contratos | `contracts.py` | contract | — | testing | validated_offline |
-| Snapshots, diff e SQL | `snapshot.py`, `diff.py`, `sql_generator.py` | `test_sync.py` | — | workflow | validated_offline |
-| Exclusão/restauração | `diff.py` | `test_sync.py` | — | workflow | validated_offline |
-| Doctor, alertas e logs | `doctor.py`, `health.py`, `observability.py` | unit | `20260804000000` | monitoring | validated_offline |
-| Baseline operacional consolidada | — | `test_migration_baseline.py` | `20260804000000` | architecture, testing | prepared_not_executed |
-| Rollback/advisory lock/concorrência | `executors.py` | integration/end_to_end | suporte estrutural em `20260804000000` | runbook | prepared_not_executed |
-| Google Sheets real | `source_reader.py` fake | unit | — | roadmap | planned |
-| Supabase local | `executors.py` | integration | migrations | testing | blocked |
-| Supabase remoto | — | lint e dry-run somente | baseline pendente | security | prepared_not_executed |
-| Scheduler produção | `scheduling.py` | isolated | — | roadmap | planned |
-| CI offline e segredos | `.github/workflows/ci.yml` | security | — | testing | validated_offline |
+A rastreabilidade oficial e detalhada da Atividade 3 está em [activity-3/requirements-traceability.md](activity-3/requirements-traceability.md). Ela é a referência para status, evidência, lacuna, aceite, prioridade, dependência e risco.
+
+Estado atual: o pipeline raw foi validado no staging com fixture fictícia para carga inicial, idempotência, update, tombstone, restore e reorder. Schema drift de coluna adicionada/removida e rename é bloqueante; reorder de headers e header duplicado permanecem em andamento. Os parágrafos cronológicos abaixo preservam evidência anterior e não substituem este estado.
+
+## Capacidades técnicas existentes
+
+Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos oficiais.
+
+| Capacidade | Código/DDL | Teste/evidência | Status auditado |
+| --- | --- | --- | --- |
+| Projeto por instituição | `sources.py`; baseline | `test_isolated_institution.py`, ADR 20260803 | `validated` |
+| Fontes isoladas e execução independente | `batch.py`, `orchestration.py` | teste de continuidade após falha | `validated` |
+| Identificadores seguros | `identifiers.py`, `sql_generator.py` | unit/security | `validated` |
+| Contratos e schema drift offline | `contracts.py`, `diff.py` | contract/unit | `validated` |
+| Snapshots, diff, tombstones e SQL | `snapshot.py`, `diff.py`, `sql_generator.py` | `test_sync.py` | `validated` |
+| Logs/health locais | `observability.py`, `health.py` | unit | `partially_validated` |
+| Histórico da baseline | migration `20260804000000` | `migration list`: duas versões locais, uma remota, sem divergência | `validated` |
+| Estado raw atual por fonte/chave | migration `20260806120000` aplicada no staging; `raw_state.py`, `raw_repository.py` | PostgreSQL local e catálogo remoto: DDL, constraints, grants, RLS, transações e advisory lock; tabelas vazias | `validated` |
+| Cinco tabelas operacionais | migration `20260804000000` | catálogo remoto: cinco tabelas, 27 constraints, 14 índices e zero linhas | `validated` |
+| RLS/revokes operacionais | migration `20260804000000` | catálogo: RLS nas cinco, zero policies, `anon`/`authenticated` sem acesso e backend com grants esperados | `validated` |
+| Data API da fundação | configuração segura | verificação somente de leitura: HTTP 200 | `validated` |
+| Google Sheets real | leitor HTTP v4 read-only e Service Account implementados | 29 testes offline; diagnóstico e opt-in reais: 7 colunas/5 linhas fictícias | `partially_validated` |
+| Raw persistido pelo pipeline | `RawSynchronizationService` + `PostgresRawRepository` | staging: duas sincronizações da fixture fictícia; 5 estados, 5 inserts e repetição sem novo evento | `validated` |
+
+O gate de 2026-08-11 definiu `raw_import_rows` como event-only. Naquele ponto, a persistência integrada ainda era `requires_changes`; os checkpoints posteriores de 2026-08-13 e 2026-08-17 a validaram no alcance controlado descrito abaixo. A decisão está em `decisions/20260811_raw_import_event_only_semantics.md`.
+
+Follow-up local: terceira migration, adaptador `psycopg`, event-only, rollback e concorrência foram
+validados em PostgreSQL real. O gate agora está `approved_for_staging`; o staging continua com as
+duas migrations anteriores e sem sincronização.
+
+Follow-up de deploy: a terceira migration foi aplicada e o catálogo remoto passou a estar validado para
+event-only. Naquela data, a persistência integrada ainda estava planejada e o staging permanecia vazio.
+
+Follow-up de integração em 2026-08-11: a fixture fictícia foi lida em modo
+readonly e seu dry-run aprovou 5 inserções planejadas. A persistência integrada
+permanece bloqueada por conectividade PostgreSQL direta ao staging; a falha
+ocorreu antes da transação e o staging continua vazio.
+
+Checkpoint integrado de 2026-08-13: com conectividade pelo Session Pooler
+validada, a primeira sincronização da fixture fictícia persistiu 5 estados e
+5 eventos insert em uma transação protegida por advisory lock. A segunda leitura
+independente e sincronização gerou 5 `unchanged` e zero eventos novos. O staging
+agora possui uma fonte e duas execuções aplicadas; versões permanecem em 1,
+`import_errors=0`, migrations 3/3, RLS habilitado e zero policies.
+
+Checkpoint de mudanças de 2026-08-17: update, tombstone, restore e reorder da
+fixture fictícia foram validados um por vez no staging. A identidade lógica foi
+preservada em todos os cenários; o reorder não gerou evento nem versão nova.
+O pipeline raw persistido permanece `validated` para esse ciclo controlado.
+
+Checkpoint parcial de schema drift: a política integrada foi validada para
+adição, remoção e rename de header no staging. Cada drift bloqueou a ingestão
+antes de qualquer mutação raw e registrou request operacional pendente; a
+baseline restaurada permanece equivalente. Reorder e header duplicado seguem
+como próximos cenários controlados.
+| Staging/Star Schema/BI | inexistente | nenhuma evidência | `planned` |
+| E-mail e scheduler implantado | regras/configuração parciais | nenhum transporte/provider | `planned` |
+
+Consulte também [análise de lacunas](activity-3/gap-analysis.md), [plano](activity-3/implementation-plan.md), [riscos](activity-3/risk-register.md), [decisões](activity-3/open-decisions.md) e [gates](activity-3/validation-checkpoints.md).

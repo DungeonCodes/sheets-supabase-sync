@@ -7,7 +7,7 @@ name = "sheets-supabase-sync"
 version = "0.1.0"
 description = "Sincronizador auditavel de planilhas para Supabase."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["google-auth[requests]==2.56.3", "psycopg[binary]==3.3.4"]
 
 [project.scripts]
 sheets-supabase-sync = "sheets_supabase_sync.cli:main"

@@ -10,4 +10,4 @@
 
 ## Preparacao do schema institucional
 
-A baseline ativa cria apenas as tabelas operacionais e seus controles de acesso. O fluxo de primeira fonte ainda devera propor e criar sua tabela espelho em uma etapa explicita. Em 2026-08-04, a baseline foi validada estaticamente, por lint e por `supabase db push --dry-run`; nenhuma migration, seed ou tabela espelho foi aplicada remotamente.
+A baseline aplicada em staging cria apenas as tabelas operacionais e seus controles de acesso. O seed remoto nao foi executado. O fluxo de primeira fonte ainda devera propor e criar sua tabela espelho em uma etapa explicita; portanto nenhuma tabela espelho ou linha de dados existe no projeto apos o deploy da baseline.
