@@ -4,7 +4,7 @@ Os testes rapidos usam somente Python e fixtures deterministicas:
 
 ```powershell
 $env:PYTHONPATH = "$PWD\src"
-py -3.13 -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
 Categorias: `unit` cobre dominio, hashes, erros, retries, alertas e doctor; `contract` valida uma fonte sem depender do conector Google; `security` protege fronteiras; `integration` e `end_to_end` dependem de Supabase local; `performance` e opt-in.
@@ -13,10 +13,10 @@ Para o baseline de 10.000 linhas:
 
 ```powershell
 $env:RUN_SLOW_TESTS = '1'
-py -3.13 -m unittest tests.performance.test_small_baseline -v
+.\.venv\Scripts\python.exe -m unittest tests.performance.test_small_baseline -v
 ```
 
-Integracao Supabase requer Docker, Supabase local e `psql`; quando ausentes, os testes sao pulados com mensagem explicita. O leitor Google possui testes offline com transporte falso para configuração, schema, retry, `Retry-After`, sanitização e preservação de linhas. A prova real usa somente a fixture privada revisada e o comando abaixo; sem configuração ou confirmação humana, ela é pulada, não aprovada.
+Integração Supabase local requer Docker e Supabase CLI; os testes do repositório PostgreSQL usam a `.venv` e não exigem `psql` no host. Alguns testes end-to-end legados ainda verificam a presença de `psql` e são pulados com mensagem explícita quando ele não existe. O leitor Google possui testes offline com transporte falso para configuração, schema, retry, `Retry-After`, sanitização e preservação de linhas. A prova real usa somente a fixture privada revisada e o comando abaixo; sem configuração ou confirmação humana, ela é pulada, não aprovada.
 
 ```powershell
 $env:PYTHONPATH="$PWD\src"
@@ -27,7 +27,7 @@ Fixture esperada: uma aba privada compartilhada apenas como leitora, cabeçalho 
 
 Para habilitar o teste de integração, além das três configurações locais, o operador deve definir na sessão `RUN_GOOGLE_SHEETS_INTEGRATION=1` e `GOOGLE_TEST_DATA_CONFIRMED_FICTITIOUS=1` após a revisão humana. A ausência desses gates produz skip explícito.
 
-Checkpoint real de 2026-08-06: após habilitar a Sheets API e corrigir o nome da aba, o diagnóstico e o teste opt-in passaram. Foram lidas 7 colunas e 5 linhas fictícias; nenhum cabeçalho ou valor foi impresso. O 403 da tentativa anterior permanece como histórico; integrações Supabase/`psql` continuam fora desta fase.
+Checkpoint real de 2026-08-06: após habilitar a Sheets API e corrigir o nome da aba, o diagnóstico e o teste opt-in passaram. Foram lidas 7 colunas e 5 linhas fictícias; nenhum cabeçalho ou valor foi impresso. O 403 da tentativa anterior permanece como histórico. Checkpoints posteriores validaram a integração PostgreSQL no staging pelo Session Pooler; consulte as seções de 2026-08-13 e 2026-08-17.
 
 Fase 2A acrescenta testes offline para primeira carga, repetição idêntica, inserção, alteração, remoção, restauração, reordenação, chave vazia/duplicada, rollback local, falhas de início/commit/finalização, lock e comandos PostgreSQL parametrizados. O dry-run real lê a fixture e gera plano sem importar ou acessar Supabase.
 

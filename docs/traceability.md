@@ -2,6 +2,8 @@
 
 A rastreabilidade oficial e detalhada da Atividade 3 está em [activity-3/requirements-traceability.md](activity-3/requirements-traceability.md). Ela é a referência para status, evidência, lacuna, aceite, prioridade, dependência e risco.
 
+Estado atual: o pipeline raw foi validado no staging com fixture fictícia para carga inicial, idempotência, update, tombstone, restore e reorder. Schema drift de coluna adicionada/removida e rename é bloqueante; reorder de headers e header duplicado permanecem em andamento. Os parágrafos cronológicos abaixo preservam evidência anterior e não substituem este estado.
+
 ## Capacidades técnicas existentes
 
 Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos oficiais.
@@ -22,16 +24,14 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | Google Sheets real | leitor HTTP v4 read-only e Service Account implementados | 29 testes offline; diagnóstico e opt-in reais: 7 colunas/5 linhas fictícias | `partially_validated` |
 | Raw persistido pelo pipeline | `RawSynchronizationService` + `PostgresRawRepository` | staging: duas sincronizações da fixture fictícia; 5 estados, 5 inserts e repetição sem novo evento | `validated` |
 
-O gate de 2026-08-11 definiu `raw_import_rows` como event-only. A persistência integrada continua
-`requires_changes`: o schema atual não representa tombstone sem ambiguidade e o adaptador
-PostgreSQL transacional ainda não existe. A decisão está em `decisions/20260811_raw_import_event_only_semantics.md`.
+O gate de 2026-08-11 definiu `raw_import_rows` como event-only. Naquele ponto, a persistência integrada ainda era `requires_changes`; os checkpoints posteriores de 2026-08-13 e 2026-08-17 a validaram no alcance controlado descrito abaixo. A decisão está em `decisions/20260811_raw_import_event_only_semantics.md`.
 
 Follow-up local: terceira migration, adaptador `psycopg`, event-only, rollback e concorrência foram
 validados em PostgreSQL real. O gate agora está `approved_for_staging`; o staging continua com as
 duas migrations anteriores e sem sincronização.
 
-Follow-up de deploy: a terceira migration foi aplicada e o catálogo remoto agora está validado para
-event-only. A persistência integrada continua planejada; o staging permanece vazio.
+Follow-up de deploy: a terceira migration foi aplicada e o catálogo remoto passou a estar validado para
+event-only. Naquela data, a persistência integrada ainda estava planejada e o staging permanecia vazio.
 
 Follow-up de integração em 2026-08-11: a fixture fictícia foi lida em modo
 readonly e seu dry-run aprovou 5 inserções planejadas. A persistência integrada

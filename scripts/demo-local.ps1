@@ -6,13 +6,14 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = Resolve-Path "$PSScriptRoot\.."
 $env:PYTHONPATH = "$repo\src"
+$python = "$repo\.venv\Scripts\python.exe"
 $snapshot = "$repo\runtime\snapshots\demo.json"
 $artifacts = "$repo\runtime\artifacts\demo"
 
 function Invoke-DemoStep {
     param([string]$Name, [string]$Fixture)
     Write-Host "`n=== $Name ==="
-    py -3.13 -m sheets_supabase_sync.cli --config "$repo\configs\examples\local.json" --input "$repo\data\fixtures\$Fixture" --snapshot $snapshot --artifacts "$artifacts\$Name" --mode apply-local --database-url $DatabaseUrl
+    & $python -m sheets_supabase_sync.cli --config "$repo\configs\examples\local.json" --input "$repo\data\fixtures\$Fixture" --snapshot $snapshot --artifacts "$artifacts\$Name" --mode apply-local --database-url $DatabaseUrl
 }
 
 Invoke-DemoStep '01-inicial' 'demo_initial.csv'

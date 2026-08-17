@@ -1,5 +1,9 @@
 # Checkpoints de validação da Atividade 3
 
+## Estado atual do checkpoint
+
+Os gates integrados de carga inicial, idempotência, update, tombstone, restore e reorder de linhas foram validados no staging exclusivamente com a fixture fictícia. Migrations permanecem 3/3. No gate de schema drift, coluna adicionada/removida e rename foram bloqueados antes de persistência; reorder de headers e header duplicado são os únicos cenários ainda pendentes. As seções cronológicas abaixo preservam checkpoints históricos e não anulam este estado atual.
+
 ## Regra obrigatória
 
 **Nenhuma fase é considerada concluída apenas porque o código foi escrito.**
@@ -125,7 +129,7 @@ A Fase 1 pode ser encerrada no escopo da leitura da fixture privada fictícia. O
 | 8. Rollback | aprovado no alcance local | falha preserva snapshot local; nenhum remoto foi alterado |
 | 9. Validação humana | pendente | migration incremental e futura escrita exigem aprovação separada |
 
-A Fase 2A está concluída somente localmente. A Fase 2B está bloqueada pela incompatibilidade do schema raw atual; não criar ou aplicar migration é parte deste checkpoint.
+Naquele checkpoint de 2026-08-06, a Fase 2A estava concluída somente localmente e a Fase 2B permanecia bloqueada pela incompatibilidade do schema raw então existente. Esse estado foi superado pelos checkpoints integrados posteriores.
 
 ## Checkpoint da migration incremental de estado raw em 2026-08-06
 
@@ -141,8 +145,7 @@ A Fase 2A está concluída somente localmente. A Fase 2B está bloqueada pela in
 | 8. Rollback | aprovado no alcance local | falhas de histórico, de estado e de finalização preservam a versão anterior; nada foi alterado remotamente |
 | 9. Validação humana | pendente | revisão do DDL e autorização da aplicação não foram concedidas |
 
-A migration está criada e **não aplicada**. A Fase 2B permanece bloqueada; o gate 5 só poderá ser
-fechado com execução do DDL em PostgreSQL real.
+No estado documentado por este checkpoint de 2026-08-06, a migration estava criada e **não aplicada**. O bloqueio foi superado pelas aplicações e sincronizações controladas posteriores; consulte o estado atual no início deste documento.
 
 ## Follow-up PostgreSQL local em 2026-08-11
 

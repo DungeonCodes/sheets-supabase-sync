@@ -6,7 +6,7 @@ O pacote separa dominio (`sources`, `identifiers`, `mirror_schema`, `scheduling`
 
 Na Fase 1, `google_sheets` contém somente o modelo determinístico, parsing e orquestração da leitura; `google_transport` é a borda HTTP GET autenticada; `google_config` valida configuração e credencial externa. O transporte implementa uma interface local pequena e pode ser substituído por fake nos testes. O leitor não importa Supabase, não gera SQL, não transforma regras de negócio e não persiste dados.
 
-Na Fase 2A, `raw_sync` concentra contrato, hashes, snapshots e diff sem rede; `raw_state` traduz um plano de mudanças em transições de estado atual; `raw_sync_service` coordena dry-run e transação local in-memory; `raw_repository` isola a avaliação do schema e os comandos PostgreSQL parametrizados. A semântica combina histórico append-only com estado atual por fonte/chave. A baseline sozinha suporta somente o primeiro aspecto; a migration incremental descrita abaixo cobre o segundo e ainda não foi aplicada.
+`raw_sync` concentra contrato, hashes, snapshots e diff sem rede; `raw_state` traduz um plano de mudanças em transições de estado atual; `raw_sync_service` coordena dry-run e transação; `raw_repository` isola avaliação de schema e comandos PostgreSQL parametrizados. A semântica combina histórico append-only com estado atual por fonte/chave. O adaptador usa `psycopg` e, no staging autorizado, conecta pelo Supavisor Session Pooler na porta 5432.
 
 As tabelas operacionais `data_sources`, `sync_runs`, `raw_import_rows`, `import_errors` e `schema_change_requests` fornecem trilha de auditoria e usam chaves estrangeiras somente entre si. Dados brutos ficam em JSONB tanto na tabela espelho quanto em `raw_import_rows`.
 
@@ -14,7 +14,7 @@ As tabelas operacionais `data_sources`, `sync_runs`, `raw_import_rows`, `import_
 
 A separação está registrada na [ADR de migration incremental](decisions/20260806_raw_current_state_migration.md):
 
-- `public.raw_import_rows` é o histórico append-only do que foi **observado** em cada execução. Sua unicidade continua sendo `(sync_run_id, source_row_number)` e a migration incremental apenas acrescenta as colunas opcionais `change_type` e `row_version`. Exclusões não aparecem aqui porque não são observadas na planilha.
+- `public.raw_import_rows` é o histórico append-only de eventos de negócio: `insert`, `update`, `tombstone` e `restore`. Tombstones não inventam posição, hash ou payload; a unicidade protege a identidade do evento por execução, fonte e chave.
 - `public.raw_current_rows` é o estado atual, com no máximo uma linha por `(data_source_id, row_key_hash)`. Ela carrega `content_hash`, `payload_json`, `source_row_number`, `is_deleted`, `deleted_at`, `version`, `first_seen_at`, `last_seen_at` e `last_sync_run_id`, permitindo idempotência, exclusão lógica, restauração e comparação eficiente na execução seguinte.
 
 Índices da nova tabela e a consulta que justifica cada um:
@@ -38,4 +38,4 @@ O campo agora se chama `previous_schema`: ele armazena o estado anterior conheci
 
 Em 2026-08-06, nova inspecao independente e somente de leitura confirmou esse estado diretamente: cinco tabelas, 27 constraints, 14 indices, zero linhas, nenhuma tabela espelho, `previous_schema` presente e campos obsoletos/multitenant ausentes. RLS, policies, grants e Data API tambem foram verificados sem escrita.
 
-Ainda em 2026-08-06 foi criada a migration incremental `20260806120000_add_raw_current_state.sql`. Ela é aditiva, não contém operação destrutiva e permanece **não aplicada**: o histórico remoto continua com uma única versão. A baseline não foi editada e um teste de digest garante essa imutabilidade.
+Em 2026-08-06 foi criada a migration incremental `20260806120000_add_raw_current_state.sql`. Ela é aditiva, não contém operação destrutiva e foi aplicada ao staging em 2026-08-11. A terceira migration consolidou o histórico event-only no mesmo dia. A baseline não foi editada e um teste de digest garante essa imutabilidade.

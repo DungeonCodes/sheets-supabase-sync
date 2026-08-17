@@ -23,10 +23,6 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 
 ## Próximo passo
 
-**Autorizar o gate controlado de mudança da fixture fictícia (update, tombstone,
-restore e reorder).** A conectividade pelo Session Pooler e a idempotência da
-carga inicial já foram validadas; não presumir autorização para alterar a fixture.
-
 O ciclo controlado de update, tombstone, restore e reorder foi validado no
 staging em 2026-08-17. O próximo gate passa a ser schema drift controlado da
 fixture fictícia, mediante autorização humana específica.
