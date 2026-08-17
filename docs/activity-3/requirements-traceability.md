@@ -23,6 +23,22 @@ adicionais. As versões permaneceram em 1, `import_errors=0` e as duas
 execuções concluíram com sucesso sob transação e advisory lock. O alcance não
 inclui alterações da fixture, drift, BI, retenção ou carga multi-fonte.
 
+## Ciclo de mudanças integrado em 2026-08-17
+
+O checkpoint posterior estende a evidência sanitizada de `STORE-02` e
+`AVAIL-01`: update, tombstone, restore e reorder foram aplicados um por vez no
+staging. Foram preservadas as identidades, as versões corretas e a ausência de
+eventos por reorder; o alcance ainda exclui schema drift, carga multi-fonte,
+retenção e BI.
+
+## Checkpoint parcial de schema drift em 2026-08-17
+
+Para `PROC-01`, a integração agora bloqueia no staging headers adicionados,
+removidos ou renomeados sem aprovação humana. Três requests pendentes distintas
+foram registradas sem eventos de negócio, alterações de versão ou tombstones;
+a fixture retornou à baseline. Reorder e header duplicado continuam pendentes
+de checkpoint humano separado.
+
 ## 1. Objetivo geral
 
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |

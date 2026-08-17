@@ -26,5 +26,13 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 **Autorizar o gate controlado de mudança da fixture fictícia (update, tombstone,
 restore e reorder).** A conectividade pelo Session Pooler e a idempotência da
 carga inicial já foram validadas; não presumir autorização para alterar a fixture.
+
+O ciclo controlado de update, tombstone, restore e reorder foi validado no
+staging em 2026-08-17. O próximo gate passa a ser schema drift controlado da
+fixture fictícia, mediante autorização humana específica.
+
+O checkpoint parcial de schema drift bloqueou com segurança adição, remoção e
+rename de header no staging, preservando o estado raw. Próximo passo: validar
+reorder controlado de headers; header duplicado permanece no mesmo gate.
 Decisões empresariais continuam em [open-decisions.md](activity-3/open-decisions.md); quase tempo
 real, BI ou ferramenta adicional não devem ser presumidos.

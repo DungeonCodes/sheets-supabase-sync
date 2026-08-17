@@ -315,3 +315,41 @@ executou 150 testes, com 142 aprovados, 8 pulados e zero falhas.
 Classificação: `integrated_idempotency_validated`. Próximo gate único:
 autorização humana específica para testar mudança controlada da fixture
 fictícia (update, tombstone, restore e reorder).
+
+## Ciclo integrado de mudanças da fixture fictícia no staging em 2026-08-17
+
+Quatro cenários foram executados um por vez, cada um após confirmação humana e
+nova leitura Google somente de leitura. O update controlado gerou exatamente
+um evento update e incrementou uma única versão de 1 para 2. A remoção de outra
+identidade gerou um tombstone, preservando o estado e mantendo nulos os três
+campos históricos exigidos. A restauração da mesma identidade foi reconhecida
+como restore, não como inserção, e avançou sua versão de 2 para 3.
+
+A reordenação física posterior gerou cinco registros inalterados, nenhum evento
+adicional e nenhum incremento de versão. O estado final agregado é 5 estados,
+8 eventos e 6 runs aplicados: 5 inserts, 1 update, 1 tombstone e 1 restore;
+as versões são 3, 1 e 1 por distribuição, sem tombstone ativo e com
+`import_errors=0`. Migrations permanecem 3/3, RLS continua nas seis tabelas,
+policies permanecem em zero e lint está verde. Nenhum schema, grant, policy ou
+configuração privada foi alterado.
+
+Classificação: `integrated_change_cycle_validated`. Próximo gate único:
+autorizar um teste controlado de schema drift da fixture fictícia.
+
+## Checkpoint parcial de schema drift no staging em 2026-08-17
+
+A baseline atual da fixture foi reconhecida por leitura read-only: 5 linhas, 7
+colunas, fingerprint sanitizado equivalente e dry-run com 5 inalterados. A
+política integrada compara schema sob advisory lock antes de `sync_run`, eventos
+ou estado raw; adição, remoção e rename incerto são bloqueantes, não aprovam ou
+sobrescrevem a baseline e deduplicam requests pendentes idênticas. Reorder de
+headers é potencialmente compatível porque o parser mapeia valores por nome
+normalizado; header duplicado é rejeitado pelo leitor antes da transação.
+
+Coluna adicionada, removida e rename foram detectados e bloqueados sem alteração
+de negócio. Eles produziram três `schema_change_requests` pendentes distintas.
+Após cada restauração a fixture retornou a 7 colunas e 5 inalterados, sem sync
+criada. O checkpoint final permanece com 5 estados, 8 eventos, 6 runs, zero
+erros e eventos 5/1/1/1 por tipo.
+
+Próximo gate único: cenário D, reorder controlado de headers.

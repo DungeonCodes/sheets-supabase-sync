@@ -8,6 +8,7 @@ from typing import Sequence
 from .errors import ErrorCode, SyncError
 from .observability import log_event
 from .raw_repository import RawStateRepository
+from .raw_schema import RawSchema, compare_raw_schemas
 from .raw_sync import RawChangePlan, RawInputRow, RawSnapshot, RawSyncSource, build_raw_snapshot, compare_raw_snapshots
 
 
@@ -60,6 +61,14 @@ class RawSynchronizationService:
         run_attempted = False
         try:
             self._repository.prepare_source(source)
+            baseline_schema = self._repository.load_schema(source.source_hash)
+            proposed_schema = RawSchema.from_header(header)
+            if baseline_schema is not None:
+                schema_change = compare_raw_schemas(baseline_schema, proposed_schema)
+                if schema_change.is_blocking:
+                    self._repository.record_schema_change(schema_change)
+                    self._repository.complete()
+                    raise SyncError(ErrorCode.SCHEMA, "Schema da fonte divergiu; revisao humana obrigatoria")
             previous = self._repository.load_snapshot(source.source_hash, tuple(header), read_at)
             plan = compare_raw_snapshots(snapshot, previous)
             run_attempted = True

@@ -214,3 +214,28 @@ proximo checkpoint unico: conectividade direta para o adaptador transacional.
 
 Classificação: `integrated_idempotency_validated`. Próximo gate único: autorização
 específica para testar uma mudança controlada da fixture fictícia.
+
+## Checkpoint de ciclo de mudanças no staging em 2026-08-17
+
+| Cenário | Resultado | Evidência agregada |
+| --- | --- | --- |
+| Update | aprovado | 1 update; mesma identidade; versão 1 para 2 |
+| Tombstone | aprovado | 1 tombstone; estado preservado e campos históricos nulos |
+| Restore | aprovado | 1 restore; mesma identidade; versão 2 para 3 |
+| Reorder | aprovado | 5 unchanged; zero evento e zero incremento de versão |
+| Integridade | aprovado | 5 estados, 8 eventos, 6 runs aplicados, zero import_errors, migrations 3/3 e lint verde |
+
+Classificação: `integrated_change_cycle_validated`. Próximo gate único:
+autorização específica para schema drift controlado da fixture fictícia.
+
+## Checkpoint parcial de schema drift em 2026-08-17
+
+| Cenário | Resultado | Evidência agregada |
+| --- | --- | --- |
+| Coluna adicionada | aprovado | 7→8, bloqueio seguro e uma request pendente |
+| Coluna removida | aprovado | 7→6, bloqueio antes de diff e request distinta |
+| Rename | aprovado | drift genérico, sem equivalência automática e request distinta |
+| Restaurações | aprovado | baseline 7 colunas, 5 unchanged e sem sync extra |
+| Negócio | preservado | 5 estados, 8 eventos, 6 runs e zero import_errors |
+
+Próximo gate único: reorder controlado de headers.

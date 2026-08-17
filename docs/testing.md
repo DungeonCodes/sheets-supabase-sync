@@ -111,3 +111,19 @@ agregada remota confirmou versões 1, zero tombstones e `import_errors=0`.
 Após o gate, a suíte executou 150 testes: 142 aprovados, 8 pulados e zero
 falhas; os testes PostgreSQL locais e o teste Google opt-in não foram
 habilitados nesta execução de suíte.
+
+## Ciclo de mudanças integrado no staging em 2026-08-17
+
+O staging comprovou update, tombstone, restore e reorder com a fixture fictícia
+e leituras Google read-only separadas. Os planos foram, respectivamente, 1
+changed, 1 removed, 1 restored e 5 unchanged. O reorder não criou evento nem
+incrementou versão. O estado agregado final é 5 estados, 8 eventos (5/1/1/1 por
+tipo), 6 runs aplicados e zero erros. Migrations 3/3 e lint permaneceram verdes.
+
+## Checkpoint parcial de schema drift em 2026-08-17
+
+Testes locais cobrem bloqueio de coluna adicionada antes de mutação raw,
+deduplicação de request e reorder compatível por mapeamento por nome. No staging,
+coluna adicionada, removida e rename foram bloqueados um por vez; nenhuma
+mudança criou evento raw, versão nova, tombstone falso ou `sync_run`. A fixture
+restaurada retornou a 5 linhas, 7 colunas e dry-run com 5 inalterados.

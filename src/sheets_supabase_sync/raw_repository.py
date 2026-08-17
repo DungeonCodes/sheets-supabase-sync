@@ -10,6 +10,7 @@ import psycopg
 
 from .errors import ErrorCode, SyncError
 from .raw_state import RawCurrentRow, RawStateOperation, apply_state_command, history_change_type, plan_state_commands
+from .raw_schema import RawSchema, RawSchemaChange
 from .raw_sync import RawChangePlan, RawRecord, RawSnapshot, RawSyncSource, compute_snapshot_hash
 
 
@@ -47,6 +48,10 @@ class RawStateRepository(Protocol):
     def release(self, source_hash: str) -> None: ...
 
     def prepare_source(self, source: RawSyncSource) -> None: ...
+
+    def load_schema(self, source_hash: str) -> RawSchema | None: ...
+
+    def record_schema_change(self, change: RawSchemaChange) -> None: ...
 
     def load_snapshot(
         self,
@@ -95,6 +100,7 @@ class InMemoryRawStateRepository:
         self._sources: dict[str, _StoredSource] = {}
         self._checkpoints: dict[str, _Checkpoint] = {}
         self._history: list[RawHistoryEntry] = []
+        self._schema_changes: list[RawSchemaChange] = []
         self._locks: set[str] = set()
         self._runs: dict[str, str] = {}
         self._next_run = 1
@@ -114,6 +120,17 @@ class InMemoryRawStateRepository:
 
     def prepare_source(self, source: RawSyncSource) -> None:
         return None
+
+    def load_schema(self, source_hash: str) -> RawSchema | None:
+        stored = self._sources.get(source_hash)
+        return RawSchema.from_header(stored.header) if stored else None
+
+    def record_schema_change(self, change: RawSchemaChange) -> None:
+        if change not in self._schema_changes:
+            self._schema_changes.append(change)
+
+    def schema_changes(self) -> tuple[RawSchemaChange, ...]:
+        return tuple(self._schema_changes)
 
     def load_snapshot(
         self,
@@ -242,7 +259,31 @@ class PostgresRawRepository:
                 json.dumps(source.business_key),
             ),
         )
-        self._data_source_id = str(cursor.fetchone()[0])
+        returned = cursor.fetchone()
+        if returned is None:
+            cursor.execute(self.find_source_sql(), (source.spreadsheet_id, source.sheet_name))
+            returned = cursor.fetchone()
+        self._data_source_id = str(returned[0])
+
+    def load_schema(self, source_hash: str) -> RawSchema | None:
+        cursor = self._cursor()
+        cursor.execute(self.load_current_state_sql(), (self._require_source_id(),))
+        rows = cursor.fetchall()
+        if not rows:
+            return None
+        headers = {tuple(sorted((payload or {}).keys())) for _, _, _, _, _, payload in rows}
+        if len(headers) != 1:
+            raise SyncError(ErrorCode.SCHEMA, "Estado raw nao possui schema baseline consistente")
+        return RawSchema(next(iter(headers)))
+
+    def record_schema_change(self, change: RawSchemaChange) -> None:
+        self._cursor().execute(
+            self.record_schema_change_sql(),
+            (
+                self._require_source_id(), change.change_type, json.dumps(change.previous.as_json()), json.dumps(change.proposed.as_json()),
+                self._require_source_id(), change.change_type, json.dumps(change.previous.as_json()), json.dumps(change.proposed.as_json()),
+            ),
+        )
 
     def load_snapshot(
         self,
@@ -375,7 +416,17 @@ class PostgresRawRepository:
         return (
             "INSERT INTO public.data_sources (name, spreadsheet_id, sheet_name, target_table, business_key) "
             "VALUES (%s, %s, %s, %s, %s::jsonb) "
-            "ON CONFLICT (spreadsheet_id, sheet_name) DO UPDATE SET updated_at = now() RETURNING id"
+            "ON CONFLICT (spreadsheet_id, sheet_name) DO NOTHING RETURNING id"
+        )
+
+    @staticmethod
+    def record_schema_change_sql() -> str:
+        return (
+            "INSERT INTO public.schema_change_requests (data_source_id, change_type, previous_schema, proposed_schema) "
+            "SELECT %s, %s, %s::jsonb, %s::jsonb "
+            "WHERE NOT EXISTS (SELECT 1 FROM public.schema_change_requests "
+            "WHERE data_source_id = %s AND change_type = %s AND previous_schema = %s::jsonb "
+            "AND proposed_schema = %s::jsonb AND status = 'pending')"
         )
 
     @staticmethod
