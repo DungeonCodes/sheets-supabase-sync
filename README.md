@@ -30,11 +30,11 @@ remotas são gates humanos controlados, e RLS/grants permanecem restritivos.
 - identidade lógica, versionamento e histórico event-only;
 - transação PostgreSQL, advisory xact lock, rollback e Session Pooler;
 - migrations 3/3, RLS/grants restritivos e `import_errors=0` nos gates validados;
-- schema drift bloqueante para coluna adicionada, coluna removida e rename incerto.
+- schema drift validado: coluna adicionada/removida e rename bloqueados; reorder de headers compatível; header duplicado rejeitado pelo leitor.
 
 ### Em andamento
 
-- concluir o gate de schema drift: reorder de headers e header duplicado.
+- falhas/retry operacional e observabilidade inicial.
 
 ### Pendente
 

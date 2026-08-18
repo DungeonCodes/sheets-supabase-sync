@@ -127,3 +127,13 @@ deduplicação de request e reorder compatível por mapeamento por nome. No stag
 coluna adicionada, removida e rename foram bloqueados um por vez; nenhuma
 mudança criou evento raw, versão nova, tombstone falso ou `sync_run`. A fixture
 restaurada retornou a 5 linhas, 7 colunas e dry-run com 5 inalterados.
+
+## Gate completo de schema drift em 2026-08-18
+
+Com a fixture fictícia, reorder de headers preservou 5 identidades e produziu
+dry-run com 5 `unchanged`, sem evento, incremento de versão, request de schema
+ou `sync_run`. A associação foi validada por nomes normalizados de header e
+hashes de negócio, não pela posição física. Header duplicado foi rejeitado pelo
+leitor read-only com categoria `schema`, antes de qualquer transação. Após a
+restauração, a baseline retornou a 5 linhas, 7 colunas, fingerprint equivalente
+e 5 inalterados; os testes locais permaneceram verdes.

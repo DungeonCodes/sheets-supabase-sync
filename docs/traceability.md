@@ -50,11 +50,11 @@ fixture fictícia foram validados um por vez no staging. A identidade lógica fo
 preservada em todos os cenários; o reorder não gerou evento nem versão nova.
 O pipeline raw persistido permanece `validated` para esse ciclo controlado.
 
-Checkpoint parcial de schema drift: a política integrada foi validada para
-adição, remoção e rename de header no staging. Cada drift bloqueou a ingestão
-antes de qualquer mutação raw e registrou request operacional pendente; a
-baseline restaurada permanece equivalente. Reorder e header duplicado seguem
-como próximos cenários controlados.
+Checkpoint completo de schema drift: a política integrada bloqueou adição,
+remoção e rename de header antes de qualquer mutação raw e registrou requests
+operacionais pendentes. Reorder foi compatível por mapeamento por nome, sem
+evento ou versão nova; header duplicado foi rejeitado pelo leitor antes da
+transação. A baseline restaurada permanece equivalente.
 | Staging/Star Schema/BI | inexistente | nenhuma evidência | `planned` |
 | E-mail e scheduler implantado | regras/configuração parciais | nenhum transporte/provider | `planned` |
 

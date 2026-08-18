@@ -353,3 +353,22 @@ criada. O checkpoint final permanece com 5 estados, 8 eventos, 6 runs, zero
 erros e eventos 5/1/1/1 por tipo.
 
 Próximo gate único: cenário D, reorder controlado de headers.
+
+## Gate completo de schema drift no staging em 2026-08-18
+
+Após os cenários já bloqueados de coluna adicionada, removida e rename, o
+reorder temporário de headers foi lido em modo read-only e tratado como
+semanticamente compatível. O plano permaneceu com 5 inalterados e zero eventos;
+identidades, hashes de conteúdo e versões de negócio foram preservados porque o
+leitor associa valores por header normalizado, não por posição física. Nenhuma
+`schema_change_request`, `sync_run`, linha raw ou baseline foi criada/alterada.
+
+O cenário de header duplicado falhou no leitor com categoria sanitizada de
+schema, antes de dry-run, transação ou acesso PostgreSQL. Após a restauração da
+fixture, nova leitura e dry-run read-only retornaram 5 linhas, 7 colunas,
+fingerprint equivalente e 5 inalterados. O estado final é 5 estados, 8 eventos,
+6 runs, 3 requests pendentes e zero erros; eventos permanecem 5/1/1/1 por tipo
+e não há tombstone ativo. Nenhuma escrita de negócio ocorreu neste gate.
+
+Classificação: `schema_drift_validated`. Próximo gate único: falha/retry
+operacional controlado, sob autorização humana específica.

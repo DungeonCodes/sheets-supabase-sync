@@ -4,7 +4,7 @@ Fonte oficial: [`docs/decisions/20260806_inicie_etl_clientes_orientacao.md`](../
 
 Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inalterada. Os resumos abaixo preservam sua terminologia e transformam afirmações e perguntas verificáveis em 40 requisitos estáveis.
 
-Atualização de 2026-08-17: os checkpoints posteriores validaram o pipeline raw no staging com fixture fictícia para carga inicial, idempotência, update, tombstone, restore e reorder de linhas, com migrations 3/3. Schema drift de coluna adicionada/removida e rename foi bloqueado antes de persistência; reorder de headers e header duplicado permanecem pendentes. Entradas cronológicas anteriores que tratem a migration ou persistência como futuras devem ser lidas como histórico superado.
+Atualização de 2026-08-18: os checkpoints posteriores validaram o pipeline raw no staging com fixture fictícia para carga inicial, idempotência, update, tombstone, restore, reorder de linhas e migrations 3/3. Schema drift de coluna adicionada/removida e rename foi bloqueado antes de persistência; reorder de headers foi compatível por mapeamento por nome e header duplicado foi rejeitado pelo leitor. Entradas cronológicas anteriores que tratem a migration ou persistência como futuras devem ser lidas como histórico superado.
 
 ## Regras de classificação
 
@@ -33,13 +33,13 @@ staging. Foram preservadas as identidades, as versões corretas e a ausência de
 eventos por reorder; o alcance ainda exclui schema drift, carga multi-fonte,
 retenção e BI.
 
-## Checkpoint parcial de schema drift em 2026-08-17
+## Checkpoint completo de schema drift em 2026-08-18
 
-Para `PROC-01`, a integração agora bloqueia no staging headers adicionados,
-removidos ou renomeados sem aprovação humana. Três requests pendentes distintas
-foram registradas sem eventos de negócio, alterações de versão ou tombstones;
-a fixture retornou à baseline. Reorder e header duplicado continuam pendentes
-de checkpoint humano separado.
+Para `PROC-01`, a integração bloqueia no staging headers adicionados, removidos
+ou renomeados sem aprovação humana. Três requests pendentes distintas foram
+registradas sem eventos de negócio, alterações de versão ou tombstones. Reorder
+de headers preservou cinco inalterados sem request adicional; header duplicado
+foi rejeitado pelo leitor antes da transação. A fixture retornou à baseline.
 
 ## 1. Objetivo geral
 

@@ -2,7 +2,7 @@
 
 ## Estado atual do checkpoint
 
-Os gates integrados de carga inicial, idempotência, update, tombstone, restore e reorder de linhas foram validados no staging exclusivamente com a fixture fictícia. Migrations permanecem 3/3. No gate de schema drift, coluna adicionada/removida e rename foram bloqueados antes de persistência; reorder de headers e header duplicado são os únicos cenários ainda pendentes. As seções cronológicas abaixo preservam checkpoints históricos e não anulam este estado atual.
+Os gates integrados de carga inicial, idempotência, update, tombstone, restore e reorder de linhas foram validados no staging exclusivamente com a fixture fictícia. Migrations permanecem 3/3. No gate de schema drift, coluna adicionada/removida e rename foram bloqueados antes de persistência; reorder de headers foi compatível por mapeamento por nome e header duplicado foi rejeitado antes da transação. As seções cronológicas abaixo preservam checkpoints históricos e não anulam este estado atual.
 
 ## Regra obrigatória
 
