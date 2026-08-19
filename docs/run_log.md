@@ -113,3 +113,20 @@ Nenhuma escrita remota ocorreu e nenhum commit foi executado.
 
 Próximo gate único: revisão humana do DDL incremental e autorização explícita da Fase 2B. A Fase 2B
 não foi iniciada.
+
+## 2026-08-12 — gate de conectividade PostgreSQL bloqueado
+
+Foi repetida somente a preparação sanitizada do gate de conectividade PostgreSQL, sem abrir conexão,
+executar SQL, acessar Google, sincronizar ou alterar `.env.local`. O mecanismo da aplicação
+(`load_environment`) requer `.env.local` na raiz; o arquivo não estava presente e não havia variáveis
+de processo correspondentes para sobreposição. Assim, não foi possível confirmar se o endpoint era
+Direct ou Session Pooler, nem validar a porta 5432.
+
+O Python 3.12 disponível também não continha `psycopg` ou `psycopg-binary`, portanto a exigência
+`psycopg[binary]==3.3.4` não pôde ser satisfeita. Nenhuma conexão PostgreSQL foi aberta; não foram
+executados `SELECT`, `BEGIN`, locks, `ROLLBACK`, migrations ou comandos de escrita. Nenhum commit foi
+executado.
+
+Resultado: `blocked`. Próximo passo: restaurar a configuração privada local no caminho esperado e
+disponibilizar `psycopg[binary]==3.3.4` no ambiente Python da aplicação; então repetir exclusivamente
+este gate.
