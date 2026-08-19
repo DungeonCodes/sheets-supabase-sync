@@ -29,6 +29,10 @@ Escala qualitativa: probabilidade e impacto = baixa, média ou alta; severidade 
 
 ## Regras de manutenção
 
+R-23: ACK de `COMMIT` perdido pode fazer uma execução aplicada parecer falha. Mitigação: UUID cliente
+em `sync_runs.id`, `ambiguous_outcome`, nenhum retry cego e reconciliação por hash, contagens e
+eventos. Status: mitigação offline; PostgreSQL real pendente.
+
 - Atualizar probabilidade, impacto, sinais e status em todo gate de fase.
 - Risco crítico sem owner aceito e contingência testável impede encerramento da fase relacionada.
 - Eventos reais devem ser registrados de forma sanitizada em `docs/run_log.md`; dados pessoais, URLs completas e segredos não entram neste arquivo.

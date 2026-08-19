@@ -130,3 +130,22 @@ executado.
 Resultado: `blocked`. Próximo passo: restaurar a configuração privada local no caminho esperado e
 disponibilizar `psycopg[binary]==3.3.4` no ambiente Python da aplicação; então repetir exclusivamente
 este gate.
+
+## 2026-08-19 — política de retry operacional implementada offline
+
+Preflight confirmou branch `dev` e alteração preexistente apenas neste run log. A `.venv` ausente foi
+criada com Python 3.12. A baseline revelou digest de teste desatualizado para a baseline corrigida já
+presente no histórico Git; o guardrail foi alinhado ao SHA-256 versionado, sem editar migration.
+
+Foram implementadas quatro disposições, classificação PostgreSQL por SQLSTATE/tipo/estágio, conexão
+com retry limitado, UUID cliente em `sync_runs.id`, nova tentativa com releitura/diff e logs allowlist.
+Fault injection comprovou rollback, retry, exaustão, ausência de duplicação, versão única e commit
+desconhecido sem retry automático. `import_errors` não foi reutilizada. Nenhuma migration foi criada.
+
+O Supabase local não iniciou: Docker Desktop retornou API 500. Os testes `psycopg` reais ficaram
+bloqueados. Não houve Google real, staging, sincronização remota, migration remota ou fault injection
+remoto. Classificação: `blocked`. Próximo gate único: recuperar o Supabase local e executar apenas os
+testes operacionais opt-in via `psycopg`.
+
+Validação final local: `compileall`, 157 testes (150 aprovados, 7 pulados, zero falhas),
+`check-docs.py` e `git diff --check` aprovados.

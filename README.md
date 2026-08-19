@@ -125,3 +125,10 @@ O [documento oficial](docs/decisions/20260806_inicie_etl_clientes_orientacao.md)
 - [checkpoints de validação](docs/activity-3/validation-checkpoints.md).
 
 O estado técnico da baseline no staging foi reconciliado e validado somente por leitura em 2026-08-06. Após habilitação da Sheets API e correção da aba, a leitura real da fixture passou. A Fase 2A concluiu snapshot, diff e dry-run local de 5 linhas sem persistência. A migration incremental que cria o estado raw atual foi projetada, criada e validada offline em 2026-08-06, mas não foi aplicada e não foi executada em PostgreSQL real. A Fase 2B continua bloqueada até revisão humana do DDL e autorização explícita.
+
+## Falhas operacionais e retry
+
+A política separa `retryable`, `non_retryable`, `busy_deferred` e `ambiguous_outcome`. Google repete
+somente falhas transitórias suportadas, com limite, backoff, jitter, budget e `Retry-After`.
+PostgreSQL repete conexão transitória e conflitos `40001`/`40P01` por nova transação completa. Lock
+ocupado não espera nem cria execução. Perda de conexão durante `COMMIT` nunca dispara retry cego.

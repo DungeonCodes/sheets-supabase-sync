@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Mapping, Protocol
+from typing import Mapping, Protocol, Sequence
 
 from .errors import ErrorCode, SyncError
 from .raw_state import RawCurrentRow, RawStateOperation, apply_state_command, history_change_type, plan_state_commands
@@ -45,13 +45,15 @@ class RawStateRepository(Protocol):
 
     def load_snapshot(self, source_hash: str) -> RawSnapshot | None: ...
 
-    def start_run(self, source_hash: str, snapshot_hash: str) -> str: ...
+    def start_run(self, source_hash: str, snapshot_hash: str, execution_id: str) -> str: ...
 
     def append_history(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None: ...
 
-    def commit(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None: ...
+    def apply_plan(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None: ...
 
     def finish_run(self, run_id: str) -> None: ...
+
+    def commit_transaction(self, source_hash: str, run_id: str) -> None: ...
 
     def rollback(self, source_hash: str, run_id: str | None) -> None: ...
 
@@ -68,6 +70,7 @@ class _StoredSource:
 class _Checkpoint:
     source: _StoredSource | None
     history_length: int
+    runs: Mapping[str, str]
 
 
 class InMemoryRawStateRepository:
@@ -79,6 +82,9 @@ class InMemoryRawStateRepository:
         fail_on_history: bool = False,
         fail_on_commit: bool = False,
         fail_on_finish: bool = False,
+        fail_before_transaction_commit: bool = False,
+        lose_commit_ack: bool = False,
+        faults: Mapping[str, Sequence[SyncError]] | None = None,
     ) -> None:
         self._sources: dict[str, _StoredSource] = {}
         self._checkpoints: dict[str, _Checkpoint] = {}
@@ -86,10 +92,15 @@ class InMemoryRawStateRepository:
         self._locks: set[str] = set()
         self._runs: dict[str, str] = {}
         self._next_run = 1
+        self._started_execution_ids: list[str] = []
+        self._snapshot_loads = 0
         self._fail_on_start = fail_on_start
         self._fail_on_history = fail_on_history
         self._fail_on_commit = fail_on_commit
         self._fail_on_finish = fail_on_finish
+        self._fail_before_transaction_commit = fail_before_transaction_commit
+        self._lose_commit_ack = lose_commit_ack
+        self._faults = {stage: list(errors) for stage, errors in (faults or {}).items()}
 
     def try_acquire(self, source_hash: str) -> bool:
         if source_hash in self._locks:
@@ -101,6 +112,7 @@ class InMemoryRawStateRepository:
         self._locks.discard(source_hash)
 
     def load_snapshot(self, source_hash: str) -> RawSnapshot | None:
+        self._snapshot_loads += 1
         stored = self._sources.get(source_hash)
         if stored is None:
             return None
@@ -121,16 +133,18 @@ class InMemoryRawStateRepository:
     def run_status(self, run_id: str) -> str | None:
         return self._runs.get(run_id)
 
-    def start_run(self, source_hash: str, snapshot_hash: str) -> str:
-        self._checkpoints[source_hash] = _Checkpoint(deepcopy(self._sources.get(source_hash)), len(self._history))
+    def start_run(self, source_hash: str, snapshot_hash: str, execution_id: str) -> str:
+        self._checkpoints[source_hash] = _Checkpoint(deepcopy(self._sources.get(source_hash)), len(self._history), dict(self._runs))
+        self._inject("start")
         if self._fail_on_start:
             raise SyncError(ErrorCode.DATABASE, "Falha local simulada ao iniciar execucao")
-        run_id = f"run-{self._next_run}"
         self._next_run += 1
-        self._runs[run_id] = "running"
-        return run_id
+        self._started_execution_ids.append(execution_id)
+        self._runs[execution_id] = "running"
+        return execution_id
 
     def append_history(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None:
+        self._inject("history")
         if self._fail_on_history:
             raise SyncError(ErrorCode.DATABASE, "Falha local simulada ao registrar historico")
         for command in plan_state_commands(plan):
@@ -138,7 +152,8 @@ class InMemoryRawStateRepository:
             if change_type is not None:
                 self._history.append(RawHistoryEntry(run_id, command.record.key_hash, change_type, command.record.source_row_number))
 
-    def commit(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None:
+    def apply_plan(self, source_hash: str, run_id: str, plan: RawChangePlan) -> None:
+        self._inject("state")
         if self._fail_on_commit:
             raise SyncError(ErrorCode.DATABASE, "Falha local simulada antes do commit")
         stored = self._sources.setdefault(source_hash, _StoredSource(plan.snapshot.header, plan.snapshot.created_at))
@@ -150,9 +165,18 @@ class InMemoryRawStateRepository:
                 stored.payloads[key_hash] = dict(command.record.values)
 
     def finish_run(self, run_id: str) -> None:
+        self._inject("finish")
         if self._fail_on_finish:
             raise SyncError(ErrorCode.DATABASE, "Falha local simulada ao finalizar execucao")
         self._runs[run_id] = "applied"
+
+    def commit_transaction(self, source_hash: str, run_id: str) -> None:
+        self._inject("before_commit")
+        if self._fail_before_transaction_commit:
+            raise SyncError(ErrorCode.DATABASE_TRANSIENT, "Falha transitoria antes do commit", True)
+        self._checkpoints.pop(source_hash, None)
+        if self._lose_commit_ack:
+            raise SyncError(ErrorCode.AMBIGUOUS_OUTCOME, "Resultado do commit desconhecido")
 
     def rollback(self, source_hash: str, run_id: str | None) -> None:
         checkpoint = self._checkpoints.pop(source_hash, None)
@@ -163,8 +187,12 @@ class InMemoryRawStateRepository:
         else:
             self._sources[source_hash] = checkpoint.source
         del self._history[checkpoint.history_length :]
-        if run_id:
-            self._runs[run_id] = "failed"
+        self._runs = dict(checkpoint.runs)
+
+    def _inject(self, stage: str) -> None:
+        scheduled = self._faults.get(stage)
+        if scheduled:
+            raise scheduled.pop(0)
 
 
 class PostgresRawRepository:
@@ -193,8 +221,15 @@ class PostgresRawRepository:
     def start_run_sql() -> str:
         return (
             "INSERT INTO public.sync_runs "
-            "(data_source_id, status, snapshot_hash, schema_metadata) "
-            "VALUES (%s, 'running', %s, %s::jsonb) RETURNING id"
+            "(id, data_source_id, status, snapshot_hash, schema_metadata) "
+            "VALUES (%s, %s, 'running', %s, %s::jsonb) RETURNING id"
+        )
+
+    @staticmethod
+    def reconcile_run_sql() -> str:
+        return (
+            "SELECT status, snapshot_hash, inserted_rows, updated_rows, deleted_rows, restored_rows, unchanged_rows "
+            "FROM public.sync_runs WHERE id = %s AND data_source_id = %s"
         )
 
     @staticmethod

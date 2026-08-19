@@ -152,8 +152,27 @@ class GoogleReaderTests(unittest.TestCase):
         transport = FakeTransport(failures=[classify_http_error(503)])
         self.assertEqual(1, reader(transport).read("secret-id", "Fixture").retry_count)
 
+    def test_all_supported_server_errors_retry(self) -> None:
+        for status in (500, 502, 503, 504):
+            with self.subTest(status=status):
+                transport = FakeTransport(failures=[classify_http_error(status)])
+                self.assertEqual(1, reader(transport).read("secret-id", "Fixture").retry_count)
+
+    def test_permanent_http_errors_never_retry(self) -> None:
+        for status in (400, 401, 403, 404):
+            with self.subTest(status=status):
+                transport = FakeTransport(failures=[classify_http_error(status)])
+                with self.assertRaises(SyncError):
+                    reader(transport).read("secret-id", "Fixture")
+                self.assertEqual(1, len(transport.calls))
+
     def test_timeout_retries(self) -> None:
         error = SyncError(ErrorCode.TIMEOUT, "timeout", True)
+        transport = FakeTransport(failures=[error])
+        self.assertEqual(1, reader(transport).read("secret-id", "Fixture").retry_count)
+
+    def test_connection_error_retries(self) -> None:
+        error = SyncError(ErrorCode.NETWORK, "connection", True)
         transport = FakeTransport(failures=[error])
         self.assertEqual(1, reader(transport).read("secret-id", "Fixture").retry_count)
 
@@ -215,6 +234,23 @@ class GoogleReaderTests(unittest.TestCase):
         self.assertNotIn("spreadsheet-secret", output)
         self.assertNotIn("A-1", output)
         self.assertNotIn("codigo", output)
+
+    def test_retry_log_has_operational_allowlist(self) -> None:
+        logger = logging.getLogger("test.google.retry.fields")
+        transport = FakeTransport(failures=[classify_http_error(429, 2)])
+        instance = GoogleSheetsReader(
+            transport,
+            retry_policy=RetryPolicy(max_attempts=3, base_delay_seconds=1, max_delay_seconds=4, max_elapsed_seconds=20, jitter_ratio=0),
+            pause=lambda _: None,
+            random_value=lambda: 0,
+            logger=logger,
+        )
+        with self.assertLogs(logger, "INFO") as captured:
+            instance.read("spreadsheet-secret", "Fixture")
+        retry_line = next(line for line in captured.output if "google_sheet_retry" in line)
+        for field in ("operation", "attempt", "max_attempts", "error_category", "retryable", "backoff_ms", "duration_ms", "outcome"):
+            self.assertIn(field, retry_line)
+        self.assertNotIn("spreadsheet-secret", retry_line)
 
     def test_no_supabase_access_is_part_of_reader_boundary(self) -> None:
         transport = FakeTransport()

@@ -22,6 +22,9 @@ class ErrorCode(StrEnum):
     EMPTY_SHEET = "empty_sheet"
     VALIDATION = "validation"
     DATABASE = "database"
+    DATABASE_TRANSIENT = "database_transient"
+    BUSY = "busy"
+    AMBIGUOUS_OUTCOME = "ambiguous_outcome"
     INTERNAL = "internal"
 
 

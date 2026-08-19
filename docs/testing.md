@@ -67,3 +67,12 @@ instalada. O dry-run real da fixture foi repetido após a mudança e retornou 7 
 5 novas, 5 comandos de inserção de estado e zero persistidas.
 
 Em 2026-08-05, a baseline corrigida foi aplicada ao staging. Em 2026-08-06, `migration list`, `inspect db`, geração de tipos, consultas `SELECT` via Management API e Data API reconciliaram o estado: cinco tabelas vazias, 27 constraints, 14 índices, RLS e grants coerentes. O dump schema-only não rodou sem Docker, mas deixou de ser necessário para o catálogo porque `supabase db query --linked` permitiu as consultas somente de leitura. Os testes de integração local continuam pulados sem Docker e `psql`.
+
+## Retry operacional
+
+`tests/unit/test_operational_failures.py` cobre SQLSTATE, conexão, autenticação/configuração, busy,
+releitura e recálculo, rollback, exaustão, identidade estável, evento/versão únicos e commit ambíguo.
+Os testes Google cobrem 400/401/403/404 sem retry e 429/500/502/503/504/timeout/conexão com retry.
+
+`tests/integration/test_operational_postgres.py` usa `psycopg` em modo opt-in para lock e rollback.
+Em 2026-08-19 não executou porque o Docker Desktop respondeu erro 500 ao `supabase start`.

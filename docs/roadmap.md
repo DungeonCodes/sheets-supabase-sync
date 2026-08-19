@@ -29,3 +29,10 @@ versionamento, mas não foi aplicada e não foi executada em PostgreSQL real —
 estavam disponíveis. A Fase 2B de escrita controlada permanece bloqueada até a autorização.
 Decisões empresariais continuam em [open-decisions.md](activity-3/open-decisions.md); quase tempo
 real, BI ou ferramenta adicional não devem ser presumidos.
+
+## Checkpoint operacional de 2026-08-19
+
+A política de retry e commit ambíguo passou por fault injection offline. `sync_runs.id` pode ser
+gerado pelo cliente e reutilizado, portanto nenhuma migration nova foi criada. O gate segue aberto:
+o teste PostgreSQL real de lock/rollback não executou por erro 500 do Docker Desktop. Próximo gate
+único: recuperar o Supabase local e executar os testes `psycopg` opt-in.

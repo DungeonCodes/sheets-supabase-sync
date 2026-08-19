@@ -53,3 +53,10 @@ Nada disso declara a LGPD atendida. Base legal, política de retenção, minimiz
 procedimento de descarte continuam pendências abertas (R-06, `DQ-03`, `OBJ-03`).
 
 As migrations da PoC que continham remocao de estruturas existem somente como arquivos historicos `.sql.txt` e nao sao executaveis pelo Supabase CLI. A baseline aplicada nao contem operacoes destrutivas. Em 2026-08-05, somente essa baseline foi aplicada ao staging, sem seed ou dados. Em 2026-08-06, consultas `SELECT` ao catalogo confirmaram RLS nas cinco tabelas, zero policies, ausencia de acesso de `anon` e `authenticated`, grants esperados ao backend e zero linhas. Isso valida a fundacao fechada, mas nao implementa o RLS/RBAC hierarquico exigido para usuarios da futura camada analitica.
+
+## Retry e resultado desconhecido
+
+PostgreSQL usa SQLSTATE/tipo e estágio, não texto livre. Autenticação, autorização, configuração,
+schema, validação e dados inválidos não são repetidos. Conexão perdida durante `COMMIT` é
+`ambiguous_outcome`: não há rollback presumido nem retry cego. Logs usam allowlist e nunca incluem
+payload, células, senha, URL completa, token, Service Account ou Project Ref completo.

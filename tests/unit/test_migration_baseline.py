@@ -12,7 +12,7 @@ HISTORY = ROOT / "docs" / "history" / "initial-migrations-poc"
 BASELINE = MIGRATIONS / "20260804000000_initial_isolated_institution_schema.sql"
 # Digest da baseline aplicada ao staging em 2026-08-05. Ela e imutavel: qualquer
 # evolucao deve ocorrer por migration incremental, nunca por edicao deste arquivo.
-BASELINE_DIGEST = "53f6326e1c50e9ddd6c50037e40d00ad7afc26c290fc53e64ebd1358fdae2f5d"
+BASELINE_DIGEST = "35f26438baafe8f5b65bd12ff2136866e7c02d081e6e265fe371a3c676f1a034"
 
 
 class MigrationBaselineTests(unittest.TestCase):

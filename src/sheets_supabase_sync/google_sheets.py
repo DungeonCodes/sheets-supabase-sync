@@ -67,10 +67,12 @@ class GoogleSheetsReader:
         self._logger = logger or logging.getLogger(__name__)
         self._monotonic_clock = monotonic_clock
         self._retry_notices: list[RetryNotice] = []
+        self._source_prefix = "unknown"
 
     def read(self, spreadsheet_id: str, sheet_name: str, optional_range: str | None = None) -> SheetReadResult:
         started = self._monotonic_clock()
         self._retry_notices = []
+        self._source_prefix = deterministic_hash({"spreadsheet_id": spreadsheet_id, "sheet_name": sheet_name})[:12]
         metadata = self._with_retry(lambda: self._transport.get_metadata(spreadsheet_id, self._timeout_seconds))
         sheets = self._sheet_titles(metadata)
         if sheet_name not in sheets:
@@ -90,7 +92,7 @@ class GoogleSheetsReader:
             columns_read=len(result.header),
             empty_rows=result.empty_rows_ignored,
             retries=result.retry_count,
-            data_source_id=result.source_hash[:12],
+            data_source_id=self._source_prefix,
             duration_ms=result.duration_ms,
         )
         return result
@@ -101,11 +103,39 @@ class GoogleSheetsReader:
             kwargs["pause"] = self._pause
         if self._random_value is not None:
             kwargs["random_value"] = self._random_value
-        return retry(operation, **kwargs)
+        try:
+            return retry(operation, **kwargs)
+        except SyncError as error:
+            log_event(
+                self._logger,
+                "google_sheet_read_failed",
+                operation="google_read",
+                attempt=len(self._retry_notices) + 1,
+                max_attempts=self._retry_policy.max_attempts,
+                error_category=error.code.value,
+                retryable=error.retryable,
+                backoff_ms=0,
+                duration_ms=0,
+                outcome="failed",
+                data_source_id=self._source_prefix,
+            )
+            raise
 
     def _on_retry(self, notice: RetryNotice) -> None:
         self._retry_notices.append(notice)
-        log_event(self._logger, "google_sheet_retry", attempt=notice.attempt, error_code=notice.error_code, wait_ms=round(notice.wait_seconds * 1000))
+        log_event(
+            self._logger,
+            "google_sheet_retry",
+            operation="google_read",
+            attempt=notice.attempt,
+            max_attempts=notice.max_attempts,
+            error_category=notice.error_code,
+            retryable=True,
+            backoff_ms=round(notice.wait_seconds * 1000),
+            duration_ms=round(notice.elapsed_seconds * 1000),
+            outcome="retrying",
+            data_source_id=self._source_prefix,
+        )
 
     @staticmethod
     def _sheet_titles(metadata: dict[str, Any]) -> tuple[str, ...]:

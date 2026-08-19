@@ -115,3 +115,9 @@ Google Sheets fictício → Python → Supabase Raw → transformação SQL simp
 ```
 
 A fundação do staging permanece validada e nenhuma escrita ocorreu neste gate. A Fase 2A comprovou o dry-run contra a fixture real (5 novas, zero persistidas). Em 2026-08-06 a migration incremental de estado raw foi criada e validada offline, e o dry-run foi repetido com o mesmo resultado. O próximo passo único é **a revisão humana do DDL e a autorização de sua aplicação**; a Fase 2B permanece bloqueada até então.
+
+## Lacuna operacional de 2026-08-19
+
+A matriz, conexão limitada, rollback/retry, busy e commit ambíguo possuem testes offline. Faltam a
+execução PostgreSQL local real e um adaptador `psycopg` integrado no checkout atual; logo o gate não
+é considerado validado.
