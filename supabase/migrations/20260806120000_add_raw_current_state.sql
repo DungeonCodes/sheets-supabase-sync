@@ -60,7 +60,9 @@ create index raw_current_rows_last_run_idx
 
 alter table public.raw_current_rows enable row level security;
 
-revoke all on table public.raw_current_rows from anon, authenticated;
+-- O ambiente Supabase pode conceder privilegios padrao amplos a tabelas novas.
+-- Esta tabela tem contrato proprio de menor privilegio, independente desses defaults.
+revoke all privileges on table public.raw_current_rows from public, anon, authenticated, service_role;
 
 -- O backend recebe apenas leitura, insercao e atualizacao: a exclusao nesta camada
 -- e sempre logica e qualquer remocao fisica exige procedimento revisado por humano.

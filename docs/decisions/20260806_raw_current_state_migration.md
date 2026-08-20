@@ -67,3 +67,9 @@ separação é deliberada: uma carga idêntica não deve parecer uma alteração
   camada é sempre lógica e qualquer remoção física exige procedimento revisado.
 - Retenção, minimização e anonimização continuam decisões abertas; a nova tabela mantém payload
   bruto e, em produção, esse payload pode conter dados pessoais.
+
+## Decisão posterior
+
+A semântica de histórico por observação desta ADR foi substituída em 2026-08-11 pela ADR
+`20260811_raw_import_event_only_semantics.md`. O estado atual continua válido, mas o histórico passa
+a registrar somente insert/update/tombstone/restore; carga idêntica e reordenação não geram evento.

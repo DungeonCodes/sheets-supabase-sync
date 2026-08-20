@@ -1,7 +1,8 @@
 # Data
 
-Esta pasta é destinada a arquivos de entrada, planilhas, CSVs, bases brutas e dados sensíveis.
+`data/fixtures/` contém exclusivamente fixtures fictícias e sanitizadas, mantidas
+no Git para testes offline reproduzíveis.
 
-Por segurança, o conteúdo desta pasta é ignorado pelo Git.
-
-Não coloque dados sensíveis em commits.
+Todo o restante de `data/` é ignorado pelo Git. Nunca adicione planilhas reais,
+exports, dumps, bases brutas, dados operacionais ou PII. Credenciais também
+devem permanecer fora do repositório.

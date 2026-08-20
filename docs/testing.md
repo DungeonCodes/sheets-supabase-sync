@@ -4,7 +4,7 @@ Os testes rapidos usam somente Python e fixtures deterministicas:
 
 ```powershell
 $env:PYTHONPATH = "$PWD\src"
-py -3.13 -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
 Categorias: `unit` cobre dominio, hashes, erros, retries, alertas e doctor; `contract` valida uma fonte sem depender do conector Google; `security` protege fronteiras; `integration` e `end_to_end` dependem de Supabase local; `performance` e opt-in.
@@ -13,10 +13,10 @@ Para o baseline de 10.000 linhas:
 
 ```powershell
 $env:RUN_SLOW_TESTS = '1'
-py -3.13 -m unittest tests.performance.test_small_baseline -v
+.\.venv\Scripts\python.exe -m unittest tests.performance.test_small_baseline -v
 ```
 
-Integracao Supabase requer Docker, Supabase local e `psql`; quando ausentes, os testes sao pulados com mensagem explicita. O leitor Google possui testes offline com transporte falso para configuração, schema, retry, `Retry-After`, sanitização e preservação de linhas. A prova real usa somente a fixture privada revisada e o comando abaixo; sem configuração ou confirmação humana, ela é pulada, não aprovada.
+Integração Supabase local requer Docker e Supabase CLI; os testes do repositório PostgreSQL usam a `.venv` e não exigem `psql` no host. Alguns testes end-to-end legados ainda verificam a presença de `psql` e são pulados com mensagem explícita quando ele não existe. O leitor Google possui testes offline com transporte falso para configuração, schema, retry, `Retry-After`, sanitização e preservação de linhas. A prova real usa somente a fixture privada revisada e o comando abaixo; sem configuração ou confirmação humana, ela é pulada, não aprovada.
 
 ```powershell
 $env:PYTHONPATH="$PWD\src"
@@ -27,7 +27,7 @@ Fixture esperada: uma aba privada compartilhada apenas como leitora, cabeçalho 
 
 Para habilitar o teste de integração, além das três configurações locais, o operador deve definir na sessão `RUN_GOOGLE_SHEETS_INTEGRATION=1` e `GOOGLE_TEST_DATA_CONFIRMED_FICTITIOUS=1` após a revisão humana. A ausência desses gates produz skip explícito.
 
-Checkpoint real de 2026-08-06: após habilitar a Sheets API e corrigir o nome da aba, o diagnóstico e o teste opt-in passaram. Foram lidas 7 colunas e 5 linhas fictícias; nenhum cabeçalho ou valor foi impresso. O 403 da tentativa anterior permanece como histórico; integrações Supabase/`psql` continuam fora desta fase.
+Checkpoint real de 2026-08-06: após habilitar a Sheets API e corrigir o nome da aba, o diagnóstico e o teste opt-in passaram. Foram lidas 7 colunas e 5 linhas fictícias; nenhum cabeçalho ou valor foi impresso. O 403 da tentativa anterior permanece como histórico. Checkpoints posteriores validaram a integração PostgreSQL no staging pelo Session Pooler; consulte as seções de 2026-08-13 e 2026-08-17.
 
 Fase 2A acrescenta testes offline para primeira carga, repetição idêntica, inserção, alteração, remoção, restauração, reordenação, chave vazia/duplicada, rollback local, falhas de início/commit/finalização, lock e comandos PostgreSQL parametrizados. O dry-run real lê a fixture e gera plano sem importar ou acessar Supabase.
 
@@ -76,3 +76,72 @@ Os testes Google cobrem 400/401/403/404 sem retry e 429/500/502/503/504/timeout/
 
 `tests/integration/test_operational_postgres.py` usa `psycopg` em modo opt-in para lock e rollback.
 Em 2026-08-19 não executou porque o Docker Desktop respondeu erro 500 ao `supabase start`.
+Follow-up de 2026-08-11: PostgreSQL local executou as duas migrations e validou DDL, constraints,
+idempotência, rollback e advisory lock com fixtures descartadas. A suíte offline permaneceu verde
+(141/136/0, 5 pulados); os opt-in existentes continuaram pulados pela ausência de `psql` no host.
+O gate de segurança reprovou: `service_role` tem DELETE efetivo em `raw_current_rows`; não há
+aprovação para staging até uma correção incremental e nova validação local.
+
+No follow-up de 2026-08-11, a própria migration pendente passou a revogar todos os privilégios
+preexistentes antes do grant mínimo. Após `supabase db reset` exclusivamente local, o catálogo e
+testes com `SET ROLE service_role` confirmaram SELECT/INSERT/UPDATE permitidos e
+DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN negados; a regressão raw, rollback e advisory lock
+também passou. A suíte offline permaneceu em 141 testes, 136 aprovados, 5 pulados e zero falhas.
+
+Deploy em 2026-08-11: o staging aplicou somente a migration incremental. Inspeção agregada
+read-only confirmou o mesmo catálogo e contratos de grant, sem linhas nas tabelas operacionais;
+lint remoto final passou. Nenhum teste de sincronização ou escrita de fixture foi iniciado.
+
+Checkpoint event-only de 2026-08-11: `scripts/test-integration.ps1` passou a usar o driver Python,
+sem depender de `psql` no host. Três testes PostgreSQL locais cobrem ciclo completo, quatro pontos
+de rollback e concorrência. A suíte offline executou 150 testes (142 aprovados, 8 pulados); o opt-in
+PostgreSQL executou 3/3. O dry-run remoto lista somente a terceira migration.
+
+Deploy event-only em 2026-08-11: a terceira migration foi aplicada ao staging. Introspecao
+read-only confirmou CHECK, nulabilidade, UNIQUE logica, grants, RLS/policies e tabelas vazias.
+Nenhuma integracao Google foi executada.
+
+Gate integrado interrompido em 2026-08-11: a leitura read-only da fixture
+fictícia passou (5 linhas, 7 colunas, zero retries), e o dry-run gerou 5 novas
+identidades sem persistir. A abertura da conexão PostgreSQL direta ao staging
+falhou antes de iniciar transação ou lock. As contagens remotas permaneceram
+zero; não houve segunda sincronização. A suíte continuou em 150 testes, 142
+aprovados, 8 pulados e zero falhas.
+
+## Checkpoint integrado de staging em 2026-08-13
+
+Com Session Pooler na porta 5432 e `psycopg[binary] 3.3.4`, duas leituras
+independentes da fixture exclusivamente fictícia retornaram 5 linhas e 7
+colunas, sem retries. A primeira sincronização transacional criou 5 estados e
+5 eventos `insert`; a segunda encontrou 5 registros inalterados e não criou
+evento. As duas execuções usaram advisory transaction lock e commit. A prova
+agregada remota confirmou versões 1, zero tombstones e `import_errors=0`.
+Após o gate, a suíte executou 150 testes: 142 aprovados, 8 pulados e zero
+falhas; os testes PostgreSQL locais e o teste Google opt-in não foram
+habilitados nesta execução de suíte.
+
+## Ciclo de mudanças integrado no staging em 2026-08-17
+
+O staging comprovou update, tombstone, restore e reorder com a fixture fictícia
+e leituras Google read-only separadas. Os planos foram, respectivamente, 1
+changed, 1 removed, 1 restored e 5 unchanged. O reorder não criou evento nem
+incrementou versão. O estado agregado final é 5 estados, 8 eventos (5/1/1/1 por
+tipo), 6 runs aplicados e zero erros. Migrations 3/3 e lint permaneceram verdes.
+
+## Checkpoint parcial de schema drift em 2026-08-17
+
+Testes locais cobrem bloqueio de coluna adicionada antes de mutação raw,
+deduplicação de request e reorder compatível por mapeamento por nome. No staging,
+coluna adicionada, removida e rename foram bloqueados um por vez; nenhuma
+mudança criou evento raw, versão nova, tombstone falso ou `sync_run`. A fixture
+restaurada retornou a 5 linhas, 7 colunas e dry-run com 5 inalterados.
+
+## Gate completo de schema drift em 2026-08-18
+
+Com a fixture fictícia, reorder de headers preservou 5 identidades e produziu
+dry-run com 5 `unchanged`, sem evento, incremento de versão, request de schema
+ou `sync_run`. A associação foi validada por nomes normalizados de header e
+hashes de negócio, não pela posição física. Header duplicado foi rejeitado pelo
+leitor read-only com categoria `schema`, antes de qualquer transação. Após a
+restauração, a baseline retornou a 5 linhas, 7 colunas, fingerprint equivalente
+e 5 inalterados; os testes locais permaneceram verdes.

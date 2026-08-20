@@ -12,6 +12,7 @@ from uuid import uuid4
 from .errors import ErrorCode, SyncError
 from .observability import log_event
 from .raw_repository import RawStateRepository
+from .raw_schema import RawSchema, compare_raw_schemas
 from .raw_sync import RawChangePlan, RawInputRow, RawSnapshot, RawSyncSource, build_raw_snapshot, compare_raw_snapshots
 from .retries import RetryNotice, RetryPolicy, retry
 
@@ -105,14 +106,25 @@ class RawSynchronizationService:
             error = SyncError(ErrorCode.BUSY, "Fonte ja possui execucao em andamento")
             self._log(source, "raw_sync_deferred", "busy_deferred", plan=None, duration_ms=duration_ms, attempt=attempt, error=error)
             raise error
-        previous = self._repository.load_snapshot(source.source_hash)
         run_id: str | None = None
         run_attempted = False
         try:
-            plan = self.dry_run(source, header, rows, read_at, previous, duration_ms).plan
+            snapshot = build_raw_snapshot(source, header, rows, read_at)
+            self._repository.prepare_source(source)
+            baseline_schema = self._repository.load_schema(source.source_hash)
+            proposed_schema = RawSchema.from_header(header)
+            if baseline_schema is not None:
+                schema_change = compare_raw_schemas(baseline_schema, proposed_schema)
+                if schema_change.is_blocking:
+                    self._repository.record_schema_change(schema_change)
+                    self._repository.commit_transaction(source.source_hash, "")
+                    raise SyncError(ErrorCode.SCHEMA, "Schema da fonte divergiu; revisao humana obrigatoria")
+            previous = self._repository.load_snapshot(source.source_hash, tuple(header), read_at)
+            plan = compare_raw_snapshots(snapshot, previous)
             run_attempted = True
             run_id = self._repository.start_run(source.source_hash, plan.snapshot.snapshot_hash, execution_id)
             self._repository.append_history(source.source_hash, run_id, plan)
+            self._repository.set_active_plan(plan)
             self._repository.apply_plan(source.source_hash, run_id, plan)
             self._repository.finish_run(run_id)
             self._repository.commit_transaction(source.source_hash, run_id)

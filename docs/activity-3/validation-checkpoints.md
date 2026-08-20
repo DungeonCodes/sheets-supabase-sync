@@ -1,5 +1,9 @@
 # Checkpoints de validação da Atividade 3
 
+## Estado atual do checkpoint
+
+Os gates integrados de carga inicial, idempotência, update, tombstone, restore e reorder de linhas foram validados no staging exclusivamente com a fixture fictícia. Migrations permanecem 3/3. No gate de schema drift, coluna adicionada/removida e rename foram bloqueados antes de persistência; reorder de headers foi compatível por mapeamento por nome e header duplicado foi rejeitado antes da transação. As seções cronológicas abaixo preservam checkpoints históricos e não anulam este estado atual.
+
 ## Regra obrigatória
 
 **Nenhuma fase é considerada concluída apenas porque o código foi escrito.**
@@ -125,7 +129,7 @@ A Fase 1 pode ser encerrada no escopo da leitura da fixture privada fictícia. O
 | 8. Rollback | aprovado no alcance local | falha preserva snapshot local; nenhum remoto foi alterado |
 | 9. Validação humana | pendente | migration incremental e futura escrita exigem aprovação separada |
 
-A Fase 2A está concluída somente localmente. A Fase 2B está bloqueada pela incompatibilidade do schema raw atual; não criar ou aplicar migration é parte deste checkpoint.
+Naquele checkpoint de 2026-08-06, a Fase 2A estava concluída somente localmente e a Fase 2B permanecia bloqueada pela incompatibilidade do schema raw então existente. Esse estado foi superado pelos checkpoints integrados posteriores.
 
 ## Checkpoint da migration incremental de estado raw em 2026-08-06
 
@@ -141,8 +145,24 @@ A Fase 2A está concluída somente localmente. A Fase 2B está bloqueada pela in
 | 8. Rollback | aprovado no alcance local | falhas de histórico, de estado e de finalização preservam a versão anterior; nada foi alterado remotamente |
 | 9. Validação humana | pendente | revisão do DDL e autorização da aplicação não foram concedidas |
 
-A migration está criada e **não aplicada**. A Fase 2B permanece bloqueada; o gate 5 só poderá ser
-fechado com execução do DDL em PostgreSQL real.
+No estado documentado por este checkpoint de 2026-08-06, a migration estava criada e **não aplicada**. O bloqueio foi superado pelas aplicações e sincronizações controladas posteriores; consulte o estado atual no início deste documento.
+
+## Follow-up PostgreSQL local em 2026-08-11
+
+O DDL foi executado e testado em PostgreSQL local real: catálogo, PK/FKs/CHECKs, UNIQUE, RLS, zero
+policies, estados idempotentes, rollback e advisory lock concorrente passaram. As fixtures foram
+revertidas. A suíte offline passou (141 testes, 136 aprovados, 5 pulados) e o remoto em modo
+leitura/dry-run mostrou uma pendência e lint limpo. O gate continua **reprovado** porque
+`service_role` tem DELETE efetivo em `raw_current_rows`, contrário ao menor privilégio esperado.
+O aceite para staging requer uma migration incremental corretiva e repetição do teste de grants.
+
+## Correção de grants em 2026-08-11
+
+A mesma migration pendente foi corrigida (nenhuma terceira migration): REVOKE explícito removeu o
+ACL herdado de PUBLIC, anon, authenticated e service_role, seguido do grant mínimo. O reset local,
+as verificações de catálogo e testes por role aprovaram todos os privilégios positivos e negativos.
+Com regressão raw, suíte, lint e dry-run verdes, o gate local está **aprovado para staging**;
+permanece pendente apenas a autorização humana de aplicação.
 
 ## Resultado permitido do gate
 
@@ -151,3 +171,74 @@ fechado com execução do DDL em PostgreSQL real.
 - **Reprovado:** qualquer condição de bloqueio ocorreu. A fase permanece aberta.
 
 Skips de integração contam como informação, não como aprovação do comportamento pulado. Evidência documental de execução anterior não substitui repetição quando o ambiente ou requisito mudou.
+
+## Deploy da migration incremental no staging em 2026-08-11
+
+Com autorização humana, somente `20260806120000_add_raw_current_state.sql` foi aplicada. O
+histórico ficou convergente e a inspeção read-only confirmou DDL, constraints, RLS, zero policies,
+grants mínimos e tabelas operacionais vazias. A Fase 2B não foi executada; seu próximo gate é uma
+sincronização controlada de fixture exclusivamente fictícia, sob autorização separada.
+
+## Gate event-only local em 2026-08-11
+
+A terceira migration, o driver Python e a unidade transacional passaram no Supabase local. O diff
+definitivo ocorre sob advisory lock; eventos e estado compartilham commit/rollback. Ciclo completo,
+quatro falhas controladas e concorrência por fonte passaram. O gate está aprovado para staging,
+mas nenhuma migration ou sincronização foi aplicada remotamente nesta etapa.
+
+## Deploy validado no staging: migration event-only (2026-08-11)
+
+Foi aplicado exclusivamente `20260811150000_make_raw_import_event_only.sql`.
+O historico remoto/local ficou em 3/3, sem pendencias ou divergencias. A
+introspecao de catalogo confirmou o schema event-only, a UNIQUE logica, a
+ausencia da UNIQUE por posicao, RLS e grants sem regressao. As tabelas
+operacionais estavam vazias; nao houve leitura Google, fixture ou DML de dados.
+
+Classificacao: `deployed_validated`. Proximo checkpoint: primeira
+sincronizacao integrada controlada da fixture ficticia.
+
+## Integracao Google para staging interrompida (2026-08-11)
+
+Fixture ficticia lida com 5 linhas e 7 colunas; dry-run com 5 novos estados e
+5 eventos insert. A conexao PostgreSQL direta falhou antes de lock e
+transacao. Contagens remotas seguiram zeradas. Classificacao: `blocked`;
+proximo checkpoint unico: conectividade direta para o adaptador transacional.
+
+## Checkpoint de idempotência integrada no staging em 2026-08-13
+
+| Gate | Resultado | Evidência sanitizada |
+| --- | --- | --- |
+| Leitura Google | aprovado | duas leituras read-only da fixture fictícia: 5 linhas, 7 colunas e zero retries |
+| Primeira sincronização | aprovado | 1 fonte, 1 run aplicado, 5 estados novos e 5 eventos insert |
+| Repetição idêntica | aprovado | 2 runs aplicados; 5 unchanged, zero novos eventos e versões preservadas em 1 |
+| Atomicidade | aprovado | `psycopg`, Session Pooler, transação, advisory xact lock, diff sob lock e commit no caminho da aplicação |
+| Integridade | aprovado | `import_errors=0`, tombstones/update/restore=0, RLS nas 6 tabelas e zero policies |
+| Schema e regressão | aprovado | migrations 3/3 sem pendência/divergência, lint verde e 150 testes com 142 aprovados/8 pulados |
+
+Classificação: `integrated_idempotency_validated`. Próximo gate único: autorização
+específica para testar uma mudança controlada da fixture fictícia.
+
+## Checkpoint de ciclo de mudanças no staging em 2026-08-17
+
+| Cenário | Resultado | Evidência agregada |
+| --- | --- | --- |
+| Update | aprovado | 1 update; mesma identidade; versão 1 para 2 |
+| Tombstone | aprovado | 1 tombstone; estado preservado e campos históricos nulos |
+| Restore | aprovado | 1 restore; mesma identidade; versão 2 para 3 |
+| Reorder | aprovado | 5 unchanged; zero evento e zero incremento de versão |
+| Integridade | aprovado | 5 estados, 8 eventos, 6 runs aplicados, zero import_errors, migrations 3/3 e lint verde |
+
+Classificação: `integrated_change_cycle_validated`. Próximo gate único:
+autorização específica para schema drift controlado da fixture fictícia.
+
+## Checkpoint parcial de schema drift em 2026-08-17
+
+| Cenário | Resultado | Evidência agregada |
+| --- | --- | --- |
+| Coluna adicionada | aprovado | 7→8, bloqueio seguro e uma request pendente |
+| Coluna removida | aprovado | 7→6, bloqueio antes de diff e request distinta |
+| Rename | aprovado | drift genérico, sem equivalência automática e request distinta |
+| Restaurações | aprovado | baseline 7 colunas, 5 unchanged e sem sync extra |
+| Negócio | preservado | 5 estados, 8 eventos, 6 runs e zero import_errors |
+
+Próximo gate único: reorder controlado de headers.

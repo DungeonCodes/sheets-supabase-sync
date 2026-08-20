@@ -1,8 +1,10 @@
 # Seguranca
 
-`.env` e dados de `data/` sao ignorados pelo Git. Use apenas `.env.example` como referencia e jamais inclua tokens, senhas, URLs privadas ou dados pessoais em artefatos versionados. A varredura de artefatos bloqueia padroes comuns de segredo.
+`.env` e dados operacionais de `data/` são ignorados pelo Git; somente fixtures fictícias em `data/fixtures/` são versionadas. Use apenas `.env.example` como referência e jamais inclua tokens, senhas, URLs privadas ou dados pessoais em artefatos versionados. A varredura de artefatos bloqueia padrões comuns de segredo.
 
-O `service_role` pertence exclusivamente ao backend e nunca ao cliente. Cada instituicao usa credenciais de backend separadas para seu proprio projeto Supabase; nao existe multitenancy no banco. RLS esta habilitado nas tabelas, sem policies permissivas nesta fase. O aplicador exige `apply-local`, URL explicita e `psql`; aceita somente loopback, salvo host de desenvolvimento explicitamente permitido. A URL nunca e registrada. Nao ha `DROP TABLE`, `DELETE` fisico, `DROP COLUMN`, renomeacao, relacionamento entre tabelas espelho ou conversao destrutiva automatica: todos viram pendencias humanas.
+Metadados locais gerados pelo Supabase CLI em `supabase/.temp/` e `supabase/.branches/` também são ignorados. Metadados não autenticáveis de staging existem apenas em commits históricos anteriores; o saneamento de histórico foi deliberadamente adiado e não autoriza novo versionamento.
+
+O `service_role` pertence exclusivamente ao backend e nunca ao cliente. Cada instituição usa credenciais de backend separadas para seu próprio projeto Supabase; não existe multitenancy no banco. RLS está habilitado nas tabelas, sem policies permissivas nesta fase. O adaptador transacional recebe uma conexão `psycopg` injetada; no staging autorizado ela usa Session Pooler, e a URL nunca é registrada. Não há `DROP TABLE`, `DELETE` físico, `DROP COLUMN`, renomeação, relacionamento entre tabelas espelho ou conversão destrutiva automática: todos viram pendências humanas.
 
 ## Google Sheets na Fase 1
 
@@ -16,22 +18,36 @@ O `service_role` pertence exclusivamente ao backend e nunca ao cliente. Cada ins
 
 A baseline ativa revoga acesso das funcoes `anon` e `authenticated` as tabelas operacionais e concede acesso ao backend privilegiado. Isso nao substitui a revisao de grants e policies antes de qualquer exposicao ao frontend. `raw_import_rows` pode conter dados pessoais brutos; politica de retencao, minimizacao e descarte ainda precisa ser definida antes do piloto.
 
-Na Fase 2A, payload raw permanece somente em memória no dry-run. Hashes de chave e conteúdo não são logados integralmente e não substituem proteção de PII. Nenhuma escrita raw é permitida até que retenção, minimização e a migration incremental de estado/tombstone sejam revisadas.
+No dry-run, payload raw permanece somente em memória. Nos gates integrados autorizados, apenas a fixture fictícia foi persistida no staging. Hashes de chave e conteúdo não são logados integralmente e não substituem proteção de PII. Retenção, minimização e LGPD continuam pendências antes de qualquer uso com dados reais.
 
 ## Estado raw atual e LGPD
 
 A migration incremental `20260806120000_add_raw_current_state.sql` foi criada, validada localmente e
-**não aplicada**. Ela repete o padrão de segurança da baseline: RLS habilitado, nenhuma policy,
+aplicada ao staging em 2026-08-11. Ela repete o padrão de segurança da baseline: RLS habilitado, nenhuma policy,
 `anon` e `authenticated` sem qualquer grant e acesso restrito ao backend. O `service_role` recebe
 `select, insert, update` e **não** recebe `delete`, porque a exclusão nesta camada é sempre lógica;
 remoção física exige procedimento revisado por humano. Nenhum payload raw é exposto ao frontend e
 o RLS/RBAC hierárquico para dashboards continua fora desta fase.
 
+Follow-up de 2026-08-11: os default privileges locais do Supabase inicialmente concederam
+privilégios amplos a service_role. A migration incremental foi corrigida para revogar todos os
+privilégios em `raw_current_rows` de PUBLIC e das três roles antes do grant mínimo. Após reset
+local, testes reais confirmaram SELECT/INSERT/UPDATE permitidos somente para service_role e
+DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN negados; anon e authenticated seguem sem acesso.
+
+Em 2026-08-11, a migration corrigida foi aplicada ao staging. Consulta remota somente leitura
+confirmou os mesmos grants mínimos, RLS habilitado e zero policies em `raw_current_rows`; nenhuma
+linha foi inserida. Isso não substitui as pendências de retenção, LGPD e RBAC hierárquico.
+
+A terceira migration event-only, aplicada ao staging em 2026-08-11, reduz `raw_import_rows` a SELECT/INSERT para
+service_role e mantém anon/authenticated sem acesso e RLS sem policies. Tombstones não duplicam
+payload nem content hash. A conexão PostgreSQL é injetada e não aparece nos logs; eventos registram
+somente contagens/categorias sanitizadas.
+
 Análise de tratamento de dados, atualizada nesta etapa:
 
 - **PII em payload:** `raw_current_rows.payload_json` e `raw_import_rows.payload_json` guardam a
-  linha bruta. Em produção isso pode conter dados pessoais. A fixture atual é fictícia e nenhuma
-  linha foi persistida em qualquer ambiente.
+  linha bruta. Em produção isso pode conter dados pessoais. A fixture persistida nos gates atuais é exclusivamente fictícia.
 - **Retenção do histórico:** `raw_import_rows` cresce por execução e é o candidato natural a poda
   por idade. O limite ainda não foi decidido (R-04, OD em aberto).
 - **Retenção de tombstones:** uma linha excluída permanece indefinidamente em `raw_current_rows`
@@ -60,3 +76,9 @@ PostgreSQL usa SQLSTATE/tipo e estágio, não texto livre. Autenticação, autor
 schema, validação e dados inválidos não são repetidos. Conexão perdida durante `COMMIT` é
 `ambiguous_outcome`: não há rollback presumido nem retry cego. Logs usam allowlist e nunca incluem
 payload, células, senha, URL completa, token, Service Account ou Project Ref completo.
+Em 2026-08-11, a terceira migration event-only foi aplicada isoladamente ao
+staging. Introspecao somente-leitura confirmou que `raw_import_rows` manteve
+RLS sem policies e grants minimos (service_role somente SELECT/INSERT), sem
+ampliar acesso de anon ou authenticated. `raw_current_rows` manteve
+SELECT/INSERT/UPDATE para service_role e negacao dos privilegios elevados.
+Nenhum dado foi inserido e nenhuma integracao Google foi executada.

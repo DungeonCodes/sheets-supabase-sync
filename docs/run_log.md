@@ -149,3 +149,268 @@ testes operacionais opt-in via `psycopg`.
 
 Validação final local: `compileall`, 157 testes (150 aprovados, 7 pulados, zero falhas),
 `check-docs.py` e `git diff --check` aprovados.
+## 2026-08-11 — validação local PostgreSQL bloqueada durante provisionamento
+
+Os gates de ambiente passaram: Docker Client e Server 29.7.2, daemon Docker Desktop no backend
+Linux/WSL2 acessível, e Supabase CLI 2.90.0 disponível. `supabase start` foi executado apenas
+contra o ambiente local, mas excedeu 124 segundos sem concluir. A inspeção posterior mostrou seis
+imagens Supabase baixadas e nenhum container; em particular, `supabase_db_sheets-supabase-sync` não
+existia. Portanto, o bloqueio foi classificado como provisionamento/download incompleto de imagens,
+não como falha de migration, schema ou SQL.
+
+Nenhum reset, SQL local, acesso remoto, escrita no staging ou alteração de migration foi realizado.
+As fases de PostgreSQL real, testes automáticos opt-in e as verificações remotas read-only/dry-run
+não foram iniciadas, pois dependem de `supabase start` concluído.
+
+Próximo gate único: concluir `supabase start` local com o container de banco saudável e retomar a
+validação a partir da Fase 3.
+
+## 2026-08-11 — validação PostgreSQL local concluída, grant incompatível encontrado
+
+O provisionamento local anteriormente incompleto terminou com sucesso manualmente; PostgreSQL local
+ficou saudável. As migrations `20260804000000` e `20260806120000` foram confirmadas no catálogo
+local, na ordem esperada. O DDL, PK, duas FKs, UNIQUE, sete CHECKs, RLS habilitado e zero policies
+foram confirmados em PostgreSQL real. Fixtures exclusivamente fictícias, descartadas por rollback,
+comprovaram inserção, idempotência, alteração, tombstone, restauração, reordenação, rejeições
+de constraints/FK, rollback e advisory lock concorrente sem espera.
+
+Falha de gate: embora `anon` e `authenticated` não tenham acesso, `service_role` tem DELETE efetivo
+em `raw_current_rows`, além de SELECT/INSERT/UPDATE. A migration concede apenas os três últimos,
+mas não revoga privilégios preexistentes; portanto ela requer correção incremental antes de staging.
+
+A suíte offline passou com 141 testes, 136 aprovados, 5 pulados e zero falhas; os opt-in existentes
+para PostgreSQL permaneceram pulados porque `psql` não existe no host. `migration list`, `db lint
+--linked` e `db push --dry-run` foram executados somente em leitura/dry-run: duas migrations locais,
+uma remota, lint sem erro e somente a incremental pendente. Nenhuma escrita no staging, push, reset
+linked, repair ou commit foi executado.
+
+Classificação: `requires_changes`. Próximo gate único: revisar e aprovar uma nova migration
+incremental que revogue DELETE de `service_role`, depois repetir a validação local de grants.
+
+## 2026-08-11 — correção de menor privilégio na migration pendente
+
+O privilégio excessivo foi atribuído aos default privileges locais do ambiente Supabase: a tabela
+nova herdava `arwdDxtm` para `service_role`. Não houve membership de role, policy, função SECURITY
+DEFINER ou grant em outra migration que explicasse o acesso. A própria migration pendente
+`20260806120000_add_raw_current_state.sql` foi corrigida, sem terceira migration: ela agora revoga
+todos os privilégios de PUBLIC, anon, authenticated e service_role na tabela específica e concede
+somente SELECT/INSERT/UPDATE a service_role.
+
+`supabase db reset` executou apenas localmente e reaplicou baseline e incremental. No PostgreSQL
+real, service_role tem SELECT/INSERT/UPDATE e não tem DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN;
+anon e authenticated não têm acesso, RLS está habilitado e policies são zero. Testes sob
+service_role comprovaram as permissões positivas e as negações; fixtures foram revertidas. A
+regressão de ciclo raw, rollback e advisory lock passou. A suíte offline (141, 136 aprovados, 5
+pulados), lint e dry-run passaram; o remoto continua com somente esta migration pendente.
+
+Classificação: `approved_for_staging`. Nenhuma escrita no staging, push, repair ou commit ocorreu.
+Próximo gate único: aprovação humana para executar a migration pendente no staging.
+
+## 2026-08-11 — migration incremental aplicada ao staging
+
+Após gates finais verdes, `20260806120000_add_raw_current_state.sql` foi a única migration
+aplicada ao staging vinculado e permitido. O histórico ficou com duas migrations locais e duas
+remotas, sem pendência ou divergência. Inspeção remota somente leitura confirmou
+`raw_current_rows` com 14 colunas, PK, UNIQUE, duas FKs, oito CHECKs, os três índices previstos,
+RLS habilitado e zero policies.
+
+Os grants remotos efetivos agora são SELECT/INSERT/UPDATE apenas para service_role; DELETE,
+TRUNCATE, REFERENCES, TRIGGER e MAINTAIN são negados, assim como qualquer acesso para anon e
+authenticated. Contagens agregadas confirmaram zero linhas em `raw_current_rows` e nas demais
+tabelas operacionais; nenhum dado real ou fixture foi inserido. Lint final e suíte offline passaram.
+
+A Fase 2B de sincronização permanece não executada. Próximo gate único: sincronização
+controlada da fixture exclusivamente fictícia, após autorização humana própria.
+
+## 2026-08-11 — gate de primeira sincronização integrada requer mudanças
+
+A semântica aprovada para este gate define `raw_current_rows` como estado atual e
+`raw_import_rows` como histórico event-only: somente inserção, alteração, tombstone e
+restauração devem gerar eventos. A ADR `20260811_raw_import_event_only_semantics.md` registra que
+o schema aplicado não aceita `tombstone` em `change_type` e que o número de linha obrigatório por
+execução torna o evento inferido ambíguo em reordenações.
+
+Também foi confirmado que não há adaptador PostgreSQL executável nem caminho Google → banco:
+o repositório declara SQL, mas o serviço integrado persiste somente em memória. Assim, lock,
+transação, `sync_run` e rollback não podem ser comprovados para uma escrita remota. Nenhuma leitura
+Google adicional, escrita no staging ou alteração de fixture foi executada.
+
+Classificação: `requires_changes`. Próximo gate único: aprovar o desenho e a implementação
+local do adaptador transacional e da evolução de schema para tombstone event-only.
+
+## 2026-08-11 — event-only e adaptador PostgreSQL validados localmente
+
+Foi criada somente a terceira migration `20260811150000_make_raw_import_event_only.sql`. As duas
+migrations aplicadas permaneceram intactas. O schema local agora usa identidade lógica por
+execução/fonte/chave, permite `source_row_number` nulo no tombstone, não inventa conteúdo/payload e
+restringe o histórico a insert/update/tombstone/restore. RLS foi preservado e service_role recebe
+somente SELECT/INSERT no histórico.
+
+Foi adicionado `psycopg[binary] 3.3.4` e implementado o adaptador transacional. O snapshot externo
+é preparado antes da transação; lock, leitura do estado, diff, run, eventos, estado e finalização
+ocorrem atomicamente. Três testes PostgreSQL reais comprovaram primeira carga de cinco linhas,
+idempotência, update, tombstone sem linha/payload inventado, restore, reorder sem evento, quatro
+rollback points e locks concorrentes por fonte.
+
+O reset local aplicou 3 migrations. A suíte executou 150 testes, 142 aprovados, 8 pulados e zero
+falhas; os 3 testes PostgreSQL opt-in passaram separadamente. O remoto permaneceu 2/2, lint sem
+erro e dry-run somente da terceira migration. Nenhuma escrita no staging ou Google ocorreu.
+
+Classificação: `approved_for_staging`. Próximo gate único: revisão humana e autorização para
+aplicar exclusivamente a terceira migration no staging vazio.
+
+## Deploy da migration event-only no staging em 2026-08-11
+
+Após os gates locais aprovados, foi aplicada exclusivamente a migration
+`20260811150000_make_raw_import_event_only.sql` no staging vinculado permitido.
+O histórico ficou alinhado em 3/3. A introspecção somente-leitura confirmou o
+contrato event-only, a unicidade lógica, RLS e grants sem regressão; as tabelas
+operacionais permaneceram vazias. Não houve leitura Google, sincronização ou
+inserção de fixture nesta execução.
+
+Classificação: `deployed_validated`. Próximo gate único: primeira sincronização
+integrada controlada da fixture fictícia, mediante autorização específica.
+
+## Gate de sincronização integrada interrompido em 2026-08-11
+
+A leitura real da fixture fictícia foi aprovada com 5 linhas e 7 colunas, sem
+retries, conteúdo exibido ou dados pessoais detectados. O dry-run gerou 5 novos
+estados e 5 eventos insert, sem persistência. A primeira tentativa autorizada
+de abrir a conexão PostgreSQL direta para staging falhou na resolução de rede
+do endpoint configurado, antes de adquirir lock ou iniciar transação.
+
+As consultas remotas somente-leitura confirmaram que as seis tabelas
+operacionais continuam em zero. Não houve sync_run, data_source, evento,
+estado, import_error, escrita Google ou alteração da fixture.
+
+Classificação: `blocked`. Próximo gate único: disponibilizar conectividade
+PostgreSQL direta ao staging para o adaptador transacional, sem alterar dados.
+
+## Repetição do gate de conectividade PostgreSQL em 2026-08-13
+
+Foi carregada a configuração privada local pelo mecanismo da aplicação, sem
+exibir URL, host, Project Ref ou credencial. A variável PostgreSQL foi
+identificada como endpoint Direct, na porta 5432, em vez de Session Pooler.
+Como o gate exige interrupção nessa condição, nenhuma conexão foi aberta e
+nenhum `SELECT`, `BEGIN`, advisory lock, rollback ou consulta de contagem foi
+executado. Nenhuma escrita persistente, acesso Google, sincronização, migration
+ou commit ocorreu. A versão local de `psycopg[binary]` confirmada foi 3.3.4.
+
+Classificação: `blocked`. Próximo gate único: corrigir manualmente a
+configuração privada para o Session Pooler na porta 5432 e repetir este mesmo
+gate.
+
+## Gate de conectividade PostgreSQL via Session Pooler em 2026-08-13
+
+A configuração privada foi carregada exclusivamente pelo mecanismo da
+aplicação. A presença de `SUPABASE_DB_URL` foi confirmada sem expor valor,
+credencial, hostname ou Project Ref: o endpoint é Supavisor Session Pooler,
+não é Direct e usa a porta 5432. O driver local confirmado foi
+`psycopg[binary] 3.3.4`.
+
+Em uma única tentativa com timeout curto, `psycopg` conectou e `SELECT 1`
+retornou 1. Duas transações explícitas foram abertas; em cada uma,
+`pg_try_advisory_xact_lock(hashtextextended(%s, 0))`, exatamente como no
+adaptador, adquiriu uma chave fictícia sem bloqueio. Cada transação sofreu
+`ROLLBACK`; a segunda aquisição da mesma chave retornou verdadeira, confirmando
+a liberação do lock transacional.
+
+Consultas somente de leitura confirmaram 0 linhas em `data_sources`,
+`sync_runs`, `raw_import_rows`, `raw_current_rows`, `import_errors` e
+`schema_change_requests`. As migrations locais/remotas estão em 3/3, sem
+pendência ou divergência. Não houve escrita persistente, acesso Google,
+sincronização, migration, `db push` ou commit.
+
+Classificação: `postgres_connectivity_validated`. Próximo gate único:
+autorização humana específica para a primeira sincronização integrada da
+fixture exclusivamente fictícia.
+
+## Idempotência integrada da fixture fictícia no staging em 2026-08-13
+
+Após preflight verde, endpoint Session Pooler sanitizado, migrations 3/3 e
+tabelas operacionais vazias, foram realizadas duas leituras read-only da
+fixture previamente aprovada. Cada leitura retornou 5 linhas e 7 colunas, sem
+retries e sem exibir conteúdo. O dry-run inicial previu 5 estados e 5 eventos
+insert.
+
+A primeira execução pelo fluxo transacional da aplicação criou exatamente uma
+fonte, um `sync_run` aplicado, 5 estados `raw_current_rows` e 5 eventos insert
+em `raw_import_rows`. A segunda leitura não reutilizou o snapshot anterior; a
+segunda execução concluiu com 5 inalterados e não criou eventos adicionais.
+As duas execuções usaram `psycopg`, transação PostgreSQL, advisory xact lock,
+diff sob lock e commit. A inspeção somente por agregados confirmou 2 runs
+aplicados, identidades únicas, versões 1, zero tombstones, zero updates/restores
+e `import_errors=0`.
+
+O schema permaneceu inalterado: migrations 3/3, RLS nas seis tabelas, zero
+policies e lint verde. Não houve alteração da fixture, acesso a outra planilha,
+migration, `db push`, SQL manual de escrita, nem commit Git. A suíte final
+executou 150 testes, com 142 aprovados, 8 pulados e zero falhas.
+
+Classificação: `integrated_idempotency_validated`. Próximo gate único:
+autorização humana específica para testar mudança controlada da fixture
+fictícia (update, tombstone, restore e reorder).
+
+## Ciclo integrado de mudanças da fixture fictícia no staging em 2026-08-17
+
+Quatro cenários foram executados um por vez, cada um após confirmação humana e
+nova leitura Google somente de leitura. O update controlado gerou exatamente
+um evento update e incrementou uma única versão de 1 para 2. A remoção de outra
+identidade gerou um tombstone, preservando o estado e mantendo nulos os três
+campos históricos exigidos. A restauração da mesma identidade foi reconhecida
+como restore, não como inserção, e avançou sua versão de 2 para 3.
+
+A reordenação física posterior gerou cinco registros inalterados, nenhum evento
+adicional e nenhum incremento de versão. O estado final agregado é 5 estados,
+8 eventos e 6 runs aplicados: 5 inserts, 1 update, 1 tombstone e 1 restore;
+as versões são 3, 1 e 1 por distribuição, sem tombstone ativo e com
+`import_errors=0`. Migrations permanecem 3/3, RLS continua nas seis tabelas,
+policies permanecem em zero e lint está verde. Nenhum schema, grant, policy ou
+configuração privada foi alterado.
+
+Classificação: `integrated_change_cycle_validated`. Próximo gate único:
+autorizar um teste controlado de schema drift da fixture fictícia.
+
+## Checkpoint parcial de schema drift no staging em 2026-08-17
+
+A baseline atual da fixture foi reconhecida por leitura read-only: 5 linhas, 7
+colunas, fingerprint sanitizado equivalente e dry-run com 5 inalterados. A
+política integrada compara schema sob advisory lock antes de `sync_run`, eventos
+ou estado raw; adição, remoção e rename incerto são bloqueantes, não aprovam ou
+sobrescrevem a baseline e deduplicam requests pendentes idênticas. Reorder de
+headers é potencialmente compatível porque o parser mapeia valores por nome
+normalizado; header duplicado é rejeitado pelo leitor antes da transação.
+
+Coluna adicionada, removida e rename foram detectados e bloqueados sem alteração
+de negócio. Eles produziram três `schema_change_requests` pendentes distintas.
+Após cada restauração a fixture retornou a 7 colunas e 5 inalterados, sem sync
+criada. O checkpoint final permanece com 5 estados, 8 eventos, 6 runs, zero
+erros e eventos 5/1/1/1 por tipo.
+
+Próximo gate único: cenário D, reorder controlado de headers.
+
+## Gate completo de schema drift no staging em 2026-08-18
+
+Após os cenários já bloqueados de coluna adicionada, removida e rename, o
+reorder temporário de headers foi lido em modo read-only e tratado como
+semanticamente compatível. O plano permaneceu com 5 inalterados e zero eventos;
+identidades, hashes de conteúdo e versões de negócio foram preservados porque o
+leitor associa valores por header normalizado, não por posição física. Nenhuma
+`schema_change_request`, `sync_run`, linha raw ou baseline foi criada/alterada.
+
+O cenário de header duplicado falhou no leitor com categoria sanitizada de
+schema, antes de dry-run, transação ou acesso PostgreSQL. Após a restauração da
+fixture, nova leitura e dry-run read-only retornaram 5 linhas, 7 colunas,
+fingerprint equivalente e 5 inalterados. O estado final é 5 estados, 8 eventos,
+6 runs, 3 requests pendentes e zero erros; eventos permanecem 5/1/1/1 por tipo
+e não há tombstone ativo. Nenhuma escrita de negócio ocorreu neste gate.
+
+Classificação: `schema_drift_validated`. Próximo gate único: falha/retry
+operacional controlado, sob autorização humana específica.
+
+## 2026-08-19 — resolução de conflitos de merge
+
+Foram conciliadas as evoluções de schema/persistência PostgreSQL e de retry
+operacional, preservando ambas as trilhas documentais. A validação local passou
+com `compileall`, 165 testes (10 pulados) e `git diff --check`; nenhuma conexão
+externa, migration, SQL ou commit foi executado.

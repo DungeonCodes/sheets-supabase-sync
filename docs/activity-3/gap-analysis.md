@@ -2,6 +2,19 @@
 
 Data da auditoria: 2026-08-06. Fonte: [documento oficial](../decisions/20260806_inicie_etl_clientes_orientacao.md). O inventário incluiu documentação, ADRs, migration ativa e históricas, seed, todo o pacote Python, scripts, testes, CI, configurações de exemplo e artefatos locais existentes. Nenhum segredo ou estado remoto foi consultado.
 
+## Atualização de estado em 2026-08-17
+
+Esta análise preserva a fotografia de 2026-08-06. Evidências posteriores validaram no staging, com fixture exclusivamente fictícia, leitura Google read-only, persistência raw, idempotência, update, tombstone, restore, reorder de linhas, transação, advisory lock e migrations 3/3. Schema drift para coluna adicionada/removida e rename foi bloqueado sem mutação de negócio; reorder de headers foi neutro e header duplicado foi rejeitado pelo leitor antes da transação. Onde o texto histórico disser que a persistência ou migration não ocorreu, essa afirmação é superada por este checkpoint.
+
+## Atualização do gate em 2026-08-18
+
+O gate de schema drift foi concluído no staging, sempre com a fixture fictícia:
+adição, remoção e rename foram bloqueados sem mutação de negócio; reorder de
+headers foi neutro por mapeamento por nome; header duplicado foi rejeitado pelo
+leitor antes da transação. A baseline retornou a cinco linhas, sete colunas e
+cinco registros inalterados. Este checkpoint substitui somente os próximos
+passos históricos que ainda tratam reorder ou duplicidade como pendentes.
+
 ## Leitura dos resultados
 
 “Implementado” significa que existe código ou DDL. “Validado” exige teste ou resultado registrado compatível com o alcance declarado. Preparação parcial, planejamento e hipótese não são tratados como entrega.
@@ -31,7 +44,7 @@ O alcance é local/offline. Esses itens não comprovam Google, Supabase end-to-e
 - Quotas/rate limit: limites oficiais, 429, backoff+jitter, `Retry-After`, orçamento e telemetria local foram implementados; faltam cota efetiva, rate limiter global e carga multi-fonte (`ING-01`).
 - Frequência: configuração e seleção de fontes vencidas existem; a cadência e o scheduler operacional não (`ING-02`).
 - Observabilidade: eventos seguros, health e tabelas existem; centralização, retenção e alertas reais não (`PROC-03`).
-- Raw: contrato, snapshot/diff, tombstone e dry-run real existem localmente; a migration incremental que separa histórico e estado atual foi criada e testada offline, mas não foi aplicada nem executada em PostgreSQL real, e o schema remoto continua sem estado idempotente por chave (`STORE-02`).
+- Raw: contrato, snapshot/diff, tombstone, estado atual e histórico event-only foram validados no staging com fixture fictícia; retenção e operação multi-fonte continuam pendentes (`STORE-02`).
 - RLS/RBAC: RLS bloqueia acesso frontend às tabelas operacionais, mas não há hierarquia ou policies por escopo (`STORE-04`).
 - Último dado válido: snapshots não avançam em drift bloqueante, mas não há camada servida/BI nem recuperação testada (`AVAIL-01`).
 - Credenciais: arquivos locais ignorados e sanitização existem; falta cofre, rotação e ownership (`SEC-01`).
@@ -41,7 +54,6 @@ O alcance é local/offline. Esses itens não comprovam Google, Supabase end-to-e
 - Operação contínua, múltiplas fontes, scheduler e integração Google Forms.
 - Rate limiter global e telemetria centralizada de quotas.
 - Scheduler implantado e quase tempo real/eventos.
-- Persistência raw ponta a ponta e camada staging; a migration incremental de estado existe, porém a Fase 2B depende de autorização humana e de execução real do DDL.
 - Modelo analítico, Star Schema/Snowflake, fatos, dimensões e transformações SQL analíticas.
 - Ferramenta de BI, dashboard, tempos de carregamento e filtros de usuário.
 - Alertas por e-mail, deduplicação e mensagem de recuperação.
@@ -89,9 +101,9 @@ Toda pesquisa temporal deverá ser datada e citar documentação oficial; suposi
 | Batch versus quase tempo real | Intervalo configurável e seleção de vencidas; decisão/SLA e scheduler ausentes. | parcial / decisão externa |
 | Backoff exponencial | Integrado ao leitor para 429/5xx/timeout/rede, com jitter, `Retry-After` e testes offline. | implementado, validação real pendente |
 | Isolamento por fonte | Batch captura falha de uma fonte e continua; teste aprovado. | validado offline |
-| Schema drift | Tipos, colunas, possível rename e bloqueio cobertos. | validado offline; integração pendente |
-| Dados brutos | Estrutura SQL de histórico e de estado atual, payload JSON e snapshot; sem persistência integrada e sem migration aplicada. | parcial |
-| Staging | Nenhuma camada específica. | não implementado |
+| Schema drift | Adição/remoção/rename bloqueados sem mutação; reorder neutro por nome e duplicidade rejeitada antes da transação. | validado para fonte única |
+| Dados brutos | Histórico event-only e estado atual persistidos no staging com fixture fictícia; retenção permanece indefinida. | parcialmente validado |
+| Staging | Camada raw operacional validada; camada analítica inexistente. | parcialmente validado |
 | Star Schema / fato / dimensão | Nenhum objeto ou transformação analítica. | não implementado |
 | Ferramenta de BI | Nenhuma escolha ou conexão. | bloqueado por decisão |
 | RLS por usuário | RLS fechado nas tabelas operacionais; sem policies/hierarquia. | parcial |
@@ -121,3 +133,4 @@ A fundação do staging permanece validada e nenhuma escrita ocorreu neste gate.
 A matriz, conexão limitada, rollback/retry, busy e commit ambíguo possuem testes offline. Faltam a
 execução PostgreSQL local real e um adaptador `psycopg` integrado no checkout atual; logo o gate não
 é considerado validado.
+A fundação e a camada raw do staging permanecem validadas no alcance da fixture fictícia. O próximo passo único é validar falha/retry operacional controlado, sob checkpoint humano separado.

@@ -6,8 +6,8 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 
 - Núcleo Python offline: snapshots, diff, contratos, schema drift, SQL auditável, isolamento por fonte, health, logs seguros e testes; leitor Google read-only implementado com transporte HTTP isolado.
 - Baseline institucional: aplicada no staging em 2026-08-05 e reconciliada em 2026-08-06 por histórico, catálogo e Data API somente de leitura; cinco tabelas vazias, 27 constraints, 14 índices, RLS/grants coerentes e nenhuma policy.
-- Migration incremental de estado raw: criada em 2026-08-06, aditiva, coberta por testes estruturais e comportamentais offline, aprovada em `migration list`, `lint` e `push --dry-run`, e **não aplicada** em nenhum ambiente.
-- Ausentes: raw integrado, staging/Star Schema, BI, RLS/RBAC hierárquico, e-mail, estudo completo de custos/free tiers, onboarding e Draw.io; a leitura Google da fixture foi comprovada.
+- Migration incremental de estado raw: criada em 2026-08-06, aditiva, coberta por testes estruturais e comportamentais offline, validada em PostgreSQL local e aplicada ao staging em 2026-08-11; catálogo, grants mínimos e tabelas vazias foram confirmados somente por leitura.
+- Raw integrado: validado no staging exclusivamente com a fixture fictícia; primeira carga, idempotência, update, tombstone, restore, reorder de linhas e schema drift completo preservaram identidade/estado. Permanecem ausentes: Star Schema, BI, RLS/RBAC hierárquico, e-mail, estudo completo de custos/free tiers, onboarding e Draw.io.
 
 ## Fases oficiais de execução
 
@@ -23,10 +23,9 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 
 ## Próximo passo
 
-**Revisar humanamente o DDL incremental e decidir sobre a aplicação.** A migration
-`20260806120000_add_raw_current_state.sql` cobre a lacuna de chave única por fonte, tombstone e
-versionamento, mas não foi aplicada e não foi executada em PostgreSQL real — Docker e `psql` não
-estavam disponíveis. A Fase 2B de escrita controlada permanece bloqueada até a autorização.
+O ciclo controlado de update, tombstone, restore, reorder e schema drift foi
+validado no staging com a fixture fictícia. O próximo gate é falha/retry
+operacional controlado, mediante autorização humana específica.
 Decisões empresariais continuam em [open-decisions.md](activity-3/open-decisions.md); quase tempo
 real, BI ou ferramenta adicional não devem ser presumidos.
 

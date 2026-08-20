@@ -4,6 +4,8 @@ Fonte oficial: [`docs/decisions/20260806_inicie_etl_clientes_orientacao.md`](../
 
 Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inalterada. Os resumos abaixo preservam sua terminologia e transformam afirmações e perguntas verificáveis em 40 requisitos estáveis.
 
+Atualização de 2026-08-18: os checkpoints posteriores validaram o pipeline raw no staging com fixture fictícia para carga inicial, idempotência, update, tombstone, restore, reorder de linhas e migrations 3/3. Schema drift de coluna adicionada/removida e rename foi bloqueado antes de persistência; reorder de headers foi compatível por mapeamento por nome e header duplicado foi rejeitado pelo leitor. Entradas cronológicas anteriores que tratem a migration ou persistência como futuras devem ser lidas como histórico superado.
+
 ## Regras de classificação
 
 - `validated`: há implementação, teste executável e documentação coerente; o alcance da evidência é indicado explicitamente.
@@ -13,12 +15,38 @@ Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inaltera
 - `blocked`: depende de decisão, acesso, volume, orçamento ou dado externo ainda não fornecido.
 - `out_of_scope`: requisito conscientemente excluído do projeto. Nenhum requisito oficial foi classificado assim nesta auditoria.
 
+## Checkpoint integrado de staging em 2026-08-13
+
+Evidência posterior e sanitizada para `ING-03`, `STORE-02` e `AVAIL-01`:
+duas leituras reais da fixture exclusivamente fictícia retornaram 5 linhas e 7
+colunas. A primeira sincronização integrada criou uma fonte, 5 estados raw e 5
+eventos insert; a repetição idêntica produziu 5 inalterados e zero eventos
+adicionais. As versões permaneceram em 1, `import_errors=0` e as duas
+execuções concluíram com sucesso sob transação e advisory lock. O alcance não
+inclui alterações da fixture, drift, BI, retenção ou carga multi-fonte.
+
+## Ciclo de mudanças integrado em 2026-08-17
+
+O checkpoint posterior estende a evidência sanitizada de `STORE-02` e
+`AVAIL-01`: update, tombstone, restore e reorder foram aplicados um por vez no
+staging. Foram preservadas as identidades, as versões corretas e a ausência de
+eventos por reorder; o alcance ainda exclui schema drift, carga multi-fonte,
+retenção e BI.
+
+## Checkpoint completo de schema drift em 2026-08-18
+
+Para `PROC-01`, a integração bloqueia no staging headers adicionados, removidos
+ou renomeados sem aprovação humana. Três requests pendentes distintas foram
+registradas sem eventos de negócio, alterações de versão ou tombstones. Reorder
+de headers preservou cinco inalterados sem request adicional; header duplicado
+foi rejeitado pelo leitor antes da transação. A fixture retornou à baseline.
+
 ## 1. Objetivo geral
 
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| OBJ-01 | Substituir fórmulas Google Sheets e Apps Script por arquitetura ETL/ELT escalável, estável e de custo zero. | `partially_validated` | `src/sheets_supabase_sync/`; `tests/`; `docs/architecture.md` | Fluxo ainda offline, sem Google real, camada analítica ou prova de custo. | MVP ponta a ponta repetível, metas de escala medidas e custo/free tier documentado. | crítica | Fases 0–7; decisões OD-01 a OD-03 e OD-10 | R-01, R-02, R-03, R-13 |
-| OBJ-02 | Extrair e transformar dados de forma robusta e disponibilizá-los em dashboards analíticos de alto desempenho. | `partially_validated` | snapshots, diff e SQL em `synchronizer.py`; testes offline | Não há conector Google, transformação analítica, BI ou medição de dashboard. | Fonte fictícia real → raw → SQL → tabela analítica → consulta BI, com reconciliação e tempo medido. | crítica | Fases 1–5 | R-02, R-08, R-10, R-13 |
+| OBJ-01 | Substituir fórmulas Google Sheets e Apps Script por arquitetura ETL/ELT escalável, estável e de custo zero. | `partially_validated` | pipeline Google read-only → raw staging validado com fixture fictícia; `src/`; `tests/`; `docs/architecture.md` | Não há operação multi-fonte, camada analítica ou prova de custo. | MVP ponta a ponta repetível, metas de escala medidas e custo/free tier documentado. | crítica | Fases 0–7; decisões OD-01 a OD-03 e OD-10 | R-01, R-02, R-03, R-13 |
+| OBJ-02 | Extrair e transformar dados de forma robusta e disponibilizá-los em dashboards analíticos de alto desempenho. | `partially_validated` | conector Google read-only, snapshot/diff e raw staging validados | Transformação analítica, BI e medição de dashboard ausentes. | Fonte fictícia real → raw → SQL → tabela analítica → consulta BI, com reconciliação e tempo medido. | crítica | Fases 1–5 | R-02, R-08, R-10, R-13 |
 | OBJ-03 | Garantir proteção de dados sensíveis dos clientes. | `partially_validated` | Testes de segredo/host; em 2026-08-06 o catálogo confirmou RLS, grants restritos e zero policies nas tabelas operacionais | Retenção, minimização, anonimização, LGPD e acesso analítico não definidos. | Threat review, política LGPD/retention aprovada e testes de acesso negativo aprovados. | crítica | OD-07 a OD-09, Fases 5 e 7 | R-05, R-06, R-15 |
 
 ## 2. Desempenho e qualidade
@@ -42,8 +70,8 @@ Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inaltera
 
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PROC-01 | Validar tipos e schema drift. | `validated` | `contracts.py`, `diff.py`, `normalization.py`; testes de coluna, remoção, renomeação e tipo | Validação comprovada somente com fixtures offline; integração Google/banco é gate posterior. | Cenários públicos continuam cobertos e qualquer drift bloqueante gera evidência sem alterar snapshot. | crítica | Fase 3 para validação integrada | R-07 |
-| PROC-02 | Tratar exceções sem quebrar a execução total. | `validated` | `batch.synchronize_independently`; teste de falha de uma fonte com continuidade de outra | Persistência operacional integrada ainda não comprovada. | Falha simulada de uma fonte não impede a seguinte e ambos os resultados ficam registrados. | crítica | Fases 1–3 | R-08 |
+| PROC-01 | Validar tipos e schema drift. | `partially_validated` | `contracts.py`, `diff.py`, `normalization.py`; testes e checkpoints integrados de coluna adicionada/removida e rename | Reorder de headers e header duplicado ainda exigem checkpoint humano; integração multi-fonte é posterior. | Cenários públicos continuam cobertos e qualquer drift bloqueante gera evidência sem alterar snapshot. | crítica | Fase 3 para validação integrada | R-07 |
+| PROC-02 | Tratar exceções sem quebrar a execução total. | `validated` | `batch.synchronize_independently`; teste de falha de uma fonte com continuidade de outra; transação/rollback do adaptador validados | Falha operacional persistida e multi-fonte continuam pendentes. | Falha simulada de uma fonte não impede a seguinte e ambos os resultados ficam registrados. | crítica | Fases 1–3 | R-08 |
 | PROC-03 | Centralizar monitoramento e logs, inclusive estouro de limite de API. | `partially_validated` | falha Google real registrada apenas como `authorization`, sem URL/ID/token/células; testes locais de tentativa/espera/contagens | Logs não são centralizados; duração de falha veio do comando, sem retenção ou evento real de quota. | Execuções e erros consultáveis centralmente, sanitizados e retidos conforme política. | alta | Fases 2 e 6; OD-08 | R-06, R-17 |
 | PROC-04 | Executar rotinas automáticas e alertas por e-mail. | `planned` | regras determinísticas de severidade em `health.py` | Não há scheduler, transportador de e-mail, deduplicação ou aviso de recuperação. | Falha gera um e-mail; repetição é suprimida; recuperação gera notificação e evidência. | alta | Fase 6; OD-12 | R-17 |
 | PROC-05 | Preferir pipelines legíveis e reutilizáveis, evitando complexidade excessiva. | `validated` | separação domínio/bordas; módulos curtos; dependências explícitas; testes offline | Deve permanecer gate contínuo. | Revisão não encontra módulos genéricos, estado global, dependência cíclica ou abstração sem uso. | média | Revisão por fase | R-11 |
@@ -53,7 +81,7 @@ Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inaltera
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | STORE-01 | Definir banco analítico/Data Warehouse com capacidade e escala sem degradação. | `planned` | PostgreSQL/Supabase foi escolhido apenas para base operacional | Não há decisão analítica, benchmark ou estimativa de capacidade. | ADR compara opções e benchmark comprova metas de volume/consulta. | alta | OD-02/03/10; Fases 4 e 7 | R-04, R-13, R-18 |
-| STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | baseline raw confirmada; contrato/snapshot/diff local e dry-run real de 5 linhas; ADRs 20260806 de semântica raw e de migration incremental; DDL de `raw_current_rows` criado | migration não aplicada e não executada em PostgreSQL real; nenhuma escrita ocorreu; retenção indefinida. | Duas cargas persistem raw auditável/idempotente e staging separada, com retenção testada. | crítica | autorização humana da migration; Fases 2B, 4 e 7 | R-04, R-06, R-12, R-20 |
+| STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | migrations 3/3, duas cargas idempotentes e ciclo de mudanças validados no staging com fixture fictícia | Retenção, minimização, multi-fonte e operação contínua permanecem indefinidas. | Duas cargas persistem raw auditável/idempotente e staging separada, com retenção testada. | crítica | Fases 2B, 4 e 7 | R-04, R-06, R-12, R-20 |
 | STORE-03 | Transformar em SQL para Star Schema ou Snowflake, com fatos e dimensões. | `planned` | SQL atual é somente upsert de espelho operacional | Caso de negócio, staging, dimensões, fato, métricas e reconciliação ausentes. | Star Schema funcional, consultas testadas e métricas reconciliadas. | crítica | Fase 4; definição de caso de negócio | R-10, R-13 |
 | STORE-04 | Aplicar controle hierárquico de visualização por RLS/RBAC. | `partially_validated` | catálogo remoto: RLS nas cinco tabelas operacionais, zero policies, `anon`/`authenticated` sem acesso e backend autorizado | Não há policies hierárquicas, papéis, escopo por usuário nem teste com identidades distintas. | Dois ou mais escopos demonstrados; consultas negativas não retornam dados indevidos. | crítica | OD-06; Fase 5; modelo de identidade | R-15 |
 
@@ -181,6 +209,29 @@ A migration `20260806120000_add_raw_current_state.sql` foi criada, coberta por t
 aprovada em `migration list`, `db lint --linked` e `db push --dry-run`. Ela **não** foi aplicada e o
 DDL **não** foi executado em PostgreSQL real. Nenhum status amplo avança por criação de DDL.
 
+Follow-up em 2026-08-11: o PostgreSQL local confirmou o DDL e seus comportamentos transacionais,
+mas revelou DELETE efetivo para `service_role` em `raw_current_rows`. Assim, a evidência reduz o
+risco de aplicação do DDL, mas não altera os requisitos amplos: uma migration corretiva de menor
+privilégio continua obrigatória antes de qualquer escrita em staging.
+
+Correção em 2026-08-11: a mesma migration pendente passou a revogar o ACL herdado e foi reaplicada
+somente no PostgreSQL local. Os testes de grants positivos e negativos, rollback e advisory lock
+passaram; o gate específico da migration está aprovado para staging, sem alterar os requisitos
+amplos de LGPD, retenção ou RBAC hierárquico.
+
+Deploy em 2026-08-11: a migration foi aplicada ao staging permitido e o catálogo read-only
+confirmou tabela, constraints, RLS, zero policies, grants mínimos e zero linhas. `STORE-02`
+permanece `partially_validated`: a persistência por sincronização controlada ainda não ocorreu.
+
+Gate de integração em 2026-08-11: a semântica event-only exige tombstone no histórico, mas o
+CHECK aplicado o rejeita e a chave por linha física é ambígua para ausências inferidas. `STORE-02`,
+`AVAIL-01` e `PROC-02` não avançam para escrita integrada até evolução de schema e adaptador
+transacional locais, conforme ADR 20260811.
+
+Follow-up local de 2026-08-11: a terceira migration e o adaptador transacional foram exercitados em
+PostgreSQL real. Event-only, rollback e lock por fonte passaram; os requisitos permanecem parciais
+até aplicação autorizada da migration e sincronização fictícia no staging.
+
 | Requisito | Status anterior | Nova evidência | Status atual | Gate ainda aberto | Próximo teste necessário |
 | --- | --- | --- | --- | --- | --- |
 | `STORE-02` | `partially_validated` | DDL de estado atual com identidade por fonte/chave, tombstone, versão e índices; 37 testes offline de migration e estado | `partially_validated` | aplicação autorizada, duas escritas reais e retenção | aplicar em ambiente autorizado e reconciliar duas cargas |
@@ -201,3 +252,19 @@ DDL **não** foi executado em PostgreSQL real. Nenhum status amplo avança por c
 | `blocked` | 4 |
 | `out_of_scope` | 0 |
 | **Total** | **40** |
+
+## Continuidade: deploy event-only no staging (2026-08-11)
+
+A migration incremental `20260811150000_make_raw_import_event_only.sql` foi
+aplicada isoladamente ao staging apos preflight e dry-run. A validacao
+somente-leitura confirmou eventos `insert/update/tombstone/restore`, UNIQUE
+`(sync_run_id, data_source_id, row_key_hash)`, remocao da unicidade fisica e
+representacao de tombstone sem posicao, hash ou payload inventados. Nao houve
+leitura Google, sincronizacao ou dados nas tabelas operacionais.
+
+## Tentativa de integracao controlada (2026-08-11)
+
+A leitura da fixture ficticia e o plano de 5 inserts passaram. A conexao
+PostgreSQL direta ao staging falhou antes da transacao, portanto nao houve
+persistencia, evento ou sync_run. STORE-02 permanece parcialmente validado ate
+que a conectividade do adaptador seja disponibilizada.

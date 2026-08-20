@@ -89,6 +89,29 @@ class RawSyncTests(unittest.TestCase):
         self.assertEqual(1, first.metrics.rows_persisted)
         self.assertEqual(0, second.metrics.rows_persisted)
 
+    def test_added_column_is_blocked_before_any_raw_mutation_and_deduplicated(self) -> None:
+        repository = InMemoryRawStateRepository()
+        service = RawSynchronizationService(repository)
+        service.persist_locally(source(), ("registro_id", "valor"), rows((2, "a", "one")), NOW)
+        changed_rows = (RawInputRow(2, {"registro_id": "a", "valor": "one", "campo_novo": "x"}),)
+        for _ in range(2):
+            with self.assertRaises(SyncError) as raised:
+                service.persist_locally(source(), ("registro_id", "valor", "campo_novo"), changed_rows, NOW)
+            self.assertEqual(ErrorCode.SCHEMA, raised.exception.code)
+        self.assertEqual(1, len(repository.current_rows("source-hash")))
+        self.assertEqual(1, len(repository.history()))
+        self.assertEqual(1, len(repository.schema_changes()))
+        self.assertEqual("blocked_column_added", repository.schema_changes()[0].change_type)
+
+    def test_reordered_header_is_compatible_when_rows_are_mapped_by_name(self) -> None:
+        repository = InMemoryRawStateRepository()
+        service = RawSynchronizationService(repository)
+        service.persist_locally(source(), ("registro_id", "valor"), rows((2, "a", "one")), NOW)
+        result = service.persist_locally(source(), ("valor", "registro_id"), rows((2, "a", "one")), NOW)
+        self.assertEqual(1, result.plan.counts["unchanged"])
+        self.assertEqual(1, len(repository.history()))
+        self.assertEqual((), repository.schema_changes())
+
     def test_commit_failure_preserves_last_valid_snapshot(self) -> None:
         repository = InMemoryRawStateRepository()
         service = RawSynchronizationService(repository)
@@ -112,6 +135,18 @@ class RawSyncTests(unittest.TestCase):
             RawSynchronizationService(repository).persist_locally(source(), ("registro_id", "valor"), rows((2, "a", "one")), NOW)
         repository.release("source-hash")
 
+    def test_invalid_external_snapshot_is_rejected_before_lock(self) -> None:
+        repository = InMemoryRawStateRepository()
+        with self.assertRaises(SyncError):
+            RawSynchronizationService(repository).persist_locally(
+                source(),
+                ("registro_id", "valor"),
+                rows((2, "a", "one"), (3, "a", "duplicate")),
+                NOW,
+            )
+        self.assertTrue(repository.try_acquire("source-hash"))
+        repository.release("source-hash")
+
     def test_baseline_alone_does_not_support_current_state(self) -> None:
         assessment = assess_raw_schema(BASELINE.read_text(encoding="utf-8"))
         self.assertFalse(assessment.supports_phase_2a)
@@ -133,6 +168,7 @@ class RawSyncTests(unittest.TestCase):
             PostgresRawRepository.register_source_sql(),
             PostgresRawRepository.start_run_sql(),
             PostgresRawRepository.append_raw_row_sql(),
+            PostgresRawRepository.record_schema_change_sql(),
             PostgresRawRepository.record_error_sql(),
             PostgresRawRepository.update_source_success_sql(),
             PostgresRawRepository.update_source_failure_sql(),

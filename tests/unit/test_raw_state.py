@@ -101,12 +101,12 @@ class RawCurrentStateTests(unittest.TestCase):
             self.repository.apply_plan(SOURCE_HASH, "run-manual", plan)
         self.assertEqual(ErrorCode.VALIDATION, raised.exception.code)
 
-    def test_history_records_observed_events_but_never_removals(self) -> None:
+    def test_history_records_only_business_events(self) -> None:
         persist(self.repository, (2, "a", "one"), (3, "b", "two"))
         persist(self.repository, (2, "a", "changed"))
         change_types = [entry.change_type for entry in self.repository.history()]
-        self.assertEqual(["inserted", "inserted", "changed"], change_types)
-        self.assertNotIn("deleted", change_types)
+        self.assertEqual(["insert", "insert", "update", "tombstone"], change_types)
+        self.assertNotIn("unchanged", change_types)
 
 
 class RawStateFailureTests(unittest.TestCase):
