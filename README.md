@@ -33,11 +33,9 @@ exclusivamente `spreadsheets.readonly`, e RLS/grants permanecem restritivos.
   header duplicado rejeitado;
 - resiliência transacional: advisory lock, busy/deferred, rollback, retry com
   nova transação/releitura/diff e commit ambíguo sem retry cego;
+- observabilidade estruturada, sanitização, política de alertas e deduplicação
+  local; SMTP opcional testado por mock;
 - 178 testes offline sem falhas e 8 testes PostgreSQL locais opt-in aprovados.
-
-### Em andamento
-
-- observabilidade operacional e alertas.
 
 ### Pendente
 

@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from .errors import ErrorCode, SyncError
 from .observability import log_event
+from .operational_events import OperationalEvent, Severity
 from .raw_repository import RawStateRepository
 from .raw_schema import RawSchema, compare_raw_schemas
 from .raw_sync import RawChangePlan, RawInputRow, RawSnapshot, RawSyncSource, build_raw_snapshot, compare_raw_snapshots
@@ -42,6 +43,7 @@ class RawSynchronizationService:
         random_value: Callable[[], float] = random,
         monotonic_clock: Callable[[], float] = monotonic,
         execution_id_factory: Callable[[], str] = lambda: str(uuid4()),
+        reporter: Callable[[OperationalEvent], None] | None = None,
     ) -> None:
         self._repository = repository
         self._logger = logger or logging.getLogger(__name__)
@@ -50,6 +52,7 @@ class RawSynchronizationService:
         self._random_value = random_value
         self._monotonic_clock = monotonic_clock
         self._execution_id_factory = execution_id_factory
+        self._reporter = reporter
 
     def dry_run(
         self,
@@ -153,6 +156,7 @@ class RawSynchronizationService:
             duration_ms=round(notice.elapsed_seconds * 1000),
             outcome="retrying",
         )
+        self._emit("retrying", Severity.WARNING, source, notice.attempt, notice.max_attempts, True, notice.error_code, 0, round(notice.wait_seconds * 1000))
 
     def _log(
         self,
@@ -185,6 +189,12 @@ class RawSynchronizationService:
             rows_unchanged=counts.get("unchanged", 0),
             error_code=error.code.value if isinstance(error, SyncError) else None,
         )
+        severity = Severity.INFO if status == "success" else Severity.WARNING if status == "busy_deferred" else Severity.CRITICAL if isinstance(error, SyncError) and error.code is ErrorCode.AMBIGUOUS_OUTCOME else Severity.ERROR
+        self._emit(status, severity, source, attempt, self._retry_policy.max_attempts, error.retryable if isinstance(error, SyncError) else None, error.code.value if isinstance(error, SyncError) else None, duration_ms, 0)
+
+    def _emit(self, outcome: str, severity: Severity, source: RawSyncSource, attempt: int, max_attempts: int, retryable: bool | None, error_code: str | None, duration_ms: int, backoff_ms: int) -> None:
+        if self._reporter is not None:
+            self._reporter(OperationalEvent.create(component="raw_sync", operation="postgres_transaction", outcome=outcome, severity=severity, source_ref=source.source_hash[:12], attempt=attempt, max_attempts=max_attempts, retryable=retryable, error_category=error_code, error_code=error_code, duration_ms=duration_ms, backoff_ms=backoff_ms))
 
 
 def _persisted_count(plan: RawChangePlan) -> int:

@@ -74,6 +74,12 @@ Em 2026-08-05, a baseline corrigida foi aplicada ao staging. Em 2026-08-06, `mig
 releitura e recálculo, rollback, exaustão, identidade estável, evento/versão únicos e commit ambíguo.
 Os testes Google cobrem 400/401/403/404 sem retry e 429/500/502/503/504/timeout/conexão com retry.
 
+## Observabilidade e alertas
+
+Os testes offline cobrem evento tipado, severidade, retry/busy sem alerta,
+falha final e `ambiguous_outcome`, sanitização, deduplicação/cooldown, sink
+fake e SMTP mockado/desabilitado. Nenhum teste envia e-mail real.
+
 `tests/integration/test_operational_postgres.py` usa `psycopg` em modo opt-in para lock e rollback.
 Em 2026-08-19 não executou porque o Docker Desktop respondeu erro 500 ao `supabase start`.
 Follow-up de 2026-08-11: PostgreSQL local executou as duas migrations e validou DDL, constraints,

@@ -447,3 +447,12 @@ schema; as classificações de eventos são 5/1/1/1 e não há tombstone ativo. 
 permanece ativo nas seis tabelas, sem policies, e `service_role` continua sem
 DELETE nas tabelas raw. Não houve DML, lock, sincronização, fault injection ou
 alteração de schema/grant/policy/RLS.
+
+## Gate de observabilidade operacional e alertas em 2026-08-24
+
+Eventos tipados e logs JSON sanitizados foram adicionados com severidades,
+política explícita de alerta, deduplicação local e SMTP opcional mockado. Não
+houve migration: `sync_runs` e `import_errors` mantêm seus contratos. Nenhum
+e-mail, acesso Google ou staging foi usado; a suíte offline cobriu a fronteira
+de alertas sem segredos.
+
