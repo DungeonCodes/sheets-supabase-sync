@@ -4,14 +4,19 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Mapping, Protocol
+from typing import Callable, Mapping, Protocol, TypeVar
 
 import psycopg
 
 from .errors import ErrorCode, SyncError
+from .operational_failures import DatabaseStage, postgres_sync_error
+from .postgres_retry import connect_with_retry
 from .raw_state import RawCurrentRow, RawStateOperation, apply_state_command, history_change_type, plan_state_commands
 from .raw_schema import RawSchema, RawSchemaChange
 from .raw_sync import RawChangePlan, RawRecord, RawSnapshot, RawSyncSource, compute_snapshot_hash
+
+
+ResultT = TypeVar("ResultT")
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,30 @@ class RawHistoryEntry:
     key_hash: str
     change_type: str
     source_row_number: int | None
+
+
+class _PostgresTransactionCursor:
+    """Converte falhas do driver em erros do dominio no escopo transacional."""
+
+    def __init__(self, cursor: psycopg.Cursor) -> None:
+        self._cursor = cursor
+
+    def execute(self, *args, **kwargs):
+        return self._operation(lambda: self._cursor.execute(*args, **kwargs))
+
+    def fetchone(self):
+        return self._operation(self._cursor.fetchone)
+
+    def fetchall(self):
+        return self._operation(self._cursor.fetchall)
+
+    def _operation(self, operation: Callable[[], ResultT]) -> ResultT:
+        try:
+            return operation()
+        except SyncError:
+            raise
+        except Exception as error:
+            raise postgres_sync_error(error, DatabaseStage.TRANSACTION) from error
 
 
 class RawStateRepository(Protocol):
@@ -259,10 +288,17 @@ class PostgresRawRepository:
         self.assert_supported()
         if not self._database_url:
             raise SyncError(ErrorCode.CONFIGURATION, "URL PostgreSQL explicita obrigatoria")
-        self._connection = psycopg.connect(self._database_url, autocommit=False)
-        with self._connection.cursor() as cursor:
-            cursor.execute(self.try_lock_sql(), (source_hash,))
-            acquired = bool(cursor.fetchone()[0])
+        self._connection = connect_with_retry(
+            lambda: psycopg.connect(self._database_url, autocommit=False),
+            source_prefix=source_hash,
+        )
+
+        def acquire_lock() -> bool:
+            with self._require_connection().cursor() as cursor:
+                cursor.execute(self.try_lock_sql(), (source_hash,))
+                return bool(cursor.fetchone()[0])
+
+        acquired = self._transaction_operation(acquire_lock)
         if not acquired:
             self._connection.rollback()
             self.release(source_hash)
@@ -407,7 +443,8 @@ class PostgresRawRepository:
 
     def commit_transaction(self, source_hash: str, run_id: str) -> None:
         self._fail("before_commit")
-        self._require_connection().commit()
+        self._transaction_operation(self._require_connection().commit, DatabaseStage.COMMIT)
+        self._transaction_operation(lambda: self._fail("after_commit"), DatabaseStage.COMMIT)
 
     def complete(self) -> None:
         """Compatibilidade para testes de lock que nao iniciam uma sync."""
@@ -418,7 +455,19 @@ class PostgresRawRepository:
             self._connection.rollback()
 
     def _cursor(self):
-        return self._require_connection().cursor()
+        return _PostgresTransactionCursor(self._require_connection().cursor())
+
+    def _transaction_operation(
+        self,
+        operation: Callable[[], ResultT],
+        stage: DatabaseStage = DatabaseStage.TRANSACTION,
+    ) -> ResultT:
+        try:
+            return operation()
+        except SyncError:
+            raise
+        except Exception as error:
+            raise postgres_sync_error(error, stage) from error
 
     def _require_connection(self) -> psycopg.Connection:
         if self._connection is None:

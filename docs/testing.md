@@ -145,3 +145,19 @@ hashes de negócio, não pela posição física. Header duplicado foi rejeitado 
 leitor read-only com categoria `schema`, antes de qualquer transação. Após a
 restauração, a baseline retornou a 5 linhas, 7 colunas, fingerprint equivalente
 e 5 inalterados; os testes locais permaneceram verdes.
+
+## Retry operacional local em 2026-08-24
+
+Exclusivamente contra PostgreSQL local, os oito testes opt-in passaram. Eles
+cobrem lock por mesma e diferente fonte, rollback, busy sem mutação, os quatro
+pontos de fault injection, retry depois de rollback com um evento e uma versão
+finais, e commit ambíguo sem retry automático. O mecanismo permanece opt-in por
+`RUN_SUPABASE_INTEGRATION=1` e exige `LOCAL_DATABASE_URL` local.
+
+## Compatibilidade remota read-only em 2026-08-24
+
+Para um clone linked, use `supabase migration list --local` ao validar somente o
+ambiente local; a forma sem flag pode consultar o projeto remoto. No gate remoto
+autorizado, migrations 3/3 e lint foram verdes. O Session Pooler aceitou
+`psycopg` em uma transação explicitamente `READ ONLY`; `SELECT 1` e agregados
+confirmaram o estado esperado sem DML, lock, fault injection ou sincronização.

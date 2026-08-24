@@ -16,7 +16,7 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | Contratos e schema drift offline | `contracts.py`, `diff.py` | contract/unit | `validated` |
 | Snapshots, diff, tombstones e SQL | `snapshot.py`, `diff.py`, `sql_generator.py` | `test_sync.py` | `validated` |
 | Logs/health locais | `observability.py`, `health.py` | unit | `partially_validated` |
-| Retry operacional seguro | `operational_failures.py`, `postgres_retry.py`, `raw_sync_service.py` | fault injection determinístico; PostgreSQL real bloqueado pelo Docker | `implemented_not_validated` |
+| Retry operacional seguro | `operational_failures.py`, `postgres_retry.py`, `raw_sync_service.py`, `raw_repository.py` | PostgreSQL local: lock, busy, rollback, retry, idempotência e commit ambíguo; staging read-only: pooler, psycopg, migrations, lint e estado agregado | `validated_remote_read_only` |
 | Histórico da baseline | migration `20260804000000` | `migration list`: duas versões locais, uma remota, sem divergência | `validated` |
 | Estado raw atual por fonte/chave | migration `20260806120000` aplicada no staging; `raw_state.py`, `raw_repository.py` | PostgreSQL local e catálogo remoto: DDL, constraints, grants, RLS, transações e advisory lock; tabelas vazias | `validated` |
 | Cinco tabelas operacionais | migration `20260804000000` | catálogo remoto: cinco tabelas, 27 constraints, 14 índices e zero linhas | `validated` |

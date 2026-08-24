@@ -414,3 +414,36 @@ Foram conciliadas as evoluções de schema/persistência PostgreSQL e de retry
 operacional, preservando ambas as trilhas documentais. A validação local passou
 com `compileall`, 165 testes (10 pulados) e `git diff --check`; nenhuma conexão
 externa, migration, SQL ou commit foi executado.
+
+## Gate local de retry operacional em 2026-08-24
+
+Somente o PostgreSQL local do Supabase foi usado. As três migrations esperadas
+estavam aplicadas. O adaptador passou a usar `connect_with_retry` para abrir a
+conexão e converte falhas do driver no escopo transacional; falha de
+reconhecimento depois do commit é classificada como `AMBIGUOUS_OUTCOME`.
+
+O teste opt-in local comprovou advisory lock por fonte, busy sem criar fonte,
+`sync_run` ou linhas raw, rollback nos quatro pontos controlados, nova
+transação com lock/releitura/diff depois de falha transitória, e exatamente um
+evento e um incremento de versão após retry. A perda controlada do
+reconhecimento de commit não foi repetida automaticamente e preservou uma
+execução aplicada para reconciliação pelo `sync_runs.id`. A evidência deste gate
+foi produzida somente no PostgreSQL local. Uma chamada inicial a `supabase
+migration list`, sem `--linked`, informou conexão remota inesperada e foi
+interrompida; não houve escrita, push ou migration remota. Nenhum Google foi
+usado.
+
+## Compatibilidade remota read-only do retry operacional em 2026-08-24
+
+O gate remoto autorizado usou somente leitura. `supabase migration list --local`
+foi usado para a verificação local; em clones linked, essa flag é obrigatória
+para gates estritamente locais. A comparação remota autorizada mostrou as três
+migrations nos dois lados e `supabase db lint --linked` não encontrou erro.
+
+O Session Pooler na porta 5432 aceitou `psycopg` pelo caminho normal de
+configuração. Uma transação explicitamente `READ ONLY` executou `SELECT 1` e
+agregados: 1 fonte, 5 estados, 8 eventos, 6 runs, 0 erros e 3 requests de
+schema; as classificações de eventos são 5/1/1/1 e não há tombstone ativo. RLS
+permanece ativo nas seis tabelas, sem policies, e `service_role` continua sem
+DELETE nas tabelas raw. Não houve DML, lock, sincronização, fault injection ou
+alteração de schema/grant/policy/RLS.
