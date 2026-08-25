@@ -68,6 +68,20 @@ instalada. O dry-run real da fixture foi repetido após a mudança e retornou 7 
 
 Em 2026-08-05, a baseline corrigida foi aplicada ao staging. Em 2026-08-06, `migration list`, `inspect db`, geração de tipos, consultas `SELECT` via Management API e Data API reconciliaram o estado: cinco tabelas vazias, 27 constraints, 14 índices, RLS e grants coerentes. O dump schema-only não rodou sem Docker, mas deixou de ser necessário para o catálogo porque `supabase db query --linked` permitiu as consultas somente de leitura. Os testes de integração local continuam pulados sem Docker e `psql`.
 
+## Retry operacional
+
+`tests/unit/test_operational_failures.py` cobre SQLSTATE, conexão, autenticação/configuração, busy,
+releitura e recálculo, rollback, exaustão, identidade estável, evento/versão únicos e commit ambíguo.
+Os testes Google cobrem 400/401/403/404 sem retry e 429/500/502/503/504/timeout/conexão com retry.
+
+## Observabilidade e alertas
+
+Os testes offline cobrem evento tipado, severidade, retry/busy sem alerta,
+falha final e `ambiguous_outcome`, sanitização, deduplicação/cooldown, sink
+fake e SMTP mockado/desabilitado. Nenhum teste envia e-mail real.
+
+`tests/integration/test_operational_postgres.py` usa `psycopg` em modo opt-in para lock e rollback.
+Em 2026-08-19 não executou porque o Docker Desktop respondeu erro 500 ao `supabase start`.
 Follow-up de 2026-08-11: PostgreSQL local executou as duas migrations e validou DDL, constraints,
 idempotência, rollback e advisory lock com fixtures descartadas. A suíte offline permaneceu verde
 (141/136/0, 5 pulados); os opt-in existentes continuaram pulados pela ausência de `psql` no host.
@@ -127,3 +141,29 @@ deduplicação de request e reorder compatível por mapeamento por nome. No stag
 coluna adicionada, removida e rename foram bloqueados um por vez; nenhuma
 mudança criou evento raw, versão nova, tombstone falso ou `sync_run`. A fixture
 restaurada retornou a 5 linhas, 7 colunas e dry-run com 5 inalterados.
+
+## Gate completo de schema drift em 2026-08-18
+
+Com a fixture fictícia, reorder de headers preservou 5 identidades e produziu
+dry-run com 5 `unchanged`, sem evento, incremento de versão, request de schema
+ou `sync_run`. A associação foi validada por nomes normalizados de header e
+hashes de negócio, não pela posição física. Header duplicado foi rejeitado pelo
+leitor read-only com categoria `schema`, antes de qualquer transação. Após a
+restauração, a baseline retornou a 5 linhas, 7 colunas, fingerprint equivalente
+e 5 inalterados; os testes locais permaneceram verdes.
+
+## Retry operacional local em 2026-08-24
+
+Exclusivamente contra PostgreSQL local, os oito testes opt-in passaram. Eles
+cobrem lock por mesma e diferente fonte, rollback, busy sem mutação, os quatro
+pontos de fault injection, retry depois de rollback com um evento e uma versão
+finais, e commit ambíguo sem retry automático. O mecanismo permanece opt-in por
+`RUN_SUPABASE_INTEGRATION=1` e exige `LOCAL_DATABASE_URL` local.
+
+## Compatibilidade remota read-only em 2026-08-24
+
+Para um clone linked, use `supabase migration list --local` ao validar somente o
+ambiente local; a forma sem flag pode consultar o projeto remoto. No gate remoto
+autorizado, migrations 3/3 e lint foram verdes. O Session Pooler aceitou
+`psycopg` em uma transação explicitamente `READ ONLY`; `SELECT 1` e agregados
+confirmaram o estado esperado sem DML, lock, fault injection ou sincronização.

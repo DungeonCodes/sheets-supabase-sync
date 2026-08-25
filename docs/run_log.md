@@ -114,6 +114,41 @@ Nenhuma escrita remota ocorreu e nenhum commit foi executado.
 Próximo gate único: revisão humana do DDL incremental e autorização explícita da Fase 2B. A Fase 2B
 não foi iniciada.
 
+## 2026-08-12 — gate de conectividade PostgreSQL bloqueado
+
+Foi repetida somente a preparação sanitizada do gate de conectividade PostgreSQL, sem abrir conexão,
+executar SQL, acessar Google, sincronizar ou alterar `.env.local`. O mecanismo da aplicação
+(`load_environment`) requer `.env.local` na raiz; o arquivo não estava presente e não havia variáveis
+de processo correspondentes para sobreposição. Assim, não foi possível confirmar se o endpoint era
+Direct ou Session Pooler, nem validar a porta 5432.
+
+O Python 3.12 disponível também não continha `psycopg` ou `psycopg-binary`, portanto a exigência
+`psycopg[binary]==3.3.4` não pôde ser satisfeita. Nenhuma conexão PostgreSQL foi aberta; não foram
+executados `SELECT`, `BEGIN`, locks, `ROLLBACK`, migrations ou comandos de escrita. Nenhum commit foi
+executado.
+
+Resultado: `blocked`. Próximo passo: restaurar a configuração privada local no caminho esperado e
+disponibilizar `psycopg[binary]==3.3.4` no ambiente Python da aplicação; então repetir exclusivamente
+este gate.
+
+## 2026-08-19 — política de retry operacional implementada offline
+
+Preflight confirmou branch `dev` e alteração preexistente apenas neste run log. A `.venv` ausente foi
+criada com Python 3.12. A baseline revelou digest de teste desatualizado para a baseline corrigida já
+presente no histórico Git; o guardrail foi alinhado ao SHA-256 versionado, sem editar migration.
+
+Foram implementadas quatro disposições, classificação PostgreSQL por SQLSTATE/tipo/estágio, conexão
+com retry limitado, UUID cliente em `sync_runs.id`, nova tentativa com releitura/diff e logs allowlist.
+Fault injection comprovou rollback, retry, exaustão, ausência de duplicação, versão única e commit
+desconhecido sem retry automático. `import_errors` não foi reutilizada. Nenhuma migration foi criada.
+
+O Supabase local não iniciou: Docker Desktop retornou API 500. Os testes `psycopg` reais ficaram
+bloqueados. Não houve Google real, staging, sincronização remota, migration remota ou fault injection
+remoto. Classificação: `blocked`. Próximo gate único: recuperar o Supabase local e executar apenas os
+testes operacionais opt-in via `psycopg`.
+
+Validação final local: `compileall`, 157 testes (150 aprovados, 7 pulados, zero falhas),
+`check-docs.py` e `git diff --check` aprovados.
 ## 2026-08-11 — validação local PostgreSQL bloqueada durante provisionamento
 
 Os gates de ambiente passaram: Docker Client e Server 29.7.2, daemon Docker Desktop no backend
@@ -353,3 +388,98 @@ criada. O checkpoint final permanece com 5 estados, 8 eventos, 6 runs, zero
 erros e eventos 5/1/1/1 por tipo.
 
 Próximo gate único: cenário D, reorder controlado de headers.
+
+## Gate completo de schema drift no staging em 2026-08-18
+
+Após os cenários já bloqueados de coluna adicionada, removida e rename, o
+reorder temporário de headers foi lido em modo read-only e tratado como
+semanticamente compatível. O plano permaneceu com 5 inalterados e zero eventos;
+identidades, hashes de conteúdo e versões de negócio foram preservados porque o
+leitor associa valores por header normalizado, não por posição física. Nenhuma
+`schema_change_request`, `sync_run`, linha raw ou baseline foi criada/alterada.
+
+O cenário de header duplicado falhou no leitor com categoria sanitizada de
+schema, antes de dry-run, transação ou acesso PostgreSQL. Após a restauração da
+fixture, nova leitura e dry-run read-only retornaram 5 linhas, 7 colunas,
+fingerprint equivalente e 5 inalterados. O estado final é 5 estados, 8 eventos,
+6 runs, 3 requests pendentes e zero erros; eventos permanecem 5/1/1/1 por tipo
+e não há tombstone ativo. Nenhuma escrita de negócio ocorreu neste gate.
+
+Classificação: `schema_drift_validated`. Próximo gate único: falha/retry
+operacional controlado, sob autorização humana específica.
+
+## 2026-08-19 — resolução de conflitos de merge
+
+Foram conciliadas as evoluções de schema/persistência PostgreSQL e de retry
+operacional, preservando ambas as trilhas documentais. A validação local passou
+com `compileall`, 165 testes (10 pulados) e `git diff --check`; nenhuma conexão
+externa, migration, SQL ou commit foi executado.
+
+## Gate local de retry operacional em 2026-08-24
+
+Somente o PostgreSQL local do Supabase foi usado. As três migrations esperadas
+estavam aplicadas. O adaptador passou a usar `connect_with_retry` para abrir a
+conexão e converte falhas do driver no escopo transacional; falha de
+reconhecimento depois do commit é classificada como `AMBIGUOUS_OUTCOME`.
+
+O teste opt-in local comprovou advisory lock por fonte, busy sem criar fonte,
+`sync_run` ou linhas raw, rollback nos quatro pontos controlados, nova
+transação com lock/releitura/diff depois de falha transitória, e exatamente um
+evento e um incremento de versão após retry. A perda controlada do
+reconhecimento de commit não foi repetida automaticamente e preservou uma
+execução aplicada para reconciliação pelo `sync_runs.id`. A evidência deste gate
+foi produzida somente no PostgreSQL local. Uma chamada inicial a `supabase
+migration list`, sem `--linked`, informou conexão remota inesperada e foi
+interrompida; não houve escrita, push ou migration remota. Nenhum Google foi
+usado.
+
+## Compatibilidade remota read-only do retry operacional em 2026-08-24
+
+O gate remoto autorizado usou somente leitura. `supabase migration list --local`
+foi usado para a verificação local; em clones linked, essa flag é obrigatória
+para gates estritamente locais. A comparação remota autorizada mostrou as três
+migrations nos dois lados e `supabase db lint --linked` não encontrou erro.
+
+O Session Pooler na porta 5432 aceitou `psycopg` pelo caminho normal de
+configuração. Uma transação explicitamente `READ ONLY` executou `SELECT 1` e
+agregados: 1 fonte, 5 estados, 8 eventos, 6 runs, 0 erros e 3 requests de
+schema; as classificações de eventos são 5/1/1/1 e não há tombstone ativo. RLS
+permanece ativo nas seis tabelas, sem policies, e `service_role` continua sem
+DELETE nas tabelas raw. Não houve DML, lock, sincronização, fault injection ou
+alteração de schema/grant/policy/RLS.
+
+## Gate de observabilidade operacional e alertas em 2026-08-24
+
+Eventos tipados e logs JSON sanitizados foram adicionados com severidades,
+política explícita de alerta, deduplicação local e SMTP opcional mockado. Não
+houve migration: `sync_runs` e `import_errors` mantêm seus contratos. Nenhum
+e-mail, acesso Google ou staging foi usado; a suíte offline cobriu a fronteira
+de alertas sem segredos.
+
+## Gate de retenção, minimização e LGPD em 2026-08-24
+
+Foi concluída auditoria offline de dados, classificação, minimização, retenção,
+offboarding, ambientes e limites de backups. A política técnica recomenda
+retenção limitada para histórico, erros, artefatos e observabilidade, sem alegar
+prazo legal. O schema atual basta para auditoria/dry-run, mas automação segura
+depende de proposta futura para hold e registro agregado de exclusão. Nenhuma
+migration, purge, acesso Google, staging ou e-mail foi executado.
+
+## Gate de desenho do schema de retenção em 2026-08-25
+
+Preflight confirmou branch `dev` e worktree limpo. Baseline exclusivamente
+offline passou com compileall, 183 testes (13 pulados), check-docs, pip check e
+git diff check. As três migrations aplicadas foram lidas como texto; nenhum DDL
+foi executado e nenhum serviço externo foi acessado.
+
+O desenho mínimo ficou registrado na ADR
+`20260825_retention_schema_design.md`: lifecycle em `data_sources`, holds
+institucionais/por fonte, `purge_runs` separada de `sync_runs`, policy externa
+versionada, dry-run sem DML, offboarding humano e evidência apenas agregada.
+`raw_current_rows` permanece fora de purge histórico e sua FK
+`last_sync_run_id` continua protegendo runs necessárias à reconciliação. A
+proposta não cria migration, código, tabela, grant ou scheduler.
+
+Classificação: `retention_schema_design_validated`. Próximo gate único: revisão
+humana da ADR e autorização para criar somente localmente a migration 4 e seus
+testes offline.

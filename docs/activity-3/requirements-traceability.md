@@ -4,7 +4,14 @@ Fonte oficial: [`docs/decisions/20260806_inicie_etl_clientes_orientacao.md`](../
 
 Auditoria documental realizada em 2026-08-06. A fonte oficial permanece inalterada. Os resumos abaixo preservam sua terminologia e transformam afirmações e perguntas verificáveis em 40 requisitos estáveis.
 
-Atualização de 2026-08-17: os checkpoints posteriores validaram o pipeline raw no staging com fixture fictícia para carga inicial, idempotência, update, tombstone, restore e reorder de linhas, com migrations 3/3. Schema drift de coluna adicionada/removida e rename foi bloqueado antes de persistência; reorder de headers e header duplicado permanecem pendentes. Entradas cronológicas anteriores que tratem a migration ou persistência como futuras devem ser lidas como histórico superado.
+Atualização de 2026-08-18: os checkpoints posteriores validaram o pipeline raw no staging com fixture fictícia para carga inicial, idempotência, update, tombstone, restore, reorder de linhas e migrations 3/3. Schema drift de coluna adicionada/removida e rename foi bloqueado antes de persistência; reorder de headers foi compatível por mapeamento por nome e header duplicado foi rejeitado pelo leitor. Entradas cronológicas anteriores que tratem a migration ou persistência como futuras devem ser lidas como histórico superado.
+
+Atualização de 2026-08-25: a política técnica de retenção e o desenho mínimo de
+schema foram validados sem implementação. Lifecycle, legal hold, purge
+auditável, offboarding, proteção de current e reconciliação foram modelados;
+prazo legal, migration, testes executáveis e operação destrutiva continuam
+pendentes. Isso fortalece `OBJ-03`, `DQ-03` e `STORE-02`, mas não altera seus
+status amplos de `partially_validated`.
 
 ## Regras de classificação
 
@@ -33,13 +40,13 @@ staging. Foram preservadas as identidades, as versões corretas e a ausência de
 eventos por reorder; o alcance ainda exclui schema drift, carga multi-fonte,
 retenção e BI.
 
-## Checkpoint parcial de schema drift em 2026-08-17
+## Checkpoint completo de schema drift em 2026-08-18
 
-Para `PROC-01`, a integração agora bloqueia no staging headers adicionados,
-removidos ou renomeados sem aprovação humana. Três requests pendentes distintas
-foram registradas sem eventos de negócio, alterações de versão ou tombstones;
-a fixture retornou à baseline. Reorder e header duplicado continuam pendentes
-de checkpoint humano separado.
+Para `PROC-01`, a integração bloqueia no staging headers adicionados, removidos
+ou renomeados sem aprovação humana. Três requests pendentes distintas foram
+registradas sem eventos de negócio, alterações de versão ou tombstones. Reorder
+de headers preservou cinco inalterados sem request adicional; header duplicado
+foi rejeitado pelo leitor antes da transação. A fixture retornou à baseline.
 
 ## 1. Objetivo geral
 
@@ -47,7 +54,7 @@ de checkpoint humano separado.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | OBJ-01 | Substituir fórmulas Google Sheets e Apps Script por arquitetura ETL/ELT escalável, estável e de custo zero. | `partially_validated` | pipeline Google read-only → raw staging validado com fixture fictícia; `src/`; `tests/`; `docs/architecture.md` | Não há operação multi-fonte, camada analítica ou prova de custo. | MVP ponta a ponta repetível, metas de escala medidas e custo/free tier documentado. | crítica | Fases 0–7; decisões OD-01 a OD-03 e OD-10 | R-01, R-02, R-03, R-13 |
 | OBJ-02 | Extrair e transformar dados de forma robusta e disponibilizá-los em dashboards analíticos de alto desempenho. | `partially_validated` | conector Google read-only, snapshot/diff e raw staging validados | Transformação analítica, BI e medição de dashboard ausentes. | Fonte fictícia real → raw → SQL → tabela analítica → consulta BI, com reconciliação e tempo medido. | crítica | Fases 1–5 | R-02, R-08, R-10, R-13 |
-| OBJ-03 | Garantir proteção de dados sensíveis dos clientes. | `partially_validated` | Testes de segredo/host; em 2026-08-06 o catálogo confirmou RLS, grants restritos e zero policies nas tabelas operacionais | Retenção, minimização, anonimização, LGPD e acesso analítico não definidos. | Threat review, política LGPD/retention aprovada e testes de acesso negativo aprovados. | crítica | OD-07 a OD-09, Fases 5 e 7 | R-05, R-06, R-15 |
+| OBJ-03 | Garantir proteção de dados sensíveis dos clientes. | `partially_validated` | Testes de segredo/host; RLS/grants restritos; política e desenho de retenção sem migration | Prazos legais, purge testada, anonimização, produção e acesso analítico não definidos. | Threat review, política LGPD/retention humana aprovada e testes de acesso/purge negativos aprovados. | crítica | OD-07 a OD-09, Fases 5 e 7 | R-05, R-06, R-15 |
 
 ## 2. Desempenho e qualidade
 
@@ -55,7 +62,7 @@ de checkpoint humano separado.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | DQ-01 | Suportar volumes crescentes mantendo consultas e dashboards ágeis. | `partially_validated` | teste opt-in de snapshot com 10.000 linhas | O teste não define limite de tempo nem cobre banco, SQL analítico ou BI. | Volumes acordados testados com p95 e metas de carga/consulta aprovadas. | alta | OD-02, OD-03, Fases 4–5 | R-04, R-13 |
 | DQ-02 | Maximizar tecnologias open-source, free tiers sustentáveis ou custo zero. | `partially_validated` | Python stdlib sem dependências de produção; PostgreSQL/Supabase | Não há pesquisa citada, sustentabilidade nem comparação de alternativas. | Matriz de ferramentas, limites atuais, premissas e gatilhos de upgrade revisados. | alta | Fase 7; pesquisa com fontes oficiais | R-01, R-03, R-16, R-18 |
-| DQ-03 | Controle rigoroso de acesso e anonimização/tratamento em conformidade com LGPD. | `partially_validated` | isolamento por projeto; RLS e grants operacionais validados remotamente; artefatos sanitizados | Sem RLS por usuário, anonimização, base legal, retenção ou descarte. | Perfis distintos bloqueiam dados indevidos e política LGPD é aprovada e testada. | crítica | OD-06 a OD-09, Fases 5 e 7 | R-05, R-06, R-15 |
+| DQ-03 | Controle rigoroso de acesso e anonimização/tratamento em conformidade com LGPD. | `partially_validated` | isolamento; RLS/grants; artefatos sanitizados; lifecycle, hold, purge e offboarding desenhados | Sem migration/purge testada, RLS por usuário, anonimização, base legal ou prazo aprovado. | Perfis distintos bloqueiam dados indevidos e política LGPD/purge é aprovada e testada. | crítica | OD-06 a OD-09, Fases 5 e 7 | R-05, R-06, R-15 |
 | DQ-04 | Código limpo e manutenível, com Python (ou equivalente) e SQL para tratamento. | `validated` | módulos pequenos e desacoplados; `pyproject.toml`; `sql_generator.py`; suíte comportamental; skill de manutenção | A avaliação de handoff diário ainda pertence a MAINT-01/02. | Compilação e testes aprovados; arquitetura e convenções documentadas sem dependência implícita. | alta | CI e revisão contínua | R-11 |
 
 ## 3. Ingestão e conectividade
@@ -81,7 +88,7 @@ de checkpoint humano separado.
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | STORE-01 | Definir banco analítico/Data Warehouse com capacidade e escala sem degradação. | `planned` | PostgreSQL/Supabase foi escolhido apenas para base operacional | Não há decisão analítica, benchmark ou estimativa de capacidade. | ADR compara opções e benchmark comprova metas de volume/consulta. | alta | OD-02/03/10; Fases 4 e 7 | R-04, R-13, R-18 |
-| STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | migrations 3/3, duas cargas idempotentes e ciclo de mudanças validados no staging com fixture fictícia | Retenção, minimização, multi-fonte e operação contínua permanecem indefinidas. | Duas cargas persistem raw auditável/idempotente e staging separada, com retenção testada. | crítica | Fases 2B, 4 e 7 | R-04, R-06, R-12, R-20 |
+| STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | migrations 3/3 e ciclo raw no staging; política e schema de retenção desenhados | Migration/testes de retenção, multi-fonte e operação contínua permanecem ausentes. | Raw auditável/idempotente com retenção e offboarding testados sem remover current acidentalmente. | crítica | Fases 2B, 4 e 7 | R-04, R-06, R-12, R-20 |
 | STORE-03 | Transformar em SQL para Star Schema ou Snowflake, com fatos e dimensões. | `planned` | SQL atual é somente upsert de espelho operacional | Caso de negócio, staging, dimensões, fato, métricas e reconciliação ausentes. | Star Schema funcional, consultas testadas e métricas reconciliadas. | crítica | Fase 4; definição de caso de negócio | R-10, R-13 |
 | STORE-04 | Aplicar controle hierárquico de visualização por RLS/RBAC. | `partially_validated` | catálogo remoto: RLS nas cinco tabelas operacionais, zero policies, `anon`/`authenticated` sem acesso e backend autorizado | Não há policies hierárquicas, papéis, escopo por usuário nem teste com identidades distintas. | Dois ou mais escopos demonstrados; consultas negativas não retornam dados indevidos. | crítica | OD-06; Fase 5; modelo de identidade | R-15 |
 

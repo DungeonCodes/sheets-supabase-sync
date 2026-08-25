@@ -4,7 +4,34 @@ import json
 import logging
 from typing import Any
 
-SAFE_FIELDS = frozenset({"event", "data_source_id", "sync_run_id", "status", "duration_ms", "rows_read", "rows_inserted", "rows_updated", "rows_deleted", "rows_restored", "rows_unchanged", "error_code", "attempt", "attempts", "wait_ms", "columns_read", "empty_rows", "retries"})
+SAFE_FIELDS = frozenset(
+    {
+        "event",
+        "data_source_id",
+        "sync_run_id",
+        "status",
+        "operation",
+        "attempt",
+        "attempts",
+        "max_attempts",
+        "error_code",
+        "error_category",
+        "retryable",
+        "wait_ms",
+        "backoff_ms",
+        "duration_ms",
+        "outcome",
+        "rows_read",
+        "rows_inserted",
+        "rows_updated",
+        "rows_deleted",
+        "rows_restored",
+        "rows_unchanged",
+        "columns_read",
+        "empty_rows",
+        "retries",
+    }
+)
 
 
 def log_event(logger: logging.Logger, event: str, **fields: Any) -> None:

@@ -2,7 +2,7 @@
 
 ## Estado atual do checkpoint
 
-Os gates integrados de carga inicial, idempotência, update, tombstone, restore e reorder de linhas foram validados no staging exclusivamente com a fixture fictícia. Migrations permanecem 3/3. No gate de schema drift, coluna adicionada/removida e rename foram bloqueados antes de persistência; reorder de headers e header duplicado são os únicos cenários ainda pendentes. As seções cronológicas abaixo preservam checkpoints históricos e não anulam este estado atual.
+Os gates integrados de carga inicial, idempotência, update, tombstone, restore e reorder de linhas foram validados no staging exclusivamente com a fixture fictícia. Migrations permanecem 3/3. No gate de schema drift, coluna adicionada/removida e rename foram bloqueados antes de persistência; reorder de headers foi compatível por mapeamento por nome e header duplicado foi rejeitado antes da transação. As seções cronológicas abaixo preservam checkpoints históricos e não anulam este estado atual.
 
 ## Regra obrigatória
 
@@ -242,3 +242,20 @@ autorização específica para schema drift controlado da fixture fictícia.
 | Negócio | preservado | 5 estados, 8 eventos, 6 runs e zero import_errors |
 
 Próximo gate único: reorder controlado de headers.
+
+## Gate de desenho do schema de retenção em 2026-08-25
+
+| Gate | Resultado | Evidência sanitizada |
+| --- | --- | --- |
+| Schema atual | aprovado | três migrations lidas offline; PKs, FKs, timestamps, status, current e history mapeados |
+| Política por fonte | aprovado | valores em configuração externa versionada; policy e dry-run digests congelados na evidência |
+| Legal hold | aprovado | hold institucional ou por fonte; registro individual adiado; hold sempre bloqueia purge/offboarding |
+| Current e history | aprovado | current fora de purge histórico; history por idade, run terminal e janela de reconciliação |
+| Runs e commit ambíguo | aprovado | runs referenciadas, não terminais ou dentro da janela permanecem; FK `last_sync_run_id` preservada |
+| Offboarding | aprovado | lifecycle mínimo, sync parada, credenciais revogadas, aprovação, hold check e evidência final |
+| Segurança | aprovado | duas novas tabelas conceituais, RLS, zero policies, grants mínimos e nenhuma PII adicional |
+| Execução | não realizada | nenhuma migration, DDL, purge, Google, staging ou commit |
+
+Classificação: `retention_schema_design_validated`. Próximo gate único: revisão
+humana da ADR e autorização para criar somente localmente a migration 4 e seus
+testes offline.

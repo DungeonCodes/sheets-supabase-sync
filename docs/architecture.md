@@ -28,6 +28,23 @@ A separação está registrada na [ADR de migration incremental](decisions/20260
 
 Nenhum índice duplica a chave primária ou a unicidade.
 
+## Retenção e ciclo de vida propostos
+
+O gate de desenho de 2026-08-25 demonstrou que o schema aplicado ainda não
+representa lifecycle, legal hold ou execução auditável de purge. A decisão
+completa está na
+[ADR de retenção](decisions/20260825_retention_schema_design.md). A futura
+evolução mínima adiciona lifecycle a `data_sources`, uma tabela pequena de
+holds e uma tabela de evidência agregada de purge; os prazos permanecem em
+configuração externa versionada por fonte.
+
+Retenção histórica não inclui `raw_current_rows`. A FK
+`raw_current_rows.last_sync_run_id` permanece restritiva: a run ancorada pelo
+estado atual não pode ser removida. Offboarding é o único fluxo que poderá
+eliminar current, sempre após suspensão, revogação externa de credenciais,
+hold check e aprovação humana. `sync_runs` continua reservada à ingestão;
+evidência de purge terá entidade própria para não distorcer essa semântica.
+
 ## Baseline do banco
 
 A migration ativa `20260804000000_initial_isolated_institution_schema.sql` cria somente as cinco tabelas operacionais. As tabelas espelho nao fazem parte da baseline: cada uma sera proposta e criada posteriormente pelo sincronizador, em modo explicito, sem foreign keys para outras tabelas espelho.

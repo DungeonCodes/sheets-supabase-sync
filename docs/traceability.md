@@ -2,7 +2,7 @@
 
 A rastreabilidade oficial e detalhada da Atividade 3 está em [activity-3/requirements-traceability.md](activity-3/requirements-traceability.md). Ela é a referência para status, evidência, lacuna, aceite, prioridade, dependência e risco.
 
-Estado atual: o pipeline raw foi validado no staging com fixture fictícia para carga inicial, idempotência, update, tombstone, restore e reorder. Schema drift de coluna adicionada/removida e rename é bloqueante; reorder de headers e header duplicado permanecem em andamento. Os parágrafos cronológicos abaixo preservam evidência anterior e não substituem este estado.
+Estado atual: o pipeline raw e o schema drift completo foram validados no staging com fixture fictícia. Retry operacional, observabilidade, política de retenção e desenho mínimo do schema de retenção também foram validados em seus alcances documentados. Os parágrafos cronológicos abaixo preservam evidência anterior e não substituem este estado.
 
 ## Capacidades técnicas existentes
 
@@ -15,7 +15,9 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | Identificadores seguros | `identifiers.py`, `sql_generator.py` | unit/security | `validated` |
 | Contratos e schema drift offline | `contracts.py`, `diff.py` | contract/unit | `validated` |
 | Snapshots, diff, tombstones e SQL | `snapshot.py`, `diff.py`, `sql_generator.py` | `test_sync.py` | `validated` |
-| Logs/health locais | `observability.py`, `health.py` | unit | `partially_validated` |
+| Logs/health e alertas | `operational_events.py`, `alerting.py`, `observability.py`, `health.py` | unit: severidade, sanitização, política, deduplicação e SMTP mockado | `validated_offline` |
+| Retenção, minimização e LGPD | `retention.md`, ADR 20260825, schema raw e `.gitignore` | política; lifecycle/hold/purge/offboarding desenhados; current e reconciliação protegidos; sem migration | `retention_schema_design_validated` |
+| Retry operacional seguro | `operational_failures.py`, `postgres_retry.py`, `raw_sync_service.py`, `raw_repository.py` | PostgreSQL local: lock, busy, rollback, retry, idempotência e commit ambíguo; staging read-only: pooler, psycopg, migrations, lint e estado agregado | `validated_remote_read_only` |
 | Histórico da baseline | migration `20260804000000` | `migration list`: duas versões locais, uma remota, sem divergência | `validated` |
 | Estado raw atual por fonte/chave | migration `20260806120000` aplicada no staging; `raw_state.py`, `raw_repository.py` | PostgreSQL local e catálogo remoto: DDL, constraints, grants, RLS, transações e advisory lock; tabelas vazias | `validated` |
 | Cinco tabelas operacionais | migration `20260804000000` | catálogo remoto: cinco tabelas, 27 constraints, 14 índices e zero linhas | `validated` |
@@ -50,12 +52,21 @@ fixture fictícia foram validados um por vez no staging. A identidade lógica fo
 preservada em todos os cenários; o reorder não gerou evento nem versão nova.
 O pipeline raw persistido permanece `validated` para esse ciclo controlado.
 
-Checkpoint parcial de schema drift: a política integrada foi validada para
-adição, remoção e rename de header no staging. Cada drift bloqueou a ingestão
-antes de qualquer mutação raw e registrou request operacional pendente; a
-baseline restaurada permanece equivalente. Reorder e header duplicado seguem
-como próximos cenários controlados.
+Checkpoint completo de schema drift: a política integrada bloqueou adição,
+remoção e rename de header antes de qualquer mutação raw e registrou requests
+operacionais pendentes. Reorder foi compatível por mapeamento por nome, sem
+evento ou versão nova; header duplicado foi rejeitado pelo leitor antes da
+transação. A baseline restaurada permanece equivalente.
 | Staging/Star Schema/BI | inexistente | nenhuma evidência | `planned` |
 | E-mail e scheduler implantado | regras/configuração parciais | nenhum transporte/provider | `planned` |
 
 Consulte também [análise de lacunas](activity-3/gap-analysis.md), [plano](activity-3/implementation-plan.md), [riscos](activity-3/risk-register.md), [decisões](activity-3/open-decisions.md) e [gates](activity-3/validation-checkpoints.md).
+
+## Checkpoint de desenho de retenção em 2026-08-25
+
+As três migrations aplicadas foram auditadas offline. A futura evolução mínima
+ficou limitada a lifecycle em `data_sources`, `retention_holds`, `purge_runs` e
+índices de seleção. Prazos continuam externos e versionados; current não entra
+em purge histórico; `last_sync_run_id` permanece restritiva e runs
+ambíguas/não terminais são protegidas. Não houve migration, DDL, purge ou
+acesso externo. Classificação: `retention_schema_design_validated`.

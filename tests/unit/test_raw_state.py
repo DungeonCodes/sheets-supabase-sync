@@ -96,9 +96,9 @@ class RawCurrentStateTests(unittest.TestCase):
     def test_duplicate_identity_is_refused_by_the_state_transition(self) -> None:
         snapshot = build_raw_snapshot(source(), HEADER, rows((2, "a", "one")), NOW)
         plan = compare_raw_snapshots(snapshot, None)
-        self.repository.commit(SOURCE_HASH, "run-manual", plan)
+        self.repository.apply_plan(SOURCE_HASH, "run-manual", plan)
         with self.assertRaises(SyncError) as raised:
-            self.repository.commit(SOURCE_HASH, "run-manual", plan)
+            self.repository.apply_plan(SOURCE_HASH, "run-manual", plan)
         self.assertEqual(ErrorCode.VALIDATION, raised.exception.code)
 
     def test_history_records_only_business_events(self) -> None:
@@ -135,14 +135,14 @@ class RawStateFailureTests(unittest.TestCase):
             persist(repository, (2, "a", "one"))
         self.assertEqual({}, repository.current_rows(SOURCE_HASH))
         self.assertEqual((), repository.history())
-        self.assertEqual("failed", repository.run_status("run-1"))
+        self.assertIsNone(repository.run_status("run-1"))
 
     def test_concurrent_execution_is_refused_without_waiting(self) -> None:
         repository = InMemoryRawStateRepository()
         self.assertTrue(repository.try_acquire(SOURCE_HASH))
         with self.assertRaises(SyncError) as raised:
             persist(repository, (2, "a", "one"))
-        self.assertEqual(ErrorCode.VALIDATION, raised.exception.code)
+        self.assertEqual(ErrorCode.BUSY, raised.exception.code)
         repository.release(SOURCE_HASH)
         self.assertIn("pg_try_advisory_xact_lock", PostgresRawRepository.try_lock_sql())
 

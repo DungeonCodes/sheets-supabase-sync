@@ -4,7 +4,16 @@ Data da auditoria: 2026-08-06. Fonte: [documento oficial](../decisions/20260806_
 
 ## Atualização de estado em 2026-08-17
 
-Esta análise preserva a fotografia de 2026-08-06. Evidências posteriores validaram no staging, com fixture exclusivamente fictícia, leitura Google read-only, persistência raw, idempotência, update, tombstone, restore, reorder de linhas, transação, advisory lock e migrations 3/3. Schema drift para coluna adicionada/removida e rename foi bloqueado sem mutação de negócio; reorder de headers e header duplicado ainda estão em andamento. Onde o texto histórico disser que a persistência ou migration não ocorreu, essa afirmação é superada por este checkpoint.
+Esta análise preserva a fotografia de 2026-08-06. Evidências posteriores validaram no staging, com fixture exclusivamente fictícia, leitura Google read-only, persistência raw, idempotência, update, tombstone, restore, reorder de linhas, transação, advisory lock e migrations 3/3. Schema drift para coluna adicionada/removida e rename foi bloqueado sem mutação de negócio; reorder de headers foi neutro e header duplicado foi rejeitado pelo leitor antes da transação. Onde o texto histórico disser que a persistência ou migration não ocorreu, essa afirmação é superada por este checkpoint.
+
+## Atualização do gate em 2026-08-18
+
+O gate de schema drift foi concluído no staging, sempre com a fixture fictícia:
+adição, remoção e rename foram bloqueados sem mutação de negócio; reorder de
+headers foi neutro por mapeamento por nome; header duplicado foi rejeitado pelo
+leitor antes da transação. A baseline retornou a cinco linhas, sete colunas e
+cinco registros inalterados. Este checkpoint substitui somente os próximos
+passos históricos que ainda tratam reorder ou duplicidade como pendentes.
 
 ## Leitura dos resultados
 
@@ -92,7 +101,7 @@ Toda pesquisa temporal deverá ser datada e citar documentação oficial; suposi
 | Batch versus quase tempo real | Intervalo configurável e seleção de vencidas; decisão/SLA e scheduler ausentes. | parcial / decisão externa |
 | Backoff exponencial | Integrado ao leitor para 429/5xx/timeout/rede, com jitter, `Retry-After` e testes offline. | implementado, validação real pendente |
 | Isolamento por fonte | Batch captura falha de uma fonte e continua; teste aprovado. | validado offline |
-| Schema drift | Coluna adicionada/removida e rename bloqueados no staging sem mutação de negócio; reorder de headers e duplicidade ainda pendentes. | parcialmente validado |
+| Schema drift | Adição/remoção/rename bloqueados sem mutação; reorder neutro por nome e duplicidade rejeitada antes da transação. | validado para fonte única |
 | Dados brutos | Histórico event-only e estado atual persistidos no staging com fixture fictícia; retenção permanece indefinida. | parcialmente validado |
 | Staging | Camada raw operacional validada; camada analítica inexistente. | parcialmente validado |
 | Star Schema / fato / dimensão | Nenhum objeto ou transformação analítica. | não implementado |
@@ -117,4 +126,11 @@ Google Sheets fictício → Python → Supabase Raw → transformação SQL simp
 → tabela analítica → consulta pronta para BI
 ```
 
-A fundação e a camada raw do staging permanecem validadas no alcance da fixture fictícia. O próximo passo único é concluir o gate de schema drift com reorder de headers e header duplicado, cada um sob checkpoint humano separado.
+A fundação do staging permanece validada e nenhuma escrita ocorreu neste gate. A Fase 2A comprovou o dry-run contra a fixture real (5 novas, zero persistidas). Em 2026-08-06 a migration incremental de estado raw foi criada e validada offline, e o dry-run foi repetido com o mesmo resultado. O próximo passo único é **a revisão humana do DDL e a autorização de sua aplicação**; a Fase 2B permanece bloqueada até então.
+
+## Lacuna operacional de 2026-08-19
+
+A matriz, conexão limitada, rollback/retry, busy e commit ambíguo possuem testes offline. Faltam a
+execução PostgreSQL local real e um adaptador `psycopg` integrado no checkout atual; logo o gate não
+é considerado validado.
+A fundação e a camada raw do staging permanecem validadas no alcance da fixture fictícia. O próximo passo único é validar falha/retry operacional controlado, sob checkpoint humano separado.

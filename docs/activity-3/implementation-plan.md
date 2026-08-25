@@ -183,4 +183,11 @@ Plano incremental derivado da [matriz oficial](requirements-traceability.md). Ne
 
 ## Critério global de encerramento
 
+## Checkpoint de retry operacional de 2026-08-19
+
+Política formal e fault injection offline foram implementados. Retry seguro refaz transação, lock,
+leitura e diff; lock ocupado é deferred; commit desconhecido não repete automaticamente.
+`sync_runs.id` atende à identidade sem migration. O teste PostgreSQL local real está preparado, mas
+bloqueado por erro 500 do Docker Desktop; o marco permanece `implemented_not_validated`.
+
 Uma fase somente muda para concluída quando requisito, implementação, testes, resultado, riscos, documentação, aceite e pendências estão rastreados. A aprovação humana é obrigatória para SQL aplicável, segurança, custo, LGPD, ferramenta e passagem de fase.

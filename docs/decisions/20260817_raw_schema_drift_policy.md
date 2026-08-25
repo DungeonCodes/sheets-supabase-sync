@@ -29,10 +29,15 @@ raw atual, pois as execuções prévias não tinham `schema_metadata` de header.
 Uma futura evolução poderá materializar baseline aprovada em metadado próprio,
 mas não altera automaticamente essa baseline nem aprova drift neste gate.
 
-## Evidência inicial
+## Evidência do gate integrado
 
 No staging, coluna adicionada, removida e rename foram bloqueados de forma
 independente antes de `sync_run` ou mutações raw. Cada diferença gerou uma
 request pendente distinta; após restauração, a baseline voltou a produzir cinco
-registros inalterados. Reorder e header duplicado não foram executados neste
-checkpoint.
+registros inalterados.
+
+Em 2026-08-18, reorder de headers foi lido como compatível: cinco registros
+permaneceram inalterados, sem request, evento, versão ou `sync_run` adicional.
+Header duplicado foi rejeitado pelo leitor com erro de schema antes da
+transação. A baseline final voltou a cinco linhas, sete colunas e fingerprint
+equivalente, sem mutação de negócio.

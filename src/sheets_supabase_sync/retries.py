@@ -29,8 +29,10 @@ class RetryPolicy:
 @dataclass(frozen=True)
 class RetryNotice:
     attempt: int
+    max_attempts: int
     error_code: str
     wait_seconds: float
+    elapsed_seconds: float
 
 
 def retry(
@@ -57,6 +59,6 @@ def retry(
             if monotonic_clock() - started + wait_seconds > selected.max_elapsed_seconds:
                 raise
             if on_retry:
-                on_retry(RetryNotice(attempt, error.code.value, wait_seconds))
+                on_retry(RetryNotice(attempt, selected.max_attempts, error.code.value, wait_seconds, monotonic_clock() - started))
             pause(wait_seconds)
     raise RuntimeError("Tentativas esgotadas")
