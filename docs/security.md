@@ -80,6 +80,24 @@ payload, células, senha, URL completa, token, Service Account ou Project Ref co
 Retenção e offboarding seguem a política técnica em [retention.md](retention.md):
 credenciais ficam fora do ciclo de retenção do aplicativo e dados raw nunca são
 copiados para logs, alertas ou evidências de exclusão.
+
+## Grants dos controles de retenção
+
+A migration 4 foi validada somente no PostgreSQL local. `retention_holds` e
+`purge_runs` têm RLS, zero policies e nenhum acesso para `anon` ou
+`authenticated`; `service_role` recebe apenas SELECT. Criar/liberar hold,
+aprovar purge e conduzir offboarding permanecem operações de owner/admin em
+canal separado.
+
+Os grants amplos herdados da baseline foram reduzidos localmente ao contrato do
+sincronizador: `service_role` não possui DELETE em `data_sources`, `sync_runs`,
+history, current, errors ou requests. Lifecycle também não pode ser atualizado
+por essa role. Nenhuma permissão administrativa foi criada para facilitar os
+testes.
+
+`lifecycle_changed_by_ref`, campos `*_by_ref`, `source_ref` e reason codes usam
+formato técnico opaco e restritivo. Nomes, e-mails, logins, texto livre, payload,
+células, segredos e strings de conexão não pertencem a essas tabelas.
 Em 2026-08-11, a terceira migration event-only foi aplicada isoladamente ao
 staging. Introspecao somente-leitura confirmou que `raw_import_rows` manteve
 RLS sem policies e grants minimos (service_role somente SELECT/INSERT), sem

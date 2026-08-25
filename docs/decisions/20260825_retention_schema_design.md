@@ -2,10 +2,10 @@
 
 ## Status e escopo
 
-Decisão de arquitetura validada para orientar uma futura quarta migration. Este
-gate não cria migration, não altera schema, não implementa purge e não autoriza
-qualquer exclusão. Os prazos citados são recomendações técnicas configuráveis,
-não prazos legais.
+Decisão de arquitetura implementada e validada somente no PostgreSQL local pela
+migration `20260825120000_add_retention_controls.sql`. A migration não implementa
+purge e não autoriza exclusão. Os prazos citados são recomendações técnicas
+configuráveis, não prazos legais. Nada foi aplicado ao staging.
 
 ## Schema atual relevante
 
@@ -362,13 +362,30 @@ custo dominante continuará sendo o volume de history, não a evidência agregad
 
 Essas decisões bloqueiam execução destrutiva, mas não o desenho configurável.
 
+## Implementação local em 2026-08-25
+
+A migration 4 materializou as duas tabelas e o lifecycle aprovados. Para atender
+ao contrato executável do gate, `purge_runs` também representa dry-runs com
+estado fechado; dry-run exige contagens afetadas vazias. A nomenclatura
+`data_source_id` foi preservada por coerência com o schema existente.
+
+Os grants amplos herdados da baseline em `data_sources`, `sync_runs`,
+`import_errors` e `schema_change_requests` foram reduzidos ao uso real do
+sincronizador. `service_role` não recebe DELETE e possui somente SELECT nas duas
+novas tabelas. Referências de ator e reason codes são tokens técnicos opacos.
+
+Reset, migration list e lint foram executados apenas localmente. Quatorze testes
+PostgreSQL validaram lifecycle, holds, purge evidence, FKs, catálogo, RLS,
+policies e grants, sempre com rollback das fixtures. As migrations 1–3 foram
+protegidas por digest e não mudaram. Nenhum purge foi executado.
+
 ## Consequência e próximo gate
 
 A necessidade de migration está demonstrada: lifecycle, hold e evidência de
 purge não existem hoje. O desenho mínimo preserva current, FKs, reconciliação
 ambígua e menor privilégio.
 
-Classificação: `retention_schema_design_validated`.
+Classificação: `retention_schema_local_validated`.
 
-Próximo gate único: revisão humana desta ADR e autorização para criar, ainda
-somente localmente, a proposta executável da migration 4 e seus testes offline.
+Próximo gate único: revisão humana do DDL, grants e evidência local antes de
+qualquer autorização separada para staging. Isso não autoriza purge.

@@ -28,22 +28,20 @@ A separação está registrada na [ADR de migration incremental](decisions/20260
 
 Nenhum índice duplica a chave primária ou a unicidade.
 
-## Retenção e ciclo de vida propostos
+## Retenção e ciclo de vida
 
-O gate de desenho de 2026-08-25 demonstrou que o schema aplicado ainda não
-representa lifecycle, legal hold ou execução auditável de purge. A decisão
-completa está na
-[ADR de retenção](decisions/20260825_retention_schema_design.md). A futura
-evolução mínima adiciona lifecycle a `data_sources`, uma tabela pequena de
-holds e uma tabela de evidência agregada de purge; os prazos permanecem em
-configuração externa versionada por fonte.
+A migration local `20260825120000_add_retention_controls.sql`, definida na
+[ADR de retenção](decisions/20260825_retention_schema_design.md), adiciona
+lifecycle a `data_sources`, `retention_holds` e `purge_runs`. Prazos permanecem
+em configuração externa versionada por fonte. A migration foi validada no
+PostgreSQL local e não foi aplicada ao staging.
 
 Retenção histórica não inclui `raw_current_rows`. A FK
 `raw_current_rows.last_sync_run_id` permanece restritiva: a run ancorada pelo
 estado atual não pode ser removida. Offboarding é o único fluxo que poderá
 eliminar current, sempre após suspensão, revogação externa de credenciais,
 hold check e aprovação humana. `sync_runs` continua reservada à ingestão;
-evidência de purge terá entidade própria para não distorcer essa semântica.
+`purge_runs` preserva apenas evidência agregada, sem payload ou lista de IDs.
 
 ## Baseline do banco
 

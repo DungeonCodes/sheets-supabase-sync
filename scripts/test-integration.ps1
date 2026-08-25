@@ -8,4 +8,4 @@ if (-not $dbLine) { Write-Host 'SKIP: URL PostgreSQL local nao encontrada no sta
 $env:LOCAL_DATABASE_URL = $dbLine.Substring(7).Trim('"')
 $env:RUN_SUPABASE_INTEGRATION = '1'
 $env:PYTHONPATH = "$repo\src"
-& "$repo\.venv\Scripts\python.exe" -m unittest discover -s "$repo\tests\integration" -p "test_postgres_raw_repository.py" -v
+& "$repo\.venv\Scripts\python.exe" -m unittest discover -s "$repo\tests\integration" -p "test_*postgres*.py" -v

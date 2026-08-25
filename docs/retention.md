@@ -65,13 +65,12 @@ prazo legal aprovado, hold, owner e evidência de purge. A opção simples é jo
 Python periódico em dry-run primeiro, com seleção por datas indexadas e relatório
 agregado; SQL destrutivo ou scheduler do provedor dependem de ADR posterior.
 
-## Necessidade de evolução
+## Evolução de schema local
 
-O schema atual é suficiente para auditoria e dry-run de elegibilidade, mas não
-para purge/offboarding automatizado seguro. Antes de implementar, propor
-migration revisada para retenção/hold e auditoria agregada de exclusão, índices
-por data/fonte, RLS/grants mínimos e rollback que desabilite o job sem restaurar
-dados apagados. Nenhuma migration é criada por esta política.
+A migration `20260825120000_add_retention_controls.sql` implementa localmente
+lifecycle, legal hold e evidência agregada de purge. Ela não implementa seleção
+de candidatos, scheduler, offboarding automático ou qualquer exclusão. Prazos
+continuam em configuração externa versionada e dependem de aprovação humana.
 
 ## Gate de desenho de schema em 2026-08-25
 
@@ -93,3 +92,15 @@ migration ou executar purge. Ele separa responsabilidades:
 O dry-run futuro será read-only e não fará DML. Qualquer execução destrutiva
 continua bloqueada até política humana aprovada, migration revisada, testes
 locais e autorização específica.
+
+## Validação local da migration 4 em 2026-08-25
+
+As quatro migrations foram reaplicadas por reset exclusivamente local. Lifecycle
+e coerência com `enabled`, hold global/por fonte, release, `purge_runs`, FKs,
+índices, RLS, zero policies e grants mínimos passaram em PostgreSQL real. Todas
+as fixtures de comportamento sofreram rollback; nenhum purge foi executado.
+
+`raw_current_rows.last_sync_run_id` permanece `NO ACTION` e bloqueou a remoção
+controlada de uma run referenciada. `service_role` pode apenas consultar holds e
+evidências e não possui DELETE nas tabelas operacionais. Referências de ator e
+reason codes aceitam somente tokens técnicos opacos, sem nome, e-mail ou login.

@@ -483,3 +483,27 @@ proposta não cria migration, código, tabela, grant ou scheduler.
 Classificação: `retention_schema_design_validated`. Próximo gate único: revisão
 humana da ADR e autorização para criar somente localmente a migration 4 e seus
 testes offline.
+
+## Migration 4 de retenção validada localmente em 2026-08-25
+
+Preflight confirmou branch `dev` e worktree limpo; a baseline executou 183
+testes, com 13 pulados e zero falhas. A ADR e as três migrations existentes
+foram relidas. Digests confirmaram que as migrations 1–3 permaneceram byte a
+byte intactas.
+
+Foi criada somente `20260825120000_add_retention_controls.sql`, com lifecycle em
+`data_sources`, hold global/por fonte e `purge_runs`. A migration também reduziu
+grants antigos ao contrato do sincronizador, sem conceder DELETE. Docker e
+Supabase local foram iniciados; `supabase db reset --local` aplicou 4/4
+migrations e `supabase db lint --local` passou. Nenhum comando linked ou push
+foi usado.
+
+Quatorze testes PostgreSQL locais passaram. Fixtures com lifecycle, holds,
+evidência e tentativa de remoção de run referenciada foram revertidas. O
+catálogo confirmou FKs, índices, RLS, zero policies, grants negativos e ausência
+de trigger/procedure de retenção. Nenhum purge, Google, staging ou commit foi
+executado.
+
+Classificação: `retention_schema_local_validated`. Próximo gate único: revisão
+humana do DDL, grants e evidência local antes de qualquer autorização separada
+para staging.

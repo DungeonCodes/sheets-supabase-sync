@@ -21,7 +21,7 @@ class IncrementalRawStateMigrationTests(unittest.TestCase):
     def test_migration_is_named_and_ordered_after_the_baseline(self) -> None:
         self.assertRegex(self.path.name, r"^\d{14}_add_raw_current_state\.sql$")
         self.assertGreater(self.path.name[:14], BASELINE_NAME[:14])
-        self.assertEqual(3, len(list(MIGRATIONS.glob("*.sql"))))
+        self.assertEqual(4, len(list(MIGRATIONS.glob("*.sql"))))
 
     def test_migration_has_no_destructive_statement(self) -> None:
         for token in ("drop ", "truncate ", "delete from", "alter column", "rename"):
