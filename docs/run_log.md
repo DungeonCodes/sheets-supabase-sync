@@ -464,3 +464,22 @@ retenção limitada para histórico, erros, artefatos e observabilidade, sem ale
 prazo legal. O schema atual basta para auditoria/dry-run, mas automação segura
 depende de proposta futura para hold e registro agregado de exclusão. Nenhuma
 migration, purge, acesso Google, staging ou e-mail foi executado.
+
+## Gate de desenho do schema de retenção em 2026-08-25
+
+Preflight confirmou branch `dev` e worktree limpo. Baseline exclusivamente
+offline passou com compileall, 183 testes (13 pulados), check-docs, pip check e
+git diff check. As três migrations aplicadas foram lidas como texto; nenhum DDL
+foi executado e nenhum serviço externo foi acessado.
+
+O desenho mínimo ficou registrado na ADR
+`20260825_retention_schema_design.md`: lifecycle em `data_sources`, holds
+institucionais/por fonte, `purge_runs` separada de `sync_runs`, policy externa
+versionada, dry-run sem DML, offboarding humano e evidência apenas agregada.
+`raw_current_rows` permanece fora de purge histórico e sua FK
+`last_sync_run_id` continua protegendo runs necessárias à reconciliação. A
+proposta não cria migration, código, tabela, grant ou scheduler.
+
+Classificação: `retention_schema_design_validated`. Próximo gate único: revisão
+humana da ADR e autorização para criar somente localmente a migration 4 e seus
+testes offline.

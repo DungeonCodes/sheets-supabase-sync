@@ -242,3 +242,20 @@ autorização específica para schema drift controlado da fixture fictícia.
 | Negócio | preservado | 5 estados, 8 eventos, 6 runs e zero import_errors |
 
 Próximo gate único: reorder controlado de headers.
+
+## Gate de desenho do schema de retenção em 2026-08-25
+
+| Gate | Resultado | Evidência sanitizada |
+| --- | --- | --- |
+| Schema atual | aprovado | três migrations lidas offline; PKs, FKs, timestamps, status, current e history mapeados |
+| Política por fonte | aprovado | valores em configuração externa versionada; policy e dry-run digests congelados na evidência |
+| Legal hold | aprovado | hold institucional ou por fonte; registro individual adiado; hold sempre bloqueia purge/offboarding |
+| Current e history | aprovado | current fora de purge histórico; history por idade, run terminal e janela de reconciliação |
+| Runs e commit ambíguo | aprovado | runs referenciadas, não terminais ou dentro da janela permanecem; FK `last_sync_run_id` preservada |
+| Offboarding | aprovado | lifecycle mínimo, sync parada, credenciais revogadas, aprovação, hold check e evidência final |
+| Segurança | aprovado | duas novas tabelas conceituais, RLS, zero policies, grants mínimos e nenhuma PII adicional |
+| Execução | não realizada | nenhuma migration, DDL, purge, Google, staging ou commit |
+
+Classificação: `retention_schema_design_validated`. Próximo gate único: revisão
+humana da ADR e autorização para criar somente localmente a migration 4 e seus
+testes offline.

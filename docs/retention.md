@@ -72,3 +72,24 @@ para purge/offboarding automatizado seguro. Antes de implementar, propor
 migration revisada para retenção/hold e auditoria agregada de exclusão, índices
 por data/fonte, RLS/grants mínimos e rollback que desabilite o job sem restaurar
 dados apagados. Nenhuma migration é criada por esta política.
+
+## Gate de desenho de schema em 2026-08-25
+
+O desenho mínimo foi concluído na
+[ADR de retenção](decisions/20260825_retention_schema_design.md), sem criar
+migration ou executar purge. Ele separa responsabilidades:
+
+- prazos revisáveis ficam em configuração externa versionada por fonte;
+- `data_sources` recebe futuramente um ciclo de vida explícito;
+- `retention_holds` preserva ativação e liberação de hold institucional ou por
+  fonte;
+- `purge_runs` preserva aprovação, policy/dry-run digests, cortes e contagens
+  agregadas, sem payload ou PII;
+- `raw_current_rows` nunca participa de purge histórico e só pode ser eliminada
+  por offboarding aprovado;
+- `sync_runs` referenciada por current ou ainda necessária para reconciliação
+  permanece protegida, mesmo além do prazo recomendado.
+
+O dry-run futuro será read-only e não fará DML. Qualquer execução destrutiva
+continua bloqueada até política humana aprovada, migration revisada, testes
+locais e autorização específica.
