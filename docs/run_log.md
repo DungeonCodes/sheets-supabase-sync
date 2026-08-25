@@ -456,3 +456,11 @@ houve migration: `sync_runs` e `import_errors` mantêm seus contratos. Nenhum
 e-mail, acesso Google ou staging foi usado; a suíte offline cobriu a fronteira
 de alertas sem segredos.
 
+## Gate de retenção, minimização e LGPD em 2026-08-24
+
+Foi concluída auditoria offline de dados, classificação, minimização, retenção,
+offboarding, ambientes e limites de backups. A política técnica recomenda
+retenção limitada para histórico, erros, artefatos e observabilidade, sem alegar
+prazo legal. O schema atual basta para auditoria/dry-run, mas automação segura
+depende de proposta futura para hold e registro agregado de exclusão. Nenhuma
+migration, purge, acesso Google, staging ou e-mail foi executado.

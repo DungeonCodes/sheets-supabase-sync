@@ -39,7 +39,7 @@ exclusivamente `spreadsheets.readonly`, e RLS/grants permanecem restritivos.
 
 ### Pendente
 
-- retenção, minimização e LGPD;
+- retenção, minimização e LGPD (política definida; automação depende de decisão revisada);
 - múltiplas fontes;
 - RBAC hierárquico;
 - camada analítica e BI.
@@ -129,8 +129,7 @@ usa apenas `spreadsheets.readonly`, não exibe células e não acessa Supabase.
 
 ## Limitações atuais
 
-Observabilidade operacional e alertas ainda estão em andamento. Retenção,
-minimização/LGPD, múltiplas fontes, RBAC hierárquico e a camada analítica/BI
+Retenção, minimização/LGPD, múltiplas fontes, RBAC hierárquico e a camada analítica/BI
 permanecem pendentes. Consulte [docs/roadmap.md](docs/roadmap.md) e os
 documentos da Atividade 3 para o planejamento detalhado.
 

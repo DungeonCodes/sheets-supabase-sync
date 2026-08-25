@@ -76,6 +76,10 @@ PostgreSQL usa SQLSTATE/tipo e estágio, não texto livre. Autenticação, autor
 schema, validação e dados inválidos não são repetidos. Conexão perdida durante `COMMIT` é
 `ambiguous_outcome`: não há rollback presumido nem retry cego. Logs usam allowlist e nunca incluem
 payload, células, senha, URL completa, token, Service Account ou Project Ref completo.
+
+Retenção e offboarding seguem a política técnica em [retention.md](retention.md):
+credenciais ficam fora do ciclo de retenção do aplicativo e dados raw nunca são
+copiados para logs, alertas ou evidências de exclusão.
 Em 2026-08-11, a terceira migration event-only foi aplicada isoladamente ao
 staging. Introspecao somente-leitura confirmou que `raw_import_rows` manteve
 RLS sem policies e grants minimos (service_role somente SELECT/INSERT), sem
