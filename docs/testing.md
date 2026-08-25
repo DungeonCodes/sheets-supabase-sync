@@ -167,3 +167,20 @@ ambiente local; a forma sem flag pode consultar o projeto remoto. No gate remoto
 autorizado, migrations 3/3 e lint foram verdes. O Session Pooler aceitou
 `psycopg` em uma transação explicitamente `READ ONLY`; `SELECT 1` e agregados
 confirmaram o estado esperado sem DML, lock, fault injection ou sincronização.
+
+## Controles de retenção locais em 2026-08-25
+
+`tests/unit/test_migration_retention_controls.py` protege o nome e o conteúdo da
+quarta migration, inclusive os digests das três migrations aplicadas, lifecycle,
+holds, purge evidence, índices, RLS, grants e ausência de DML destrutivo.
+
+`tests/integration/test_retention_controls_postgres.py` é opt-in e usa somente
+`LOCAL_DATABASE_URL`. Ele valida catálogo, lifecycle, hold global/por fonte,
+release, `purge_runs`, FK `SET NULL` apenas em evidência, FK restritiva de
+`last_sync_run_id`, ausência de trigger/procedure de retenção e privilégios
+negativos. Fixtures e tentativas de exclusão são sempre revertidas.
+
+Após `supabase db reset --local`, `supabase migration list --local` confirmou
+4/4 migrations. Os 14 testes PostgreSQL descobertos por
+`scripts/test-integration.ps1` passaram e `supabase db lint --local` não encontrou
+erro. Nenhum comando linked, Google, staging ou purge foi usado.
