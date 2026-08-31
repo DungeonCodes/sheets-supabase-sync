@@ -212,3 +212,13 @@ barreira determinística e sem sleeps arbitrários.
 O reset local reaplicou 4/4. O script opt-in executou 24 testes PostgreSQL sem
 falha; a descoberta completa com integração local ativa é o gate final de
 regressão. Nenhum teste acessa staging, Google ou usa `--linked`.
+
+## Validação de aplicação controlada no staging em 2026-08-31
+
+Com a autorização específica de deploy, o preflight local passou e o dry-run
+remoto mostrou exclusivamente a Migration 4. Após o push oficial, `migration
+list --linked` confirmou 4/4 e `db lint --linked` não encontrou erro. Consultas
+posteriores foram explicitamente READ ONLY e validaram lifecycle/backfill,
+tabelas vazias de retenção, funções, triggers, RLS, ACLs, índices, FK de current
+e preservação dos agregados raw. Não foram executados testes de ingestão, purge,
+hold, DELETE, TRUNCATE ou Google no staging.

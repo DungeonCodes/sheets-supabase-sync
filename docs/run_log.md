@@ -615,3 +615,29 @@ nas duas ordens de concorrência global e específica. `migration list --local` 
 Não houve staging, DDL/DML remoto, sincronização remota, Google, purge ou commit.
 Próximo gate único: revisão humana read-only do DDL, grants e evidências locais
 antes de qualquer autorização separada para staging.
+
+## Aplicação controlada da Migration 4 no staging em 2026-08-31
+
+Preflight em `dev` confirmou worktree limpo, quatro migrations, digests
+imutáveis de 1--3 e SHA-256 autorizado da Migration 4. `compileall`, 211 testes
+offline (29 pulados), `check-docs`, `pip check` e `git diff --check` passaram.
+O baseline remoto READ ONLY confirmou migrations 3/3 e agregados operacionais
+1 fonte, 6 runs, 8 eventos, 5 estados, 0 erros e 3 requests, sem run em curso.
+
+Não havia tarefa agendada do projeto. O CLI não oferece `lock_timeout` para
+`db push`; como não houve sessão de sync concorrente e o staging é pequeno, a
+janela controlada foi considerada aceitável. O dry-run remoto listou somente
+`20260825120000_add_retention_controls.sql`. O push oficial aplicou somente essa
+migration e terminou sem erro.
+
+`migration list --linked` confirmou 4/4 e `db lint --linked` não encontrou erro.
+Uma transação posterior READ ONLY confirmou lifecycle `active:1`, metadados de
+suspensão nulos, `retention_holds=0`, `purge_runs=0`, nove funções SECURITY
+INVOKER, dezoito triggers, RLS sem policies, grants mínimos, cinco índices e FK
+restritiva de current. Runs/history/current/errors/requests mantiveram os
+agregados e distribuições técnicos do baseline. Não houve purge, hold,
+offboarding, DELETE, TRUNCATE, sincronização, Google, seed, reset ou repair.
+
+Classificação: `retention_schema_staging_applied_validated`. Próximo gate único:
+autorização humana específica para rollout do código lifecycle, sem sincronização
+neste gate.

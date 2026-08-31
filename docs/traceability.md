@@ -2,7 +2,7 @@
 
 A rastreabilidade oficial e detalhada da Atividade 3 está em [activity-3/requirements-traceability.md](activity-3/requirements-traceability.md). Ela é a referência para status, evidência, lacuna, aceite, prioridade, dependência e risco.
 
-Estado atual: o pipeline raw e o schema drift completo foram validados no staging com fixture fictícia. Retry operacional, observabilidade e política de retenção foram validados em seus alcances documentados; a migration 4 de retenção foi implementada e validada somente no PostgreSQL local. Os parágrafos cronológicos abaixo preservam evidência anterior e não substituem este estado.
+Estado atual: o pipeline raw e o schema drift completo foram validados no staging com fixture fictícia. Retry operacional, observabilidade e política de retenção foram validados em seus alcances documentados; a migration 4 de retenção foi aplicada e validada por catálogo no staging. Os parágrafos cronológicos abaixo preservam evidência anterior e não substituem este estado.
 
 ## Capacidades técnicas existentes
 
@@ -16,7 +16,7 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | Contratos e schema drift offline | `contracts.py`, `diff.py` | contract/unit | `validated` |
 | Snapshots, diff, tombstones e SQL | `snapshot.py`, `diff.py`, `sql_generator.py` | `test_sync.py` | `validated` |
 | Logs/health e alertas | `operational_events.py`, `alerting.py`, `observability.py`, `health.py` | unit: severidade, sanitização, política, deduplicação e SMTP mockado | `validated_offline` |
-| Retenção, minimização e LGPD | migration 4, `retention.md`, ADR 20260825 e testes local/offline | 4/4 local; lifecycle, máquina de purge, release append-only, locks instituição/fonte, TRUNCATE, current/FK, RLS e grants validados; nenhum purge ou staging | `retention_schema_local_final_validated` |
+| Retenção, minimização e LGPD | migration 4, `retention.md`, ADR 20260825 e testes local/offline | 4/4 local/remoto; catálogo staging confirmou lifecycle/backfill, funções, triggers, RLS, grants, índices e raw preservado; nenhum purge ou sync | `retention_schema_staging_applied_validated` |
 | Retry operacional seguro | `operational_failures.py`, `postgres_retry.py`, `raw_sync_service.py`, `raw_repository.py` | PostgreSQL local: lock, busy, rollback, retry, idempotência e commit ambíguo; staging read-only: pooler, psycopg, migrations, lint e estado agregado | `validated_remote_read_only` |
 | Histórico da baseline | migration `20260804000000` | `migration list`: duas versões locais, uma remota, sem divergência | `validated` |
 | Estado raw atual por fonte/chave | migration `20260806120000` aplicada no staging; `raw_state.py`, `raw_repository.py` | PostgreSQL local e catálogo remoto: DDL, constraints, grants, RLS, transações e advisory lock; tabelas vazias | `validated` |

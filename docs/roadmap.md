@@ -5,9 +5,9 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 ## Estado atual
 
 - Núcleo Python offline: snapshots, diff, contratos, schema drift, SQL auditável, isolamento por fonte, health, logs seguros e testes; leitor Google read-only implementado com transporte HTTP isolado.
-- Retenção/minimização: política e migration 4 corrigidas e revalidadas somente localmente;
-  nenhum purge existe e nada foi aplicado ao staging. Prazos legais, owner,
-  hold, backup e offboarding produtivo continuam decisões humanas.
+- Retenção/minimização: migration 4 aplicada e validada por catálogo no staging;
+  nenhum purge, hold real ou sincronização foi executado neste deploy. Prazos legais,
+  owner, backup e offboarding produtivo continuam decisões humanas.
 - Baseline institucional: aplicada no staging em 2026-08-05 e reconciliada em 2026-08-06 por histórico, catálogo e Data API somente de leitura; cinco tabelas vazias, 27 constraints, 14 índices, RLS/grants coerentes e nenhuma policy.
 - Migration incremental de estado raw: criada em 2026-08-06, aditiva, coberta por testes estruturais e comportamentais offline, validada em PostgreSQL local e aplicada ao staging em 2026-08-11; catálogo, grants mínimos e tabelas vazias foram confirmados somente por leitura.
 - Raw integrado: validado no staging exclusivamente com a fixture fictícia; primeira carga, idempotência, update, tombstone, restore, reorder de linhas e schema drift completo preservaram identidade/estado. Permanecem ausentes: Star Schema, BI, RLS/RBAC hierárquico, e-mail, estudo completo de custos/free tiers, onboarding e Draw.io.
@@ -26,10 +26,10 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 
 ## Próximo passo
 
-Após a correção final local da migration 4, o próximo gate único é uma revisão
-humana read-only do DDL, dos grants e das evidências locais antes de qualquer
-nova inspeção ou autorização separada para staging. Isso não autoriza purge,
-offboarding ou produção. Decisões empresariais continuam em
+Após a aplicação validada da migration 4 no staging, o próximo gate único é
+autorização humana específica para o rollout do código que lê lifecycle, sem
+executar sincronização nesse próprio gate. Isso não autoriza purge, offboarding
+ou produção. Decisões empresariais continuam em
 [open-decisions.md](activity-3/open-decisions.md).
 
 ## Checkpoint operacional de 2026-08-19

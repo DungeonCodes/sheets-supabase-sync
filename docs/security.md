@@ -134,3 +134,12 @@ hold ou aprovação de purge. Triggers statement-level bloqueiam TRUNCATE sob ho
 nas tabelas operacionais e proíbem sempre TRUNCATE da evidência administrativa.
 Esses controles não pretendem conter owner/superuser, que continua trust
 boundary explícito. Nenhuma permissão nova foi concedida.
+
+## Validação remota dos controles de retenção em 2026-08-31
+
+Após a aplicação controlada da Migration 4, o catálogo do staging confirmou RLS
+habilitado e zero policies em `retention_holds` e `purge_runs`. `anon` e
+`authenticated` continuam sem acesso; `service_role` conserva apenas SELECT nas
+duas estruturas administrativas e os grants normais do sincronizador, sem
+DELETE, TRUNCATE, lifecycle UPDATE, escrita em hold/purge ou EXECUTE direto nas
+nove funções internas. Nenhuma policy, grant ou bypass adicional foi criado.

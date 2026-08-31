@@ -172,3 +172,18 @@ Essas são garantias `database_enforced`; aprovação humana, política, seleç�
 candidatos e a execução de purge continuam `application_enforced`. Nenhum
 executor, scheduler ou purge real existe. A revalidação usou somente Supabase
 local, com 4/4 migrations e testes opt-in verdes; staging não foi acessado.
+
+## Aplicação controlada da Migration 4 no staging em 2026-08-31
+
+O dry-run remoto listou somente a Migration 4 autorizada e o push oficial a
+aplicou sem erro. Histórico e lint remotos confirmaram 4/4 e nenhum erro de
+schema. A fonte habilitada existente recebeu `lifecycle_status=active`; não há
+fontes suspensas, offboarding ou retired, e os metadados de suspensão ficaram
+nulos na fonte ativa.
+
+`retention_holds` e `purge_runs` existem, estão vazias, têm RLS sem policies e
+mantêm o contrato de evidência agregado. As nove funções e os dezoito triggers
+foram confirmados por catálogo, assim como grants mínimos, índices de retenção e
+a FK restritiva de current. Os agregados de runs, history, current, erros e
+requests permaneceram idênticos ao baseline. Não houve purge, hold real,
+offboarding, DELETE, TRUNCATE, sincronização ou acesso Google.

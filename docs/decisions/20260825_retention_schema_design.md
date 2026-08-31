@@ -510,3 +510,21 @@ não pessoal das referências. Owner/superuser permanece trust boundary.
 Três resets locais aplicaram 4/4 migrations; os 24 testes PostgreSQL opt-in,
 catálogo e lint passaram. Não houve staging, Google, linked, push ou purge real.
 Classificação: `retention_schema_local_final_validated`.
+
+## Aplicação controlada no staging em 2026-08-31
+
+Após preflight local verde e dry-run que listou exclusivamente a Migration 4,
+`20260825120000_add_retention_controls.sql` foi aplicada uma única vez ao
+staging pelo fluxo oficial. O histórico remoto passou a 4/4 e o lint remoto não
+encontrou erros. A inspeção posterior ocorreu em transação explicitamente
+`READ ONLY`.
+
+O backfill classificou a única fonte habilitada como `active`, sem metadados de
+suspensão. As tabelas de retenção e purge permanecem vazias. O catálogo remoto
+confirmou as nove funções SECURITY INVOKER, os dezoito triggers, RLS habilitado
+sem policies, grants mínimos, os cinco índices de retenção e a FK restritiva de
+`raw_current_rows.last_sync_run_id`. Os agregados raw permaneceram inalterados;
+nenhum purge, hold, offboarding, sync ou acesso Google ocorreu neste gate.
+
+Classificação: `retention_schema_staging_applied_validated`. Executor, scheduler,
+canal administrativo e decisão jurídica continuam fora do escopo desta migration.
