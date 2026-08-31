@@ -104,3 +104,71 @@ as fixtures de comportamento sofreram rollback; nenhum purge foi executado.
 controlada de uma run referenciada. `service_role` pode apenas consultar holds e
 evidências e não possui DELETE nas tabelas operacionais. Referências de ator e
 reason codes aceitam somente tokens técnicos opacos, sem nome, e-mail ou login.
+
+## Revisão read-only da migration 4 em 2026-08-27
+
+A revisão anterior a staging rebaixou a migration para `requires_changes`. No
+PostgreSQL local, hold específico ativo bloqueou somente a exclusão da linha de
+`data_sources` pelo efeito combinado de `ON DELETE SET NULL` e do CHECK de
+escopo. Hold institucional ativo não bloqueou essa exclusão; nenhum dos dois
+escopos impediu transição para `offboarding`, e hold específico ativo não
+impediu exclusão direta do histórico por owner/admin. O banco também não impede
+gravação de runs/raw para uma fonte não ativa.
+
+Holds liberados não criam bloqueio permanente: uma ou várias evidências
+históricas liberadas sobreviveram à retirada local da fonte com FK nula e
+`source_ref` preservada. A correção do bloqueio de hold/lifecycle deve ser
+deliberada e novamente testada localmente; esta revisão não alterou o DDL nem
+autorizou aplicação remota ou purge.
+
+## Revalidação local após correção em 2026-08-27
+
+A Migration 4 passou a bloquear no banco novas `sync_runs` de fontes não
+ativas e qualquer exclusão de dados operacionais, offboarding, retirada da
+fonte ou transição para `retired` quando houver hold institucional ou da fonte.
+Hold não impede a suspensão operacional nem dry-run. Hold liberado deixa de
+bloquear e preserva a referência técnica histórica quando a FK da fonte é
+nulificada.
+
+`purge_runs` não guarda mais JSONB para cutoffs ou contagens: cortes são
+timestamps explícitos e contagens são colunas `bigint` não negativas. O banco
+impõe as transições e a evidência terminal; política, aprovação humana e a
+decisão de qualquer purge continuam `application_enforced`. Não existe executor
+de purge, job ou scheduler nesta migration.
+
+## Revisão final da Migration 4 em 2026-08-27
+
+A revisão final reclassificou o DDL como `requires_changes`. Embora a evidência
+já terminal seja imutável, a máquina permite que uma run destrutiva ainda
+`planned` carregue sinais de execução sem aprovação/hold check, e permite uma
+run `failed` com efeito agregado positivo sem início, executor ou aprovação. A
+ordem entre `approved_at` e `finished_at` também não é garantida quando não há
+`started_at`.
+
+Holds já liberados não voltam a ativo em uma atualização posterior, mas o mesmo
+statement que define `released_at` ainda consegue reescrever campos de ativação.
+Os guards de destrutividade cobrem `DELETE`, não `TRUNCATE`, e não há serialização
+institucional entre ativação concorrente de hold e uma operação destrutiva.
+Nenhum desses achados executou purge; os probes usaram somente fixtures locais e
+terminaram em rollback. O staging não foi consultado neste gate.
+
+## Controles finais revalidados localmente em 2026-08-27
+
+A Migration 4 corrigida impõe a máquina final: `planned`, `approved` exclusivo
+do fluxo destrutivo, `running` com início/executor/hold check, e terminal
+coerente. `failed` e `cancelled` pré-execução não carregam sinal ou contagem de
+execução; se vierem de `running`, preservam os campos de execução, mas continuam
+com contagens afetadas em zero porque a futura unidade de purge é transacional.
+Somente `completed` pode ter efeito agregado positivo.
+
+Ativação/liberação de hold e toda destrutividade concorrente usam advisory
+transaction locks na ordem instituição e depois fonte. `TRUNCATE` operacional é
+bloqueado diante de qualquer hold ativo; `TRUNCATE` das duas tabelas de evidência
+administrativa é sempre rejeitado. Release é append-only desde o primeiro
+statement e, após liberado, só aceita a nulificação de FK exigida pelo
+offboarding. Isso não protege contra owner/superuser malicioso.
+
+Essas são garantias `database_enforced`; aprovação humana, política, seleção de
+candidatos e a execução de purge continuam `application_enforced`. Nenhum
+executor, scheduler ou purge real existe. A revalidação usou somente Supabase
+local, com 4/4 migrations e testes opt-in verdes; staging não foi acessado.

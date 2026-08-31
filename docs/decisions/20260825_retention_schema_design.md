@@ -389,3 +389,124 @@ Classificação: `retention_schema_local_validated`.
 
 Próximo gate único: revisão humana do DDL, grants e evidência local antes de
 qualquer autorização separada para staging. Isso não autoriza purge.
+
+## Revisão técnica read-only em 2026-08-27
+
+A revisão humana do gate encontrou que a implementação não materializa no
+banco a regra declarada nas linhas de desenho sobre hold e operação destrutiva.
+O `ON DELETE SET NULL` combinado com `retention_holds_scope_consistent` bloqueia
+somente a exclusão da linha de `data_sources` quando existe hold específico
+ativo. Um hold institucional ativo não bloqueia essa exclusão, e nem hold
+institucional nem hold específico impedem a transição para `offboarding` ou a
+exclusão direta de dados-filhos por um owner/admin. Holds específicos liberados
+continuam permitindo retirar a fonte e preservam `source_ref`, inclusive com
+vários registros históricos.
+
+Também foi confirmado que a equivalência entre `enabled` e lifecycle fecha os
+estados da linha, mas não impede no banco iniciar `sync_runs` ou gravar raw para
+uma fonte não ativa. O adaptador PostgreSQL atual localiza a fonte sem filtrar
+`enabled` ou `lifecycle_status`; essa proteção não pode ser considerada
+garantida pela aplicação existente.
+
+Os CHECKs de `purge_runs` protegem status enumerado, pares de aprovação,
+terminais com `finished_at`/`outcome_code`, ordem entre início e fim e dry-run
+sem contagem afetada. Eles não exigem executor ou `hold_checked_at`, aceitam
+aprovação posterior ao término e garantem apenas que os agregados JSONB sejam
+objetos; valores não negativos, chaves allowlist e ausência de PII dependem do
+produtor administrativo.
+
+O staging foi consultado em transação read-only: mantém 3 migrations, a
+Migration 4 não está aplicada, e a única fonte está habilitada, portanto o
+backfill projetado é compatível com o estado observado. Nenhuma escrita remota,
+DDL, purge, sync ou acesso Google ocorreu.
+
+Classificação da revisão: `requires_changes`.
+
+Próximo gate único: revisar explicitamente o DDL e os testes para que holds
+ativos e lifecycle não ativo sejam barreiras efetivas antes de repetir toda a
+validação local e a revisão read-only. A aplicação em staging permanece não
+autorizada.
+
+## Correção e revalidação local em 2026-08-27
+
+A própria migration 4 foi corrigida antes de qualquer aplicação remota. O banco
+agora guarda a criação de `sync_runs`: uma fonte só aceita nova execução quando
+`enabled=true` e `lifecycle_status='active'`. O repositório PostgreSQL consulta
+os mesmos dois campos antes de iniciar a run e retorna `source_inactive`, não
+repetível, para `suspended`, `offboarding` ou `retired`.
+
+`retention_hold_applies(uuid)` centraliza o hold institucional ou específico
+ativo. Triggers SECURITY INVOKER, sem SQL dinâmico, bloqueiam `offboarding`,
+`retired`, exclusão de `data_sources` e exclusões diretas de current, history,
+errors, requests ou runs enquanto o hold for aplicável. A liberação remove o
+bloqueio; evidência de hold liberado só pode receber o `SET NULL` de sua FK e
+não é imutável contra o owner/admin do banco, que permanece trust boundary.
+
+`purge_runs` substituiu JSONB de cortes/contagens por timestamps e contagens
+`bigint` explícitos, não negativos. O guard de transição exige início/executor,
+aprovação e hold check para execução destrutiva, impede hold ativo em
+`approved`/`running`/`completed`, fecha transições e torna evidência terminal
+imutável, exceto a nulificação da FK necessária para preservar referência após
+retirada legítima da fonte.
+
+`database_enforced`: lifecycle para novas runs, hold aplicável, transições,
+temporalidade, executor/hold check, contagens tipadas/não negativas, RLS e
+grants. `application_enforced`: autorização humana, política/prazos, conteúdo
+operacional dos reason codes opacos e a decisão de executar qualquer purge.
+O reset e os testes PostgreSQL foram exclusivamente locais; staging não foi
+consultado nem alterado.
+
+## Revisão técnica final antes de staging em 2026-08-27
+
+A revisão final encontrou lacunas adicionais na própria Migration 4 e a
+classificou como `requires_changes`. Probes PostgreSQL locais, sempre revertidos,
+comprovaram que uma run destrutiva ainda pode permanecer `planned` com
+`started_at` e executor, sem aprovação nem `hold_checked_at`; também pode ir de
+`planned` para `failed` com contagem afetada positiva e nenhuma evidência de
+execução. Em uma run terminal `failed`, `approved_at` ainda pode ficar posterior
+a `finished_at` quando `started_at` é nulo.
+
+O guard de holds torna a linha imutável somente quando `OLD.released_at` já está
+preenchido. Assim, a própria atualização que libera o hold ainda pode reescrever
+`reason_code` e referências de ativação. Além disso, os guards destrutivos são
+triggers de `DELETE`, sem trigger de `TRUNCATE`, e a Migration 4 não implementa
+o advisory lock institucional descrito como requisito do executor futuro.
+
+Continuam `database_enforced`: lifecycle de novas runs, holds já visíveis para
+os `DELETE`s e transições protegidas, contagens não negativas, RLS/grants e
+imutabilidade depois que a evidência já é terminal/liberada. A coerência completa
+da criação da evidência terminal, o congelamento dos campos de ativação durante
+o release e a serialização hold versus destrutividade ainda não são garantidas
+pelo banco. O staging não foi acessado porque o gate local deixou de estar verde.
+
+## Correção final local dos controles de retenção em 2026-08-27
+
+A própria Migration 4 foi corrigida novamente, sem criar Migration 5. A máquina
+de `purge_runs` agora distingue estados pré-execução de execução efetiva:
+`planned` não aceita aprovação, início, executor, hold check, outcome ou efeito;
+`approved` é exclusivo de execução destrutiva e ainda não contém efeito;
+`running` exige início, executor e hold check; `completed` só vem de `running`.
+`failed` e `cancelled` podem encerrar antes da execução com zero efeito, ou
+após `running` preservando a evidência de execução. Como o executor futuro é
+transacional, ambos os terminais de falha/cancelamento mantêm contagens afetadas
+em zero; apenas `completed` pode registrar efeito persistido.
+
+A transição de release agora acrescenta somente os três campos de liberação e
+nunca reescreve a ativação. Depois de liberado, o hold é imutável, salvo a
+nulificação da FK por retirada legítima da fonte. A disciplina de lock é
+`instituição -> fonte`: ativação/liberação de hold, offboarding, retired, delete
+de fonte, deletes protegidos e evidência destrutiva usam o mesmo advisory
+transaction lock. A serialização institucional é deliberada; fontes diferentes
+não recebem um segundo lock específico em comum além desse lock global.
+
+`DELETE` continua protegido por fonte; `TRUNCATE` recebe trigger statement-level
+nas seis tabelas operacionais e é bloqueado por qualquer hold ativo. `TRUNCATE`
+de `retention_holds` ou `purge_runs` é sempre rejeitado para preservar a trilha
+administrativa. `database_enforced` cobre essa máquina, release append-only,
+locks, triggers, formato, RLS e grants. `application_enforced` continua cobrindo
+aprovação humana, policy/prazos, seleção e execução real do purge e o significado
+não pessoal das referências. Owner/superuser permanece trust boundary.
+
+Três resets locais aplicaram 4/4 migrations; os 24 testes PostgreSQL opt-in,
+catálogo e lint passaram. Não houve staging, Google, linked, push ou purge real.
+Classificação: `retention_schema_local_final_validated`.

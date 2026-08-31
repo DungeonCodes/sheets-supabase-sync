@@ -5,7 +5,7 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 ## Estado atual
 
 - Núcleo Python offline: snapshots, diff, contratos, schema drift, SQL auditável, isolamento por fonte, health, logs seguros e testes; leitor Google read-only implementado com transporte HTTP isolado.
-- Retenção/minimização: política e migration 4 validadas somente localmente;
+- Retenção/minimização: política e migration 4 corrigidas e revalidadas somente localmente;
   nenhum purge existe e nada foi aplicado ao staging. Prazos legais, owner,
   hold, backup e offboarding produtivo continuam decisões humanas.
 - Baseline institucional: aplicada no staging em 2026-08-05 e reconciliada em 2026-08-06 por histórico, catálogo e Data API somente de leitura; cinco tabelas vazias, 27 constraints, 14 índices, RLS/grants coerentes e nenhuma policy.
@@ -26,10 +26,10 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 
 ## Próximo passo
 
-Após a validação local da migration 4, o próximo gate único é revisão humana do
-DDL, dos grants e das evidências locais para decidir se a migration pode ser
-autorizada separadamente para staging. Isso não autoriza purge, offboarding ou
-produção. Decisões empresariais continuam em
+Após a correção final local da migration 4, o próximo gate único é uma revisão
+humana read-only do DDL, dos grants e das evidências locais antes de qualquer
+nova inspeção ou autorização separada para staging. Isso não autoriza purge,
+offboarding ou produção. Decisões empresariais continuam em
 [open-decisions.md](activity-3/open-decisions.md).
 
 ## Checkpoint operacional de 2026-08-19

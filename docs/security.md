@@ -104,3 +104,33 @@ RLS sem policies e grants minimos (service_role somente SELECT/INSERT), sem
 ampliar acesso de anon ou authenticated. `raw_current_rows` manteve
 SELECT/INSERT/UPDATE para service_role e negacao dos privilegios elevados.
 Nenhum dado foi inserido e nenhuma integracao Google foi executada.
+
+## Reforço local dos controles de retenção em 2026-08-27
+
+A correção da Migration 4 mantém `anon` e `authenticated` sem acesso;
+`service_role` recebe apenas SELECT em `retention_holds` e `purge_runs`, sem
+DELETE, lifecycle, hold ou aprovação administrativa. O guard de `sync_runs`
+funciona mesmo para INSERT direto com `service_role`, sem ampliar grants.
+
+As funções internas de hold, lifecycle, exclusão protegida e evidence são
+SECURITY INVOKER, têm `search_path` restrito e EXECUTE revogado para os papéis
+operacionais. Não usam SQL dinâmico. Triggers usam essas funções somente como
+barreiras de integridade; não criam purge, scheduler ou bypass de RLS.
+
+As referências técnicas continuam limitadas por formato. Esse CHECK reduz a
+superfície, mas a opacidade semântica de reason/actor/source refs continua
+`application_enforced`; owner/admin é trust boundary para dados administrativos.
+
+## Reforço final local de retenção em 2026-08-27
+
+Além dos guards existentes, a Migration 4 agora possui nove funções internas
+SECURITY INVOKER, todas com `search_path` restrito, sem SQL dinâmico e com
+EXECUTE direto revogado para PUBLIC, anon, authenticated e service_role. O lock
+advisory de retenção usa namespace próprio e ordem fixa instituição/fonte; ele
+serializa hold e destrutividade sem reutilizar o lock operacional de sync.
+
+`service_role` continua sem DELETE, TRUNCATE, lifecycle, criação/liberação de
+hold ou aprovação de purge. Triggers statement-level bloqueiam TRUNCATE sob hold
+nas tabelas operacionais e proíbem sempre TRUNCATE da evidência administrativa.
+Esses controles não pretendem conter owner/superuser, que continua trust
+boundary explícito. Nenhuma permissão nova foi concedida.

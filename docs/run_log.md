@@ -507,3 +507,111 @@ executado.
 Classificação: `retention_schema_local_validated`. Próximo gate único: revisão
 humana do DDL, grants e evidência local antes de qualquer autorização separada
 para staging.
+
+## Revisão técnica read-only da Migration 4 em 2026-08-27
+
+Preflight confirmou branch `dev`, worktree inicialmente limpo, compileall,
+198 testes (19 pulados), documentação, dependências e diff sem falhas. As quatro
+migrations e os documentos de retenção/segurança foram relidos. Git, blobs e
+SHA-256 confirmaram as migrations 1–3 byte a byte intactas. No Supabase local,
+`migration list` mostrou 4/4, lint passou e os seis casos PostgreSQL existentes
+de retention controls passaram.
+
+Provas adicionais, sempre em transações locais revertidas, mostraram que hold
+institucional ativo permite excluir a fonte e iniciar `offboarding`. Hold de
+fonte ativo bloqueia a exclusão da fonte com SQLSTATE `23514`, mas permite
+`offboarding` e exclusão direta do histórico. Holds liberados, inclusive vários
+históricos, permitem a retirada e preservam a evidência com FK nula. O banco
+também não barra runs/raw para lifecycle não ativo. Em `purge_runs`, os CHECKs
+básicos funcionam, mas executor/hold check, ordem aprovação-término, chaves e
+valores dos JSONB e ausência semântica de PII não são garantidos pelo banco.
+
+O staging foi inspecionado somente com `migration list --linked` e transações
+PostgreSQL explicitamente read-only. Há 3 migrations remotas; a Migration 4 não
+está aplicada. O schema das migrations 1–3, RLS, zero policies, grants e FKs
+críticas foram confirmados. Existe uma fonte habilitada e nenhuma desabilitada,
+compatível com o backfill. Não houve escrita remota, lock explícito, DDL, push,
+purge, sync ou acesso Google.
+
+Classificação: `requires_changes`. Próximo gate único: corrigir deliberadamente
+o DDL/testes para tornar hold ativo e lifecycle não ativo barreiras efetivas;
+depois repetir validação local e revisão read-only antes de nova decisão sobre
+staging.
+
+## Revalidação local corrigida da Migration 4 em 2026-08-27
+
+Sem acesso remoto, Google, linked, push ou purge, as falhas anteriores foram
+reproduzidas localmente: fonte offboarding aceitou sync/raw, holds não barraram
+offboarding/delete e a evidence aceitou JSONB arbitrário, negativo e cronologia
+inválida. A própria Migration 4 foi então corrigida; nenhuma Migration 5 foi
+criada e os digests das migrations 1–3 permaneceram intactos.
+
+O DDL agora usa guard de lifecycle em `sync_runs`, função central de hold e
+triggers para lifecycle/delete/evidence. Cutoffs e contagens tornaram-se
+colunas tipadas; evidence destrutiva exige aprovação anterior, executor e hold
+check, e evidence terminal fica imutável no limite do owner/admin. O repositório
+retorna `source_inactive` não repetível antes de criar run ou mutar raw.
+
+Docker 29.7.2 e Supabase local estavam ativos. Dois resets locais aplicaram
+4/4 migrations. Dez testes unitários da migration, oito de retention controls,
+sete do repositório e dois operacionais PostgreSQL passaram; o script opt-in
+totalizou 17 testes PostgreSQL aprovados. Nenhuma fixture de retenção foi
+persistida fora dos testes locais. Classificação:
+`retention_schema_local_revalidated`.
+
+Próximo gate único: revisão humana da Migration 4 corrigida e da evidência
+local antes de qualquer autorização separada para staging.
+
+## Revisão técnica final da Migration 4 corrigida em 2026-08-27
+
+Preflight confirmou branch `dev`; o worktree continha somente as correções e
+evidências locais já esperadas da Migration 4. `compileall`, 203 testes offline
+(22 pulados), documentação, dependências e diff passaram. Os SHA-256 das
+migrations 1–3 permaneceram byte a byte intactos e o digest atual da Migration 4
+é `02231058463cd2482b2406b7f23b7aaa56e862f3367bd3191c4b48621b0cee87`.
+
+O catálogo local confirmou seis funções SECURITY INVOKER com `search_path`
+restrito e EXECUTE direto revogado, dez triggers, RLS sem policies, grants
+mínimos e FKs restritivas de current. Dez testes estruturais e 17 testes
+PostgreSQL opt-in passaram; `migration list --local` mostrou 4/4 e o lint local
+não encontrou erros.
+
+Apesar da regressão verde, probes adicionais em transações revertidas
+comprovaram quatro estados administrativos indevidos: `planned` destrutiva com
+início/executor sem aprovação ou hold check; `failed` com contagem afetada
+positiva sem início/executor/aprovação; aprovação posterior ao término; e
+release de hold capaz de reescrever a evidência de ativação no mesmo statement.
+O catálogo também confirmou ausência de triggers de `TRUNCATE`, e o SQL não
+implementa a serialização institucional descrita para hold versus operação
+destrutiva.
+
+Classificação: `requires_changes`. Como o gate local não ficou integralmente
+verde, staging não foi acessado. Não houve DDL/DML remoto, migration, push,
+purge, sincronização ou acesso Google. Próximo gate único: corrigir a própria
+Migration 4 e seus testes, reconstruir o PostgreSQL local e repetir esta revisão
+antes de qualquer inspeção ou autorização de staging.
+
+## Correção final local da Migration 4 em 2026-08-27
+
+Sem acesso remoto, Google, linked, push ou purge real, foram primeiro
+reproduzidas localmente as seis lacunas da revisão: estado destrutivo parcial,
+terminal com efeito sem execução, aprovação posterior ao término, release que
+reescrevia ativação, race de hold e bypass por TRUNCATE. A própria Migration 4
+foi alterada, sem Migration 5; migrations 1–3 mantiveram seus digests.
+
+O DDL final fecha a máquina de `purge_runs`, mantém `failed/cancelled` sem efeito
+persistido, torna release append-only desde a transição inicial, introduz lock
+advisory de retenção na ordem instituição/fonte e protege DELETE/TRUNCATE. A
+evidência administrativa nunca pode sofrer TRUNCATE. Nove funções SECURITY
+INVOKER têm search path restrito e EXECUTE direto revogado; nenhum grant foi
+ampliado.
+
+Três resets oficiais locais concluíram 4/4. O teste estrutural passou com 11
+casos e o opt-in PostgreSQL passou com 24 casos, incluindo duas conexões reais
+nas duas ordens de concorrência global e específica. `migration list --local` e
+`db lint --local` passaram. Classificação:
+`retention_schema_local_final_validated`.
+
+Não houve staging, DDL/DML remoto, sincronização remota, Google, purge ou commit.
+Próximo gate único: revisão humana read-only do DDL, grants e evidências locais
+antes de qualquer autorização separada para staging.

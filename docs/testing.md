@@ -184,3 +184,31 @@ Após `supabase db reset --local`, `supabase migration list --local` confirmou
 4/4 migrations. Os 14 testes PostgreSQL descobertos por
 `scripts/test-integration.ps1` passaram e `supabase db lint --local` não encontrou
 erro. Nenhum comando linked, Google, staging ou purge foi usado.
+
+## Revalidação corrigida dos controles de retenção em 2026-08-27
+
+Após reproduzir localmente as falhas de lifecycle, hold e JSONB, a Migration 4
+foi corrigida e o banco local foi recriado com `supabase db reset --local`.
+Os testes unitários verificam estrutura, digests das migrations 1–3, guards,
+grants, RLS e ausência de DML destrutivo. Os testes PostgreSQL verificam
+lifecycle por repositório e por INSERT direto de `service_role`, holds global e
+por fonte, release, delete protegido, evidence temporal/terminal, contagens
+tipadas, referências técnicas e FK restritiva de current.
+
+O script opt-in local executou 17 testes PostgreSQL, todos aprovados. As
+fixtures e probes usam transações revertidas quando aplicável; não há acesso
+Google, staging, linked, purge real ou scheduler.
+
+## Revalidação final local de retenção em 2026-08-27
+
+Os testes negativos primeiro reproduziram: execução aparente em `planned`,
+falha com efeito positivo sem execução, aprovação posterior ao término, release
+que reescrevia ativação, race hold/destrutividade e bypass por TRUNCATE. Após a
+correção, os testes PostgreSQL locais cobrem a máquina completa, release
+append-only, TRUNCATE com/sem hold, grants negativos e duas conexões reais para
+as duas ordens de concorrência global e específica, usando `lock_timeout` como
+barreira determinística e sem sleeps arbitrários.
+
+O reset local reaplicou 4/4. O script opt-in executou 24 testes PostgreSQL sem
+falha; a descoberta completa com integração local ativa é o gate final de
+regressão. Nenhum teste acessa staging, Google ou usa `--linked`.
