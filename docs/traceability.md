@@ -11,7 +11,7 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | Capacidade | Código/DDL | Teste/evidência | Status auditado |
 | --- | --- | --- | --- |
 | Projeto por instituição | `sources.py`; baseline | `test_isolated_institution.py`, ADR 20260803 | `validated` |
-| Fontes isoladas e execução independente | `batch.py`, `orchestration.py` | teste de continuidade após falha | `validated` |
+| Fontes isoladas e execução independente | `sources.py`, `batch.py`, `orchestration.py`, repositorio raw | duas fixtures com schemas distintos; current/history/runs, drift, lock, falha, retry e lifecycle isolados no PostgreSQL local; resumo agregado | `multi_source_local_validated` |
 | Identificadores seguros | `identifiers.py`, `sql_generator.py` | unit/security | `validated` |
 | Contratos e schema drift offline | `contracts.py`, `diff.py` | contract/unit | `validated` |
 | Snapshots, diff, tombstones e SQL | `snapshot.py`, `diff.py`, `sql_generator.py` | `test_sync.py` | `validated` |

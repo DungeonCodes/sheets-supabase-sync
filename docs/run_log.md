@@ -641,3 +641,44 @@ offboarding, DELETE, TRUNCATE, sincronização, Google, seed, reset ou repair.
 Classificação: `retention_schema_staging_applied_validated`. Próximo gate único:
 autorização humana específica para rollout do código lifecycle, sem sincronização
 neste gate.
+
+## Fechamento do rollout lifecycle-aware em 2026-09-02
+
+A aplicação validada da Migration 4 ocorreu no staging; ela não implica um
+runtime de staging implantado. O código Python existente foi validado offline
+para o rollout lifecycle-aware. `PostgresRawRepository` consulta `enabled` e
+`lifecycle_status` sob `FOR SHARE` e retorna
+`source_inactive`, não repetível, antes de criar uma run ou mutar raw quando a
+fonte não está ativa. A migration mantém o guard equivalente no banco para novas
+`sync_runs`.
+
+Passaram 51 testes unitários de raw sync, falhas operacionais e controles de
+retenção; `compileall`, `check-docs` e `git diff --check` também passaram. Não
+houve conexão remota, SQL, sincronização, implantação de runtime, Google,
+purge, hold, offboarding ou alteração de dados. Classificação:
+`lifecycle_aware_code_rollout_closed`.
+
+## Validacao multi-source local em 2026-09-02
+
+O preflight em `dev` passou com 211 testes offline, 29 skips, `compileall`,
+`check-docs`, `pip check` e `git diff --check`. A auditoria confirmou que
+configuracao, estruturas operacionais, snapshots e advisory lock ja eram
+orientados a fonte. A lacuna estava na prova integrada e na classificacao do
+resultado do lote.
+
+Foram adicionadas duas fixtures estritamente ficticias, `SOURCE_A` e
+`SOURCE_B`, com schemas distintos e a mesma business key textual. A prova no
+PostgreSQL local validou current/history/runs e versoes independentes,
+idempotencia, updates isolados, tombstone/restore em A, drift apenas em A, lock
+A/A busy com B livre, rollback e retry de A com B intacta, lifecycle apenas em
+A e hold especifico sem alcance em B. A configuracao recusa pares
+planilha/aba duplicados. O lote sequencial agora classifica sucesso, falha,
+busy e inactive e gera resumo agregado sem payload ou identificadores externos.
+
+`supabase migration list --local` confirmou 4/4 e os 25 testes PostgreSQL
+passaram. A regressao final executou 218 testes: 214 aprovados, zero falhas e 4
+pulados. As linhas de fixture foram removidas ao final do teste integrado. Nao
+houve nova migration, acesso Google, staging, scheduler, purge, relacao entre
+mirrors ou alteracao de `main`. Classificacao:
+`multi_source_local_validated`. Proximo gate unico: definir o caso de negocio e
+o contrato minimo da camada analitica.

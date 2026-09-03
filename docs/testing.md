@@ -222,3 +222,21 @@ posteriores foram explicitamente READ ONLY e validaram lifecycle/backfill,
 tabelas vazias de retenção, funções, triggers, RLS, ACLs, índices, FK de current
 e preservação dos agregados raw. Não foram executados testes de ingestão, purge,
 hold, DELETE, TRUNCATE ou Google no staging.
+
+## Validacao multi-source local em 2026-09-02
+
+Duas fontes ficticias, `SOURCE_A` e `SOURCE_B`, foram exercitadas no mesmo
+PostgreSQL local com schemas diferentes e a mesma business key textual. A
+prova cobriu primeira carga, idempotencia, updates independentes,
+tombstone/restore apenas em A, drift apenas em A, lock A/A busy com B livre,
+rollback e retry isolados, lifecycle por fonte e hold especifico sem alcance em
+B. Current, history, runs, versoes e schema requests permaneceram separados por
+`data_source_id`.
+
+Os testes offline tambem cobrem configuracao `sources[]`, snapshots por fonte,
+continuidade sequencial, resumo agregado e observabilidade por `source_ref`
+segura. `scripts/test-integration.ps1` executou 25 testes PostgreSQL, todos
+aprovados; `supabase migration list --local` confirmou 4/4. As fixtures foram
+removidas ao fim da prova integrada. Nao houve Google, staging, scheduler,
+purge ou nova migration. A regressao final com PostgreSQL local executou 218
+testes: 214 aprovados, zero falhas e 4 pulados.

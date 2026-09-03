@@ -2,6 +2,22 @@
 
 Cada instituicao possui um projeto Supabase independente. `data_sources` descreve uma planilha e uma aba; cada fonte tem uma `target_table` espelho propria e nao possui relacionamento automatico com outras tabelas espelho.
 
+## Isolamento multi-source
+
+Uma instituicao pode declarar varias fontes no mesmo projeto por `sources[]`.
+Cada par `spreadsheet_id` + `sheet_name` e cada `target_table` devem ser unicos
+na configuracao institucional. Estado, historico, runs, erros e requests de
+schema sao particionados por `data_source_id`; a identidade raw e
+`(data_source_id, row_key_hash)`. Assim, a mesma business key textual pode
+existir em fontes distintas sem colisao. Snapshots e schemas sao mantidos por
+fonte, e o advisory lock usa a referencia deterministica da fonte, permitindo
+que A bloqueie outra execucao de A sem bloquear B.
+
+O lote e sequencial e isola falhas por fonte. Seu resumo contem apenas totais
+de sucesso, falha, busy e inactive; eventos operacionais usam `source_ref`
+curta e nao incluem planilha, celulas ou payload. Isso nao introduz
+multi-tenancy: o limite institucional continua sendo um projeto Supabase.
+
 O pacote separa dominio (`sources`, `identifiers`, `mirror_schema`, `scheduling`), orquestracao (`orchestration`, `synchronizer`), persistencia SQL (`sql_generator`, `executors`) e bordas locais (`cli`, arquivos de configuracao e fixtures). O dominio nao depende de CLI, Google, Supabase, psql ou sistema de arquivos.
 
 Na Fase 1, `google_sheets` contém somente o modelo determinístico, parsing e orquestração da leitura; `google_transport` é a borda HTTP GET autenticada; `google_config` valida configuração e credencial externa. O transporte implementa uma interface local pequena e pode ser substituído por fake nos testes. O leitor não importa Supabase, não gera SQL, não transforma regras de negócio e não persiste dados.
@@ -34,7 +50,7 @@ A migration local `20260825120000_add_retention_controls.sql`, definida na
 [ADR de retenção](decisions/20260825_retention_schema_design.md), adiciona
 lifecycle a `data_sources`, `retention_holds` e `purge_runs`. Prazos permanecem
 em configuração externa versionada por fonte. A migration foi validada no
-PostgreSQL local e não foi aplicada ao staging.
+PostgreSQL local e aplicada de forma controlada ao staging.
 
 Retenção histórica não inclui `raw_current_rows`. A FK
 `raw_current_rows.last_sync_run_id` permanece restritiva: a run ancorada pelo

@@ -22,7 +22,7 @@ from sheets_supabase_sync.sql_generator import generate_schema_request_sql
 
 class IsolatedInstitutionTests(unittest.TestCase):
     def source(self, name: str, table: str, **kwargs: object) -> DataSource:
-        return DataSource(name, "sheet", "tab", table, ("id",), 180, **kwargs)
+        return DataSource(name, f"sheet-{name}", "tab", table, ("id",), 180, **kwargs)
 
     def test_config_has_no_organization_or_tenant(self) -> None:
         config = load_institution_config(Path("configs/examples/institution.example.json"))
@@ -38,6 +38,12 @@ class IsolatedInstitutionTests(unittest.TestCase):
     def test_same_target_table_is_refused(self) -> None:
         with self.assertRaisesRegex(ValueError, "target_table"):
             InstitutionConfig("Instituicao", "isolated", (self.source("a", "espelho"), self.source("b", "espelho")))
+
+    def test_same_spreadsheet_and_tab_are_refused(self) -> None:
+        source_a = self.source("a", "espelho_a")
+        source_b = DataSource("b", source_a.spreadsheet_id, source_a.sheet_name, "espelho_b", ("id",), 180)
+        with self.assertRaisesRegex(ValueError, "spreadsheet_id"):
+            InstitutionConfig("Instituicao", "isolated", (source_a, source_b))
 
     def test_due_sources_respects_three_hour_interval(self) -> None:
         now = datetime(2026, 8, 3, 12, tzinfo=UTC)

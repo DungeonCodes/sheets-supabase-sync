@@ -5,6 +5,7 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 ## Estado atual
 
 - Núcleo Python offline: snapshots, diff, contratos, schema drift, SQL auditável, isolamento por fonte, health, logs seguros e testes; leitor Google read-only implementado com transporte HTTP isolado.
+- Multi-source: duas fontes ficticias com schemas distintos e a mesma key textual foram validadas no PostgreSQL local; estado, history, runs, drift, lock, falha, retry, lifecycle e hold especifico permaneceram isolados por fonte. O lote sequencial agora produz resumo agregado sanitizado.
 - Retenção/minimização: migration 4 aplicada e validada por catálogo no staging;
   nenhum purge, hold real ou sincronização foi executado neste deploy. Prazos legais,
   owner, backup e offboarding produtivo continuam decisões humanas.
@@ -26,10 +27,12 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 
 ## Próximo passo
 
-Após a aplicação validada da migration 4 no staging, o próximo gate único é
-autorização humana específica para o rollout do código que lê lifecycle, sem
-executar sincronização nesse próprio gate. Isso não autoriza purge, offboarding
-ou produção. Decisões empresariais continuam em
+O rollout lifecycle-aware e a validacao multi-source local foram encerrados em
+2026-09-02. Nao e necessario criar uma segunda fonte no staging para comprovar
+o isolamento ja exercitado no PostgreSQL local. O proximo gate unico e definir
+o caso de negocio e o contrato minimo da camada analitica antes de implementar
+Star Schema; isto nao autoriza scheduler, purge, offboarding ou producao.
+Decisoes empresariais continuam em
 [open-decisions.md](activity-3/open-decisions.md).
 
 ## Checkpoint operacional de 2026-08-19

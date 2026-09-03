@@ -1,0 +1,28 @@
+{
+  "institution": {
+    "name": "instituicao-multi-source-ficticia"
+  },
+  "supabase": {
+    "project_mode": "isolated"
+  },
+  "sources": [
+    {
+      "name": "SOURCE_A",
+      "spreadsheet_id": "fixture-source-a",
+      "sheet_name": "Cursos",
+      "target_table": "source_a_records",
+      "business_key": ["registro_id"],
+      "sync_interval_minutes": 180,
+      "enabled": true
+    },
+    {
+      "name": "SOURCE_B",
+      "spreadsheet_id": "fixture-source-b",
+      "sheet_name": "Pontuacoes",
+      "target_table": "source_b_records",
+      "business_key": ["registro_id"],
+      "sync_interval_minutes": 180,
+      "enabled": true
+    }
+  ]
+}
