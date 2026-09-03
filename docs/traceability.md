@@ -25,6 +25,7 @@ Esta tabela é apenas um índice de evidências; não substitui os 40 requisitos
 | Data API da fundação | configuração segura | verificação somente de leitura: HTTP 200 | `validated` |
 | Google Sheets real | leitor HTTP v4 read-only e Service Account implementados | 29 testes offline; diagnóstico e opt-in reais: 7 colunas/5 linhas fictícias | `partially_validated` |
 | Raw persistido pelo pipeline | `RawSynchronizationService` + `PostgresRawRepository` | staging: duas sincronizações da fixture fictícia; 5 estados, 5 inserts e repetição sem novo evento | `validated` |
+| Contrato analitico minimo | ADR 20260903 | caso, grain, Star, fato, dimensoes, metricas, minimizacao, acesso futuro e BI MVP definidos; sem objetos | `planned` |
 
 O gate de 2026-08-11 definiu `raw_import_rows` como event-only. Naquele ponto, a persistência integrada ainda era `requires_changes`; os checkpoints posteriores de 2026-08-13 e 2026-08-17 a validaram no alcance controlado descrito abaixo. A decisão está em `decisions/20260811_raw_import_event_only_semantics.md`.
 
@@ -57,7 +58,7 @@ remoção e rename de header antes de qualquer mutação raw e registrou request
 operacionais pendentes. Reorder foi compatível por mapeamento por nome, sem
 evento ou versão nova; header duplicado foi rejeitado pelo leitor antes da
 transação. A baseline restaurada permanece equivalente.
-| Staging/Star Schema/BI | inexistente | nenhuma evidência | `planned` |
+| Schema analitico/BI | contrato definido; objetos inexistentes | ADR 20260903; nenhuma evidencia executavel ainda | `planned` |
 | E-mail e scheduler implantado | regras/configuração parciais | nenhum transporte/provider | `planned` |
 
 Consulte também [análise de lacunas](activity-3/gap-analysis.md), [plano](activity-3/implementation-plan.md), [riscos](activity-3/risk-register.md), [decisões](activity-3/open-decisions.md) e [gates](activity-3/validation-checkpoints.md).

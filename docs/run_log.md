@@ -682,3 +682,22 @@ houve nova migration, acesso Google, staging, scheduler, purge, relacao entre
 mirrors ou alteracao de `main`. Classificacao:
 `multi_source_local_validated`. Proximo gate unico: definir o caso de negocio e
 o contrato minimo da camada analitica.
+
+## 2026-09-03 - Contrato analitico minimo
+
+Preflight em `dev` confirmou worktree limpo. A orientacao oficial e os
+documentos de requisitos, lacunas, plano, riscos, decisoes abertas, checkpoints,
+arquitetura, roadmap, LGPD e multi-source foram revisados. Como nao existe
+dominio real aprovado, o MVP foi limitado a fixture ficticia de
+categoria/pontuacao.
+
+Foi definido Star Schema corrente com `DIM_SOURCE`, `DIM_CATEGORY` e
+`FACT_CATEGORY_SCORE`, identidade por fonte/business key, metricas count/avg/
+min/max, consolidacao multi-source somente semantica, transformacao idempotente,
+minimizacao LGPD, dois escopos futuros de leitura e quatro elementos de BI. A
+fonte ficticia de curso/status nao alimenta essa fato; raw history e payload
+nao sao promovidos. Nao houve teste, codigo, SQL, migration, acesso Google,
+staging, Supabase, dashboard ou scheduler.
+
+Classificacao: `analytical_contract_defined`. Proximo gate unico:
+`analytical_schema`, somente local e sujeito a revisao humana do DDL.

@@ -52,8 +52,8 @@ foi rejeitado pelo leitor antes da transação. A fixture retornou à baseline.
 
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| OBJ-01 | Substituir fórmulas Google Sheets e Apps Script por arquitetura ETL/ELT escalável, estável e de custo zero. | `partially_validated` | pipeline Google read-only → raw staging validado com fixture fictícia; `src/`; `tests/`; `docs/architecture.md` | Não há operação multi-fonte, camada analítica ou prova de custo. | MVP ponta a ponta repetível, metas de escala medidas e custo/free tier documentado. | crítica | Fases 0–7; decisões OD-01 a OD-03 e OD-10 | R-01, R-02, R-03, R-13 |
-| OBJ-02 | Extrair e transformar dados de forma robusta e disponibilizá-los em dashboards analíticos de alto desempenho. | `partially_validated` | conector Google read-only, snapshot/diff e raw staging validados | Transformação analítica, BI e medição de dashboard ausentes. | Fonte fictícia real → raw → SQL → tabela analítica → consulta BI, com reconciliação e tempo medido. | crítica | Fases 1–5 | R-02, R-08, R-10, R-13 |
+| OBJ-01 | Substituir fórmulas Google Sheets e Apps Script por arquitetura ETL/ELT escalável, estável e de custo zero. | `partially_validated` | pipeline Google read-only → raw staging e operacao multi-source local validados; contrato analitico definido | Não há camada analítica executável nem prova de custo. | MVP ponta a ponta repetível, metas de escala medidas e custo/free tier documentado. | crítica | Fases 0–7; decisões OD-01 a OD-03 e OD-10 | R-01, R-02, R-03, R-13 |
+| OBJ-02 | Extrair e transformar dados de forma robusta e disponibilizá-los em dashboards analíticos de alto desempenho. | `partially_validated` | conector Google read-only, snapshot/diff e raw staging validados; contrato analitico minimo definido | Schema, transformação analítica, BI e medição de dashboard ausentes. | Fonte fictícia real → raw → SQL → tabela analítica → consulta BI, com reconciliação e tempo medido. | crítica | Fases 1–5 | R-02, R-08, R-10, R-13 |
 | OBJ-03 | Garantir proteção de dados sensíveis dos clientes. | `partially_validated` | Testes de segredo/host; RLS/grants restritos; política e desenho de retenção sem migration | Prazos legais, purge testada, anonimização, produção e acesso analítico não definidos. | Threat review, política LGPD/retention humana aprovada e testes de acesso/purge negativos aprovados. | crítica | OD-07 a OD-09, Fases 5 e 7 | R-05, R-06, R-15 |
 
 ## 2. Desempenho e qualidade
@@ -87,10 +87,10 @@ foi rejeitado pelo leitor antes da transação. A fixture retornou à baseline.
 
 | ID | Requisito original resumido | Status | Evidência | Lacuna | Critério de aceite | Prioridade | Dependências | Risco |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| STORE-01 | Definir banco analítico/Data Warehouse com capacidade e escala sem degradação. | `planned` | PostgreSQL/Supabase foi escolhido apenas para base operacional | Não há decisão analítica, benchmark ou estimativa de capacidade. | ADR compara opções e benchmark comprova metas de volume/consulta. | alta | OD-02/03/10; Fases 4 e 7 | R-04, R-13, R-18 |
+| STORE-01 | Definir banco analítico/Data Warehouse com capacidade e escala sem degradação. | `planned` | contrato escolhe PostgreSQL/Supabase como camada analitica do MVP | Não há schema, benchmark ou estimativa de capacidade produtiva. | ADR compara opções e benchmark comprova metas de volume/consulta. | alta | OD-02/03/10; Fases 4 e 7 | R-04, R-13, R-18 |
 | STORE-02 | Receber dados puros em staging ou armazenamento bruto (raw data). | `partially_validated` | migrations 4/4; ciclo raw no staging; retenção aplicada; duas fontes independentes validadas localmente por `data_source_id` | Operação contínua e offboarding produtivo permanecem ausentes. | Raw auditável/idempotente com isolamento por fonte e retenção sem remover current acidentalmente. | crítica | Fases 2B, 4 e 7 | R-04, R-06, R-12, R-20 |
-| STORE-03 | Transformar em SQL para Star Schema ou Snowflake, com fatos e dimensões. | `planned` | SQL atual é somente upsert de espelho operacional | Caso de negócio, staging, dimensões, fato, métricas e reconciliação ausentes. | Star Schema funcional, consultas testadas e métricas reconciliadas. | crítica | Fase 4; definição de caso de negócio | R-10, R-13 |
-| STORE-04 | Aplicar controle hierárquico de visualização por RLS/RBAC. | `partially_validated` | catálogo remoto: RLS nas cinco tabelas operacionais, zero policies, `anon`/`authenticated` sem acesso e backend autorizado | Não há policies hierárquicas, papéis, escopo por usuário nem teste com identidades distintas. | Dois ou mais escopos demonstrados; consultas negativas não retornam dados indevidos. | crítica | OD-06; Fase 5; modelo de identidade | R-15 |
+| STORE-03 | Transformar em SQL para Star Schema ou Snowflake, com fatos e dimensões. | `planned` | caso, grain, Star Schema, uma fato, duas dimensoes e metricas definidos na ADR 20260903 | Schema, SQL, transformacao, consultas e reconciliacao ainda ausentes. | Star Schema funcional, consultas testadas e métricas reconciliadas. | crítica | Fase 4; definição de caso de negócio | R-10, R-13 |
+| STORE-04 | Aplicar controle hierárquico de visualização por RLS/RBAC. | `partially_validated` | RLS operacional validado; contrato analitico define leitura project-wide e row-scoped por Source | Não há policies analiticas, identidade real nem teste com perfis distintos. | Dois ou mais escopos demonstrados; consultas negativas não retornam dados indevidos. | crítica | OD-06; Fase 5; modelo de identidade | R-15 |
 
 ## 6. Workflow e fluxograma
 
@@ -99,8 +99,8 @@ foi rejeitado pelo leitor antes da transação. A fixture retornou à baseline.
 | WF-01 | Pesquisar, testar e mapear ponta a ponta em fluxograma detalhado no Draw.io. | `planned` | `docs/workflow.md` é descrição textual parcial | Não há arquivo `.drawio`, exportação ou validação interna. | `.drawio` e PDF/PNG correspondem à arquitetura testada e são revisados. | alta | Fases 1–7; Fase 8 | R-11 |
 | WF-02 | Mostrar fonte/ingestão Google Forms/Sheets e mecanismo de captura. | `planned` | Fluxo textual menciona Google futuro | Ausente no Draw.io e mecanismo não escolhido/testado. | Nó identifica fonte, mecanismo, ferramenta, risco e quota. | alta | ING-03 | R-02 |
 | WF-03 | Mostrar staging ou armazenamento raw. | `planned` | Arquitetura textual e tabela raw operacional | Sem camada implementada ponta a ponta nem diagrama. | Nó raw/staging corresponde a tabelas e fluxo validados. | alta | STORE-02 | R-06 |
-| WF-04 | Mostrar qualidade, schema drift e transformação SQL para Star Schema. | `planned` | Drift offline existente | Star Schema e diagrama ausentes. | Fluxo mostra gates de drift, erro e transformação executável. | alta | PROC-01, STORE-03 | R-07 |
-| WF-05 | Mostrar armazenamento analítico otimizado. | `planned` | Nenhuma camada analítica definida | Ferramenta e modelo pendentes. | Nó referencia decisão e objeto analítico testado. | alta | STORE-01/03 | R-13 |
+| WF-04 | Mostrar qualidade, schema drift e transformação SQL para Star Schema. | `planned` | Drift validado e transformacao conceitual definida | Objeto executavel e Draw.io ausentes. | Fluxo mostra gates de drift, erro e transformação executável. | alta | PROC-01, STORE-03 | R-07 |
+| WF-05 | Mostrar armazenamento analítico otimizado. | `planned` | Star Schema minimo definido para PostgreSQL/Supabase | Objetos e medicao pendentes. | Nó referencia decisão e objeto analítico testado. | alta | STORE-01/03 | R-13 |
 | WF-06 | Mostrar BI e filtros de segurança por nível de usuário (RLS). | `planned` | Nenhuma integração BI | Ferramenta, dashboard e perfis pendentes. | Conexão e filtros representados e comprovados por teste. | alta | OD-04/06; Fase 5 | R-10, R-15 |
 | WF-07 | Mostrar camada transversal de logs e meio de alertas. | `planned` | Componentes locais de health/log | Armazenamento central e canal não existem. | Diagrama referencia logs reais e e-mail testado. | alta | PROC-03/04 | R-17 |
 | WF-08 | Anotar ferramentas, segurança/vazamento e limitações operacionais/quota em cada etapa. | `planned` | Riscos aparecem dispersos na documentação | Não há anotação sistemática por etapa. | Todas as caixas contêm ferramenta, risco/controle e limite verificável. | alta | Pesquisa de custos/quotas e risk register | R-01, R-02, R-05 |
@@ -275,3 +275,17 @@ A leitura da fixture ficticia e o plano de 5 inserts passaram. A conexao
 PostgreSQL direta ao staging falhou antes da transacao, portanto nao houve
 persistencia, evento ou sync_run. STORE-02 permanece parcialmente validado ate
 que a conectividade do adaptador seja disponibilizada.
+
+## Gate de contrato analitico (2026-09-03)
+
+O [contrato analitico minimo](../decisions/20260903_minimum_analytical_contract.md)
+define caso ficticio, consumidores, perguntas, grain, metricas, Star Schema,
+fato, dimensoes, identidade, multi-source semantico, current/history,
+transformacao, minimizacao, acesso futuro e BI MVP. Isto nao altera os status
+oficiais: `STORE-01`, `STORE-03`, `WF-04`, `WF-05` e `WF-06` continuam
+`planned`; `OBJ-02`, `OBJ-03`, `DQ-03` e `STORE-04` continuam
+`partially_validated` ate existir evidencia executavel.
+
+Proximo gate unico: `analytical_schema`, somente local. Evidencia esperada:
+migration incremental revisada, fato/dimensoes coerentes com o contrato,
+constraints e testes sem payload ou PII desnecessaria.

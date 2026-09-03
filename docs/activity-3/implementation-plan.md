@@ -109,6 +109,15 @@ Plano incremental derivado da [matriz oficial](requirements-traceability.md). Ne
 
 **Fora do escopo:** modelo genérico para casos não definidos, dados reais e otimização sem métrica.
 
+**Checkpoint de contrato em 2026-09-03:** o caso ficticio de
+categoria/pontuacao, o grain corrente, as metricas, `DIM_SOURCE`,
+`DIM_CATEGORY`, `FACT_CATEGORY_SCORE`, a minimizacao LGPD, a consolidacao
+multi-source semantica e o contrato futuro de acesso foram definidos na
+[decisao analitica](../decisions/20260903_minimum_analytical_contract.md).
+Star Schema foi escolhido em vez de Snowflake. Isto e evidencia de desenho:
+nenhum schema, SQL, transformador, policy ou dashboard foi implementado. O
+proximo gate unico e `analytical_schema` local.
+
 ## Fase 5 — BI e segurança hierárquica
 
 **Objetivo:** conectar BI, criar dashboard, testar filtros e implementar RLS/RBAC necessário.

@@ -23,3 +23,16 @@ Decisao: validar duas fontes independentes por `data_source_id` no mesmo projeto
 Motivo: comprovar isolamento de identidade, schema, estado, lock e falha antes da camada analitica.
 Alternativas consideradas: criar nova migration, paralelizar o lote ou criar segunda fonte no staging.
 Impacto esperado: execucao sequencial multi-source com resumo agregado, sem DDL ou multi-tenancy.
+
+## 2026-09-03
+
+Data: 2026-09-03
+Decisao: adotar para a entrega um Star Schema corrente e minimo de
+categoria/pontuacao, conforme
+`docs/decisions/20260903_minimum_analytical_contract.md`.
+Motivo: demonstrar raw para analytics para BI com grain e metricas objetivos,
+sem inventar dominio real nem promover payload ou PII desnecessaria.
+Alternativas consideradas: Snowflake, history analitico, `DIM_DATE`, modelo
+generico e uniao estrutural de fontes incompativeis.
+Impacto esperado: proximo gate limitado a duas dimensoes e uma fato locais;
+RBAC, dashboard e operacao produtiva permanecem gates posteriores.

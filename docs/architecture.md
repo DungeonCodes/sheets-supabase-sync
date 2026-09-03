@@ -26,6 +26,24 @@ Na Fase 1, `google_sheets` contém somente o modelo determinístico, parsing e o
 
 As tabelas operacionais `data_sources`, `sync_runs`, `raw_import_rows`, `import_errors` e `schema_change_requests` fornecem trilha de auditoria e usam chaves estrangeiras somente entre si. Dados brutos ficam em JSONB tanto na tabela espelho quanto em `raw_import_rows`.
 
+## Camada analitica minima
+
+O contrato de entrega esta definido na
+[ADR do contrato analitico minimo](decisions/20260903_minimum_analytical_contract.md).
+Ele escolhe Star Schema no PostgreSQL/Supabase institucional, em camada logica
+separada do raw, com `DIM_SOURCE`, `DIM_CATEGORY` e
+`FACT_CATEGORY_SCORE`. O grain e um registro corrente de avaliacao por fonte e
+business key; o BI consulta somente analytics, nunca `payload_json`,
+`raw_current_rows` ou `raw_import_rows`.
+
+A consolidacao multi-source e semantica. A fonte ficticia de
+categoria/pontuacao alimentara o MVP; a fonte de curso/status permanece fora
+dessa fato. Schemas apenas estruturalmente parecidos nao autorizam `UNION`.
+`DIM_SOURCE` conserva lineage por `data_source_id` interno e `source_ref`
+segura. O MVP representa estado corrente, sem copiar o history raw, sem SCD e
+sem `DIM_DATE`, pois nao existe data de negocio no contrato atual. Esta secao e
+desenho: schema, transformacao, RLS e dashboard ainda nao existem.
+
 ## Histórico e estado atual
 
 A separação está registrada na [ADR de migration incremental](decisions/20260806_raw_current_state_migration.md):

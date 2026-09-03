@@ -12,6 +12,9 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 - Baseline institucional: aplicada no staging em 2026-08-05 e reconciliada em 2026-08-06 por histórico, catálogo e Data API somente de leitura; cinco tabelas vazias, 27 constraints, 14 índices, RLS/grants coerentes e nenhuma policy.
 - Migration incremental de estado raw: criada em 2026-08-06, aditiva, coberta por testes estruturais e comportamentais offline, validada em PostgreSQL local e aplicada ao staging em 2026-08-11; catálogo, grants mínimos e tabelas vazias foram confirmados somente por leitura.
 - Raw integrado: validado no staging exclusivamente com a fixture fictícia; primeira carga, idempotência, update, tombstone, restore, reorder de linhas e schema drift completo preservaram identidade/estado. Permanecem ausentes: Star Schema, BI, RLS/RBAC hierárquico, e-mail, estudo completo de custos/free tiers, onboarding e Draw.io.
+- Contrato analitico: caso ficticio de categoria/pontuacao, Star Schema minimo,
+  grain, metricas, dimensoes, identidade, minimizacao, acesso futuro e BI MVP
+  definidos; nenhum objeto analitico foi implementado.
 
 ## Fases oficiais de execução
 
@@ -27,13 +30,25 @@ O [documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orie
 
 ## Próximo passo
 
-O rollout lifecycle-aware e a validacao multi-source local foram encerrados em
-2026-09-02. Nao e necessario criar uma segunda fonte no staging para comprovar
-o isolamento ja exercitado no PostgreSQL local. O proximo gate unico e definir
-o caso de negocio e o contrato minimo da camada analitica antes de implementar
-Star Schema; isto nao autoriza scheduler, purge, offboarding ou producao.
-Decisoes empresariais continuam em
+Sequencia minima orientada a entrega:
+
+1. `analytical_contract` - definido em 2026-09-03;
+2. `analytical_schema` - proximo gate unico;
+3. `analytical_transformation`;
+4. `analytical_rbac`;
+5. `bi_mvp`;
+6. `scheduler_minimum`;
+7. `e2e_final`;
+8. `drawio_and_delivery`.
+
+O proximo gate implementa somente o schema analitico local aprovado. Nao
+autoriza transformacao, dashboard, scheduler, staging ou dados reais. Decisoes
+empresariais continuam em
 [open-decisions.md](activity-3/open-decisions.md).
+
+Ficam explicitamente pos-entrega: executor de purge, scheduler de retencao,
+canal administrativo de retencao, otimizacao de locks e producao avancada
+(capacity plan, tuning, identidade/hierarquia reais e operacao continua).
 
 ## Checkpoint operacional de 2026-08-19
 
