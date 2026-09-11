@@ -701,3 +701,12 @@ staging, Supabase, dashboard ou scheduler.
 
 Classificacao: `analytical_contract_defined`. Proximo gate unico:
 `analytical_schema`, somente local e sujeito a revisao humana do DDL.
+## 2026-09-11 — fluxograma executivo do sheets-supabase-sync
+
+Foi criado `docs/diagrams/sheets_supabase_sync_flow.drawio`, em uma página,
+com o fluxo validado de Google Sheets até o estado raw e a evolução analítica
+claramente marcada como planejada. O diagrama inclui a faixa transversal de
+segurança e resiliência e não afirma operação produtiva. Como não havia CLI
+Draw.io disponível no ambiente, também foi criado o fallback Mermaid
+`docs/diagrams/sheets_supabase_sync_flow.md`; SVG e PNG não foram gerados.
+Nenhum código, migration, serviço externo, banco ou dado foi acessado.
