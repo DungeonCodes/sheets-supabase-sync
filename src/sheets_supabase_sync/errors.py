@@ -19,6 +19,7 @@ class ErrorCode(StrEnum):
     RESPONSE = "response"
     TRANSIENT = "transient"
     SCHEMA = "schema"
+    SOURCE_INACTIVE = "source_inactive"
     EMPTY_SHEET = "empty_sheet"
     VALIDATION = "validation"
     DATABASE = "database"

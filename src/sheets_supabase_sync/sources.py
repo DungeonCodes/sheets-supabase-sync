@@ -39,6 +39,9 @@ class InstitutionConfig:
     def __post_init__(self) -> None:
         if self.project_mode != "isolated":
             raise ValueError("Esta versao exige project_mode isolated")
+        source_identities = [(source.spreadsheet_id, source.sheet_name) for source in self.sources]
+        if len(source_identities) != len(set(source_identities)):
+            raise ValueError("Cada fonte deve possuir spreadsheet_id e sheet_name proprios")
         tables = [source.target_table for source in self.sources]
         if len(tables) != len(set(tables)):
             raise ValueError("Cada fonte deve possuir target_table propria")

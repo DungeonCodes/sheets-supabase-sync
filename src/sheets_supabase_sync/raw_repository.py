@@ -327,7 +327,12 @@ class PostgresRawRepository:
         if returned is None:
             cursor.execute(self.find_source_sql(), (source.spreadsheet_id, source.sheet_name))
             returned = cursor.fetchone()
-        self._data_source_id = str(returned[0])
+        if returned is None:
+            raise SyncError(ErrorCode.DATABASE, "Fonte PostgreSQL nao foi localizada apos provisionamento")
+        data_source_id, lifecycle_status, enabled = returned
+        if lifecycle_status != "active" or enabled is not True:
+            raise SyncError(ErrorCode.SOURCE_INACTIVE, "Fonte PostgreSQL nao esta ativa para sincronizacao")
+        self._data_source_id = str(data_source_id)
 
     def load_schema(self, source_hash: str) -> RawSchema | None:
         cursor = self._cursor()
@@ -490,14 +495,18 @@ class PostgresRawRepository:
 
     @staticmethod
     def find_source_sql() -> str:
-        return "SELECT id FROM public.data_sources WHERE spreadsheet_id = %s AND sheet_name = %s"
+        return (
+            "SELECT id, lifecycle_status, enabled FROM public.data_sources "
+            "WHERE spreadsheet_id = %s AND sheet_name = %s FOR SHARE"
+        )
 
     @staticmethod
     def register_source_sql() -> str:
         return (
             "INSERT INTO public.data_sources (name, spreadsheet_id, sheet_name, target_table, business_key) "
             "VALUES (%s, %s, %s, %s, %s::jsonb) "
-            "ON CONFLICT (spreadsheet_id, sheet_name) DO NOTHING RETURNING id"
+            "ON CONFLICT (spreadsheet_id, sheet_name) DO NOTHING "
+            "RETURNING id, lifecycle_status, enabled"
         )
 
     @staticmethod
