@@ -710,3 +710,24 @@ segurança e resiliência e não afirma operação produtiva. Como não havia CL
 Draw.io disponível no ambiente, também foi criado o fallback Mermaid
 `docs/diagrams/sheets_supabase_sync_flow.md`; SVG e PNG não foram gerados.
 Nenhum código, migration, serviço externo, banco ou dado foi acessado.
+
+## 2026-09-11 — fluxograma operacional proposto
+
+Foi criado `docs/diagrams/sheets_supabase_sync_operational_flow.drawio` como
+artefato separado do fluxograma técnico. O desenho organiza Cliente, Inicie,
+Aplicação/Pipeline, Google/Supabase e BI/Consumo em swimlanes; distingue o MVP
+assistido da evolução self-service e mantém analytics/BI como futuro. As
+responsabilidades de produto ainda abertas aparecem como decisões para validar
+com a Inicie. Também foi criado o fallback Mermaid correspondente. Nenhum
+código, migration, serviço externo, teste ou dado foi acessado.
+
+## 2026-09-11 — ADR de execução agendada do MVP
+
+Foi criada a ADR proposta
+`docs/decisions/20260911_scheduled_sync_mvp_architecture.md`. Ela documenta
+GitHub + Vercel + Supabase, Supabase Cron como despertador global, Vercel
+Function Python como worker condicionado a validação, periodicidade diária
+inicial, segurança server-side, alternativas, riscos e critérios objetivos de
+aceitação e revisão. Também foi atualizado o resumo `docs/decisions.md`.
+Nenhuma implementação, migration, integração externa, secret ou deploy foi
+executado.

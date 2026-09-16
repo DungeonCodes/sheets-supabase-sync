@@ -36,3 +36,16 @@ Alternativas consideradas: Snowflake, history analitico, `DIM_DATE`, modelo
 generico e uniao estrutural de fontes incompativeis.
 Impacto esperado: proximo gate limitado a duas dimensoes e uma fato locais;
 RBAC, dashboard e operacao produtiva permanecem gates posteriores.
+
+## 2026-09-11
+
+Data: 2026-09-11
+Decisao: propor Supabase Cron como scheduler global e uma Vercel Function
+Python como worker serverless do MVP, condicionados a validação técnica.
+Motivo: reutilizar o core Python, reduzir plataformas e manter o estado
+operacional no Supabase sem executar ETL pesado no PostgreSQL.
+Alternativas consideradas: Cloud Run, Railway/Render, GitHub Actions, Vercel
+Cron, trigger Google em tempo real e worker permanente.
+Impacto esperado: uma execução global diária no MVP, endpoint autenticado,
+credenciais server-side e evolução para runtime dedicado quando limites
+objetivos forem atingidos.
