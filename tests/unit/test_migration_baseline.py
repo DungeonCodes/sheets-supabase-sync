@@ -12,7 +12,11 @@ HISTORY = ROOT / "docs" / "history" / "initial-migrations-poc"
 BASELINE = MIGRATIONS / "20260804000000_initial_isolated_institution_schema.sql"
 # Digest da baseline aplicada ao staging em 2026-08-05. Ela e imutavel: qualquer
 # evolucao deve ocorrer por migration incremental, nunca por edicao deste arquivo.
-BASELINE_DIGEST = "35f26438baafe8f5b65bd12ff2136866e7c02d081e6e265fe371a3c676f1a034"
+BASELINE_DIGEST = "53f6326e1c50e9ddd6c50037e40d00ad7afc26c290fc53e64ebd1358fdae2f5d"
+
+
+def migration_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 class MigrationBaselineTests(unittest.TestCase):
@@ -20,7 +24,7 @@ class MigrationBaselineTests(unittest.TestCase):
         self.baseline = BASELINE.read_text(encoding="utf-8").lower()
 
     def test_applied_baseline_is_untouched(self) -> None:
-        self.assertEqual(BASELINE_DIGEST, hashlib.sha256(BASELINE.read_bytes()).hexdigest())
+        self.assertEqual(BASELINE_DIGEST, migration_digest(BASELINE))
 
     def test_baseline_is_the_oldest_migration_and_archives_are_inert(self) -> None:
         active = sorted(path.name for path in MIGRATIONS.glob("*.sql"))

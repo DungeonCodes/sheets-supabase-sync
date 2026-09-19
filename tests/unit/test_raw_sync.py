@@ -178,6 +178,12 @@ class RawSyncTests(unittest.TestCase):
         self.assertIn("pg_try_advisory_xact_lock", PostgresRawRepository.try_lock_sql())
         self.assertNotIn("registro_id", PostgresRawRepository.append_raw_row_sql())
 
+    def test_postgres_source_lookup_reads_the_lifecycle_guard(self) -> None:
+        self.assertIn("lifecycle_status", PostgresRawRepository.find_source_sql())
+        self.assertIn("enabled", PostgresRawRepository.find_source_sql())
+        self.assertIn("for share", PostgresRawRepository.find_source_sql().lower())
+        self.assertIn("lifecycle_status", PostgresRawRepository.register_source_sql())
+
     def test_raw_modules_do_not_depend_on_google_transport(self) -> None:
         repository_source = (Path(__file__).parents[2] / "src" / "sheets_supabase_sync" / "raw_repository.py").read_text(encoding="utf-8")
         self.assertNotIn("google_", repository_source)

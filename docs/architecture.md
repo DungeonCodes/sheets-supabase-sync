@@ -2,6 +2,22 @@
 
 Cada instituicao possui um projeto Supabase independente. `data_sources` descreve uma planilha e uma aba; cada fonte tem uma `target_table` espelho propria e nao possui relacionamento automatico com outras tabelas espelho.
 
+## Isolamento multi-source
+
+Uma instituicao pode declarar varias fontes no mesmo projeto por `sources[]`.
+Cada par `spreadsheet_id` + `sheet_name` e cada `target_table` devem ser unicos
+na configuracao institucional. Estado, historico, runs, erros e requests de
+schema sao particionados por `data_source_id`; a identidade raw e
+`(data_source_id, row_key_hash)`. Assim, a mesma business key textual pode
+existir em fontes distintas sem colisao. Snapshots e schemas sao mantidos por
+fonte, e o advisory lock usa a referencia deterministica da fonte, permitindo
+que A bloqueie outra execucao de A sem bloquear B.
+
+O lote e sequencial e isola falhas por fonte. Seu resumo contem apenas totais
+de sucesso, falha, busy e inactive; eventos operacionais usam `source_ref`
+curta e nao incluem planilha, celulas ou payload. Isso nao introduz
+multi-tenancy: o limite institucional continua sendo um projeto Supabase.
+
 O pacote separa dominio (`sources`, `identifiers`, `mirror_schema`, `scheduling`), orquestracao (`orchestration`, `synchronizer`), persistencia SQL (`sql_generator`, `executors`) e bordas locais (`cli`, arquivos de configuracao e fixtures). O dominio nao depende de CLI, Google, Supabase, psql ou sistema de arquivos.
 
 Na Fase 1, `google_sheets` contém somente o modelo determinístico, parsing e orquestração da leitura; `google_transport` é a borda HTTP GET autenticada; `google_config` valida configuração e credencial externa. O transporte implementa uma interface local pequena e pode ser substituído por fake nos testes. O leitor não importa Supabase, não gera SQL, não transforma regras de negócio e não persiste dados.
@@ -9,6 +25,24 @@ Na Fase 1, `google_sheets` contém somente o modelo determinístico, parsing e o
 `raw_sync` concentra contrato, hashes, snapshots e diff sem rede; `raw_state` traduz um plano de mudanças em transições de estado atual; `raw_sync_service` coordena dry-run e transação; `raw_repository` isola avaliação de schema e comandos PostgreSQL parametrizados. A semântica combina histórico append-only com estado atual por fonte/chave. O adaptador usa `psycopg` e, no staging autorizado, conecta pelo Supavisor Session Pooler na porta 5432.
 
 As tabelas operacionais `data_sources`, `sync_runs`, `raw_import_rows`, `import_errors` e `schema_change_requests` fornecem trilha de auditoria e usam chaves estrangeiras somente entre si. Dados brutos ficam em JSONB tanto na tabela espelho quanto em `raw_import_rows`.
+
+## Camada analitica minima
+
+O contrato de entrega esta definido na
+[ADR do contrato analitico minimo](decisions/20260903_minimum_analytical_contract.md).
+Ele escolhe Star Schema no PostgreSQL/Supabase institucional, em camada logica
+separada do raw, com `DIM_SOURCE`, `DIM_CATEGORY` e
+`FACT_CATEGORY_SCORE`. O grain e um registro corrente de avaliacao por fonte e
+business key; o BI consulta somente analytics, nunca `payload_json`,
+`raw_current_rows` ou `raw_import_rows`.
+
+A consolidacao multi-source e semantica. A fonte ficticia de
+categoria/pontuacao alimentara o MVP; a fonte de curso/status permanece fora
+dessa fato. Schemas apenas estruturalmente parecidos nao autorizam `UNION`.
+`DIM_SOURCE` conserva lineage por `data_source_id` interno e `source_ref`
+segura. O MVP representa estado corrente, sem copiar o history raw, sem SCD e
+sem `DIM_DATE`, pois nao existe data de negocio no contrato atual. Esta secao e
+desenho: schema, transformacao, RLS e dashboard ainda nao existem.
 
 ## Histórico e estado atual
 
@@ -27,6 +61,21 @@ A separação está registrada na [ADR de migration incremental](decisions/20260
 | `raw_current_rows_last_run_idx` | reconciliação das linhas afetadas por uma execução |
 
 Nenhum índice duplica a chave primária ou a unicidade.
+
+## Retenção e ciclo de vida
+
+A migration local `20260825120000_add_retention_controls.sql`, definida na
+[ADR de retenção](decisions/20260825_retention_schema_design.md), adiciona
+lifecycle a `data_sources`, `retention_holds` e `purge_runs`. Prazos permanecem
+em configuração externa versionada por fonte. A migration foi validada no
+PostgreSQL local e aplicada de forma controlada ao staging.
+
+Retenção histórica não inclui `raw_current_rows`. A FK
+`raw_current_rows.last_sync_run_id` permanece restritiva: a run ancorada pelo
+estado atual não pode ser removida. Offboarding é o único fluxo que poderá
+eliminar current, sempre após suspensão, revogação externa de credenciais,
+hold check e aprovação humana. `sync_runs` continua reservada à ingestão;
+`purge_runs` preserva apenas evidência agregada, sem payload ou lista de IDs.
 
 ## Baseline do banco
 

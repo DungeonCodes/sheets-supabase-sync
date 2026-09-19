@@ -16,6 +16,27 @@ Motivo: impedir retry cego de commit desconhecido e forçar releitura/diff em re
 Alternativas consideradas: classificação por mensagem e nova migration de idempotência.
 Impacto esperado: retry limitado e reconciliação sem migration adicional.
 
+## 2026-09-02
+
+Data: 2026-09-02
+Decisao: validar duas fontes independentes por `data_source_id` no mesmo projeto institucional.
+Motivo: comprovar isolamento de identidade, schema, estado, lock e falha antes da camada analitica.
+Alternativas consideradas: criar nova migration, paralelizar o lote ou criar segunda fonte no staging.
+Impacto esperado: execucao sequencial multi-source com resumo agregado, sem DDL ou multi-tenancy.
+
+## 2026-09-03
+
+Data: 2026-09-03
+Decisao: adotar para a entrega um Star Schema corrente e minimo de
+categoria/pontuacao, conforme
+`docs/decisions/20260903_minimum_analytical_contract.md`.
+Motivo: demonstrar raw para analytics para BI com grain e metricas objetivos,
+sem inventar dominio real nem promover payload ou PII desnecessaria.
+Alternativas consideradas: Snowflake, history analitico, `DIM_DATE`, modelo
+generico e uniao estrutural de fontes incompativeis.
+Impacto esperado: proximo gate limitado a duas dimensoes e uma fato locais;
+RBAC, dashboard e operacao produtiva permanecem gates posteriores.
+
 ## 2026-09-09
 
 Data: 2026-09-09
@@ -29,3 +50,16 @@ CLI local; ambas rejeitadas por contornarem contratos existentes.
 Impacto esperado: dry-run sem writes e sync staging explicitamente confirmada,
 mantendo production proibida. Detalhes em
 `docs/decisions/20260909_staging_sync_composition.md`.
+
+## 2026-09-11
+
+Data: 2026-09-11
+Decisao: propor Supabase Cron como scheduler global e uma Vercel Function
+Python como worker serverless do MVP, condicionados a validação técnica.
+Motivo: reutilizar o core Python, reduzir plataformas e manter o estado
+operacional no Supabase sem executar ETL pesado no PostgreSQL.
+Alternativas consideradas: Cloud Run, Railway/Render, GitHub Actions, Vercel
+Cron, trigger Google em tempo real e worker permanente.
+Impacto esperado: uma execução global diária no MVP, endpoint autenticado,
+credenciais server-side e evolução para runtime dedicado quando limites
+objetivos forem atingidos.

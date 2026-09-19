@@ -76,9 +76,70 @@ PostgreSQL usa SQLSTATE/tipo e estágio, não texto livre. Autenticação, autor
 schema, validação e dados inválidos não são repetidos. Conexão perdida durante `COMMIT` é
 `ambiguous_outcome`: não há rollback presumido nem retry cego. Logs usam allowlist e nunca incluem
 payload, células, senha, URL completa, token, Service Account ou Project Ref completo.
+
+Retenção e offboarding seguem a política técnica em [retention.md](retention.md):
+credenciais ficam fora do ciclo de retenção do aplicativo e dados raw nunca são
+copiados para logs, alertas ou evidências de exclusão.
+
+## Grants dos controles de retenção
+
+A migration 4 foi validada somente no PostgreSQL local. `retention_holds` e
+`purge_runs` têm RLS, zero policies e nenhum acesso para `anon` ou
+`authenticated`; `service_role` recebe apenas SELECT. Criar/liberar hold,
+aprovar purge e conduzir offboarding permanecem operações de owner/admin em
+canal separado.
+
+Os grants amplos herdados da baseline foram reduzidos localmente ao contrato do
+sincronizador: `service_role` não possui DELETE em `data_sources`, `sync_runs`,
+history, current, errors ou requests. Lifecycle também não pode ser atualizado
+por essa role. Nenhuma permissão administrativa foi criada para facilitar os
+testes.
+
+`lifecycle_changed_by_ref`, campos `*_by_ref`, `source_ref` e reason codes usam
+formato técnico opaco e restritivo. Nomes, e-mails, logins, texto livre, payload,
+células, segredos e strings de conexão não pertencem a essas tabelas.
 Em 2026-08-11, a terceira migration event-only foi aplicada isoladamente ao
 staging. Introspecao somente-leitura confirmou que `raw_import_rows` manteve
 RLS sem policies e grants minimos (service_role somente SELECT/INSERT), sem
 ampliar acesso de anon ou authenticated. `raw_current_rows` manteve
 SELECT/INSERT/UPDATE para service_role e negacao dos privilegios elevados.
 Nenhum dado foi inserido e nenhuma integracao Google foi executada.
+
+## Reforço local dos controles de retenção em 2026-08-27
+
+A correção da Migration 4 mantém `anon` e `authenticated` sem acesso;
+`service_role` recebe apenas SELECT em `retention_holds` e `purge_runs`, sem
+DELETE, lifecycle, hold ou aprovação administrativa. O guard de `sync_runs`
+funciona mesmo para INSERT direto com `service_role`, sem ampliar grants.
+
+As funções internas de hold, lifecycle, exclusão protegida e evidence são
+SECURITY INVOKER, têm `search_path` restrito e EXECUTE revogado para os papéis
+operacionais. Não usam SQL dinâmico. Triggers usam essas funções somente como
+barreiras de integridade; não criam purge, scheduler ou bypass de RLS.
+
+As referências técnicas continuam limitadas por formato. Esse CHECK reduz a
+superfície, mas a opacidade semântica de reason/actor/source refs continua
+`application_enforced`; owner/admin é trust boundary para dados administrativos.
+
+## Reforço final local de retenção em 2026-08-27
+
+Além dos guards existentes, a Migration 4 agora possui nove funções internas
+SECURITY INVOKER, todas com `search_path` restrito, sem SQL dinâmico e com
+EXECUTE direto revogado para PUBLIC, anon, authenticated e service_role. O lock
+advisory de retenção usa namespace próprio e ordem fixa instituição/fonte; ele
+serializa hold e destrutividade sem reutilizar o lock operacional de sync.
+
+`service_role` continua sem DELETE, TRUNCATE, lifecycle, criação/liberação de
+hold ou aprovação de purge. Triggers statement-level bloqueiam TRUNCATE sob hold
+nas tabelas operacionais e proíbem sempre TRUNCATE da evidência administrativa.
+Esses controles não pretendem conter owner/superuser, que continua trust
+boundary explícito. Nenhuma permissão nova foi concedida.
+
+## Validação remota dos controles de retenção em 2026-08-31
+
+Após a aplicação controlada da Migration 4, o catálogo do staging confirmou RLS
+habilitado e zero policies em `retention_holds` e `purge_runs`. `anon` e
+`authenticated` continuam sem acesso; `service_role` conserva apenas SELECT nas
+duas estruturas administrativas e os grants normais do sincronizador, sem
+DELETE, TRUNCATE, lifecycle UPDATE, escrita em hold/purge ou EXECUTE direto nas
+nove funções internas. Nenhuma policy, grant ou bypass adicional foi criado.

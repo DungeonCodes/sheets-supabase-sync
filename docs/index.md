@@ -16,6 +16,7 @@
 1. [Workflow](workflow.md) — fluxo offline e integração.
 2. [Limites da Google Sheets API](activity-3/google-sheets-api-limits.md) — quotas e riscos.
 3. [Monitoramento](monitoring.md) e [runbook](runbook.md) — operação futura.
+4. [Retenção, minimização e LGPD](retention.md) — política técnica e offboarding.
 4. [Rastreabilidade](traceability.md) — capacidades e evidências.
 5. [Histórico das migrations da PoC](history/initial-migrations-poc/README.md) — arquivos nunca aplicados.
 6. [Documento oficial da Atividade 3](decisions/20260806_inicie_etl_clientes_orientacao.md) — fonte de requisitos.

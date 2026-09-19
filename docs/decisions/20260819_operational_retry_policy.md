@@ -23,4 +23,6 @@ repeticao cega.
 
 Logs aceitam apenas prefixo da fonte, operacao, tentativa, maximo, categoria, retryable, backoff,
 duracao e outcome. `import_errors` permanece para erro de fonte/linha/dado, nao falha operacional.
-Fault injection offline passou; PostgreSQL real ficou bloqueado por erro 500 do Docker Desktop.
+Fault injection offline e PostgreSQL local passaram em 2026-08-24: lock, busy,
+rollback, retry idempotente e commit ambíguo foram exercitados com fixtures
+fictícias. Esta evidência é somente local; não afirma validação em staging.

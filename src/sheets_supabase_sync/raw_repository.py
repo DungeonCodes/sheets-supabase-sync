@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence, TypeVar
 
 import psycopg
 
@@ -15,6 +15,9 @@ from .postgres_retry import connect_with_retry
 from .raw_state import RawCurrentRow, RawStateOperation, apply_state_command, history_change_type, plan_state_commands
 from .raw_schema import RawSchema, RawSchemaChange
 from .raw_sync import RawChangePlan, RawRecord, RawSnapshot, RawSyncSource, compute_snapshot_hash
+
+
+ResultT = TypeVar("ResultT")
 
 
 @dataclass(frozen=True)
@@ -49,6 +52,30 @@ class ReconciliationOutcome(StrEnum):
     APPLIED = "applied"
     NOT_PERSISTED = "not_persisted"
     INCONCLUSIVE = "inconclusive"
+
+
+class _PostgresTransactionCursor:
+    """Converte falhas do driver em erros do dominio no escopo transacional."""
+
+    def __init__(self, cursor: psycopg.Cursor) -> None:
+        self._cursor = cursor
+
+    def execute(self, *args, **kwargs):
+        return self._operation(lambda: self._cursor.execute(*args, **kwargs))
+
+    def fetchone(self):
+        return self._operation(self._cursor.fetchone)
+
+    def fetchall(self):
+        return self._operation(self._cursor.fetchall)
+
+    def _operation(self, operation: Callable[[], ResultT]) -> ResultT:
+        try:
+            return operation()
+        except SyncError:
+            raise
+        except Exception as error:
+            raise postgres_sync_error(error, DatabaseStage.TRANSACTION) from error
 
 
 class RawStateRepository(Protocol):
@@ -399,7 +426,10 @@ class PostgresRawRepository:
         returned = cursor.fetchone()
         if returned is None:
             raise SyncError(ErrorCode.SOURCE_MISMATCH, "Fonte nao pode ser cadastrada com a configuracao solicitada")
-        self._data_source_id = str(returned[0])
+        data_source_id, lifecycle_status, enabled = returned
+        if lifecycle_status != "active" or enabled is not True:
+            raise SyncError(ErrorCode.SOURCE_INACTIVE, "Fonte PostgreSQL nao esta ativa para sincronizacao")
+        self._data_source_id = str(data_source_id)
 
     def preview_snapshot(
         self,
@@ -545,6 +575,7 @@ class PostgresRawRepository:
         self._fail("before_commit")
         try:
             self._require_connection().commit()
+            self._fail("after_commit")
         except Exception as error:
             raise _classify_database_error(error, DatabaseStage.COMMIT) from error
 
@@ -610,7 +641,19 @@ class PostgresRawRepository:
                 pass
 
     def _cursor(self):
-        return self._require_connection().cursor()
+        return _PostgresTransactionCursor(self._require_connection().cursor())
+
+    def _transaction_operation(
+        self,
+        operation: Callable[[], ResultT],
+        stage: DatabaseStage = DatabaseStage.TRANSACTION,
+    ) -> ResultT:
+        try:
+            return operation()
+        except SyncError:
+            raise
+        except Exception as error:
+            raise postgres_sync_error(error, stage) from error
 
     def _require_connection(self) -> psycopg.Connection:
         if self._connection is None:
@@ -641,9 +684,9 @@ class PostgresRawRepository:
     @staticmethod
     def find_source_sql() -> str:
         return (
-            "SELECT id, name, spreadsheet_id, sheet_name, target_table, business_key, enabled "
+            "SELECT id, name, spreadsheet_id, sheet_name, target_table, business_key, lifecycle_status, enabled "
             "FROM public.data_sources WHERE name = %s OR target_table = %s "
-            "OR (spreadsheet_id = %s AND sheet_name = %s)"
+            "OR (spreadsheet_id = %s AND sheet_name = %s) FOR SHARE"
         )
 
     @staticmethod
@@ -654,7 +697,9 @@ class PostgresRawRepository:
     def register_source_sql() -> str:
         return (
             "INSERT INTO public.data_sources (name, spreadsheet_id, sheet_name, target_table, business_key) "
-            "VALUES (%s, %s, %s, %s, %s::jsonb) RETURNING id"
+            "VALUES (%s, %s, %s, %s, %s::jsonb) "
+            "ON CONFLICT (spreadsheet_id, sheet_name) DO NOTHING "
+            "RETURNING id, lifecycle_status, enabled"
         )
 
     @staticmethod
@@ -805,8 +850,13 @@ def _validate_registered_source(
     if len(item) == 2 and isinstance(item[0], RawSyncSource):
         stored, enabled = item
         source_id: Any = stored.logical_name
-    else:
+        lifecycle_status = "active" if enabled else "suspended"
+    elif len(item) == 7:
         source_id, name, spreadsheet_id, sheet_name, target_table, business_key, enabled = item
+        lifecycle_status = "active" if enabled else "suspended"
+        stored = RawSyncSource(name, requested.source_hash, spreadsheet_id, sheet_name, target_table, tuple(business_key or ()))
+    else:
+        source_id, name, spreadsheet_id, sheet_name, target_table, business_key, lifecycle_status, enabled = item
         stored = RawSyncSource(name, requested.source_hash, spreadsheet_id, sheet_name, target_table, tuple(business_key or ()))
     expected = (
         requested.logical_name,
@@ -818,7 +868,7 @@ def _validate_registered_source(
     actual = (stored.logical_name, stored.spreadsheet_id, stored.sheet_name, stored.target_table, stored.business_key)
     if actual != expected:
         raise SyncError(ErrorCode.SOURCE_MISMATCH, "Fonte existente diverge da configuracao solicitada")
-    if require_active and not enabled:
+    if require_active and (lifecycle_status != "active" or enabled is not True):
         raise SyncError(ErrorCode.SOURCE_INACTIVE, "Fonte existente nao esta ativa")
     return source_id
 

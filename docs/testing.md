@@ -74,6 +74,12 @@ Em 2026-08-05, a baseline corrigida foi aplicada ao staging. Em 2026-08-06, `mig
 releitura e recálculo, rollback, exaustão, identidade estável, evento/versão únicos e commit ambíguo.
 Os testes Google cobrem 400/401/403/404 sem retry e 429/500/502/503/504/timeout/conexão com retry.
 
+## Observabilidade e alertas
+
+Os testes offline cobrem evento tipado, severidade, retry/busy sem alerta,
+falha final e `ambiguous_outcome`, sanitização, deduplicação/cooldown, sink
+fake e SMTP mockado/desabilitado. Nenhum teste envia e-mail real.
+
 `tests/integration/test_operational_postgres.py` usa `psycopg` em modo opt-in para lock e rollback.
 Em 2026-08-19 não executou porque o Docker Desktop respondeu erro 500 ao `supabase start`.
 Follow-up de 2026-08-11: PostgreSQL local executou as duas migrations e validou DDL, constraints,
@@ -145,3 +151,92 @@ hashes de negócio, não pela posição física. Header duplicado foi rejeitado 
 leitor read-only com categoria `schema`, antes de qualquer transação. Após a
 restauração, a baseline retornou a 5 linhas, 7 colunas, fingerprint equivalente
 e 5 inalterados; os testes locais permaneceram verdes.
+
+## Retry operacional local em 2026-08-24
+
+Exclusivamente contra PostgreSQL local, os oito testes opt-in passaram. Eles
+cobrem lock por mesma e diferente fonte, rollback, busy sem mutação, os quatro
+pontos de fault injection, retry depois de rollback com um evento e uma versão
+finais, e commit ambíguo sem retry automático. O mecanismo permanece opt-in por
+`RUN_SUPABASE_INTEGRATION=1` e exige `LOCAL_DATABASE_URL` local.
+
+## Compatibilidade remota read-only em 2026-08-24
+
+Para um clone linked, use `supabase migration list --local` ao validar somente o
+ambiente local; a forma sem flag pode consultar o projeto remoto. No gate remoto
+autorizado, migrations 3/3 e lint foram verdes. O Session Pooler aceitou
+`psycopg` em uma transação explicitamente `READ ONLY`; `SELECT 1` e agregados
+confirmaram o estado esperado sem DML, lock, fault injection ou sincronização.
+
+## Controles de retenção locais em 2026-08-25
+
+`tests/unit/test_migration_retention_controls.py` protege o nome e o conteúdo da
+quarta migration, inclusive os digests das três migrations aplicadas, lifecycle,
+holds, purge evidence, índices, RLS, grants e ausência de DML destrutivo.
+
+`tests/integration/test_retention_controls_postgres.py` é opt-in e usa somente
+`LOCAL_DATABASE_URL`. Ele valida catálogo, lifecycle, hold global/por fonte,
+release, `purge_runs`, FK `SET NULL` apenas em evidência, FK restritiva de
+`last_sync_run_id`, ausência de trigger/procedure de retenção e privilégios
+negativos. Fixtures e tentativas de exclusão são sempre revertidas.
+
+Após `supabase db reset --local`, `supabase migration list --local` confirmou
+4/4 migrations. Os 14 testes PostgreSQL descobertos por
+`scripts/test-integration.ps1` passaram e `supabase db lint --local` não encontrou
+erro. Nenhum comando linked, Google, staging ou purge foi usado.
+
+## Revalidação corrigida dos controles de retenção em 2026-08-27
+
+Após reproduzir localmente as falhas de lifecycle, hold e JSONB, a Migration 4
+foi corrigida e o banco local foi recriado com `supabase db reset --local`.
+Os testes unitários verificam estrutura, digests das migrations 1–3, guards,
+grants, RLS e ausência de DML destrutivo. Os testes PostgreSQL verificam
+lifecycle por repositório e por INSERT direto de `service_role`, holds global e
+por fonte, release, delete protegido, evidence temporal/terminal, contagens
+tipadas, referências técnicas e FK restritiva de current.
+
+O script opt-in local executou 17 testes PostgreSQL, todos aprovados. As
+fixtures e probes usam transações revertidas quando aplicável; não há acesso
+Google, staging, linked, purge real ou scheduler.
+
+## Revalidação final local de retenção em 2026-08-27
+
+Os testes negativos primeiro reproduziram: execução aparente em `planned`,
+falha com efeito positivo sem execução, aprovação posterior ao término, release
+que reescrevia ativação, race hold/destrutividade e bypass por TRUNCATE. Após a
+correção, os testes PostgreSQL locais cobrem a máquina completa, release
+append-only, TRUNCATE com/sem hold, grants negativos e duas conexões reais para
+as duas ordens de concorrência global e específica, usando `lock_timeout` como
+barreira determinística e sem sleeps arbitrários.
+
+O reset local reaplicou 4/4. O script opt-in executou 24 testes PostgreSQL sem
+falha; a descoberta completa com integração local ativa é o gate final de
+regressão. Nenhum teste acessa staging, Google ou usa `--linked`.
+
+## Validação de aplicação controlada no staging em 2026-08-31
+
+Com a autorização específica de deploy, o preflight local passou e o dry-run
+remoto mostrou exclusivamente a Migration 4. Após o push oficial, `migration
+list --linked` confirmou 4/4 e `db lint --linked` não encontrou erro. Consultas
+posteriores foram explicitamente READ ONLY e validaram lifecycle/backfill,
+tabelas vazias de retenção, funções, triggers, RLS, ACLs, índices, FK de current
+e preservação dos agregados raw. Não foram executados testes de ingestão, purge,
+hold, DELETE, TRUNCATE ou Google no staging.
+
+## Validacao multi-source local em 2026-09-02
+
+Duas fontes ficticias, `SOURCE_A` e `SOURCE_B`, foram exercitadas no mesmo
+PostgreSQL local com schemas diferentes e a mesma business key textual. A
+prova cobriu primeira carga, idempotencia, updates independentes,
+tombstone/restore apenas em A, drift apenas em A, lock A/A busy com B livre,
+rollback e retry isolados, lifecycle por fonte e hold especifico sem alcance em
+B. Current, history, runs, versoes e schema requests permaneceram separados por
+`data_source_id`.
+
+Os testes offline tambem cobrem configuracao `sources[]`, snapshots por fonte,
+continuidade sequencial, resumo agregado e observabilidade por `source_ref`
+segura. `scripts/test-integration.ps1` executou 25 testes PostgreSQL, todos
+aprovados; `supabase migration list --local` confirmou 4/4. As fixtures foram
+removidas ao fim da prova integrada. Nao houve Google, staging, scheduler,
+purge ou nova migration. A regressao final com PostgreSQL local executou 218
+testes: 214 aprovados, zero falhas e 4 pulados.

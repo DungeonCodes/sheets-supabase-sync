@@ -415,6 +415,293 @@ operacional, preservando ambas as trilhas documentais. A validação local passo
 com `compileall`, 165 testes (10 pulados) e `git diff --check`; nenhuma conexão
 externa, migration, SQL ou commit foi executado.
 
+## Gate local de retry operacional em 2026-08-24
+
+Somente o PostgreSQL local do Supabase foi usado. As três migrations esperadas
+estavam aplicadas. O adaptador passou a usar `connect_with_retry` para abrir a
+conexão e converte falhas do driver no escopo transacional; falha de
+reconhecimento depois do commit é classificada como `AMBIGUOUS_OUTCOME`.
+
+O teste opt-in local comprovou advisory lock por fonte, busy sem criar fonte,
+`sync_run` ou linhas raw, rollback nos quatro pontos controlados, nova
+transação com lock/releitura/diff depois de falha transitória, e exatamente um
+evento e um incremento de versão após retry. A perda controlada do
+reconhecimento de commit não foi repetida automaticamente e preservou uma
+execução aplicada para reconciliação pelo `sync_runs.id`. A evidência deste gate
+foi produzida somente no PostgreSQL local. Uma chamada inicial a `supabase
+migration list`, sem `--linked`, informou conexão remota inesperada e foi
+interrompida; não houve escrita, push ou migration remota. Nenhum Google foi
+usado.
+
+## Compatibilidade remota read-only do retry operacional em 2026-08-24
+
+O gate remoto autorizado usou somente leitura. `supabase migration list --local`
+foi usado para a verificação local; em clones linked, essa flag é obrigatória
+para gates estritamente locais. A comparação remota autorizada mostrou as três
+migrations nos dois lados e `supabase db lint --linked` não encontrou erro.
+
+O Session Pooler na porta 5432 aceitou `psycopg` pelo caminho normal de
+configuração. Uma transação explicitamente `READ ONLY` executou `SELECT 1` e
+agregados: 1 fonte, 5 estados, 8 eventos, 6 runs, 0 erros e 3 requests de
+schema; as classificações de eventos são 5/1/1/1 e não há tombstone ativo. RLS
+permanece ativo nas seis tabelas, sem policies, e `service_role` continua sem
+DELETE nas tabelas raw. Não houve DML, lock, sincronização, fault injection ou
+alteração de schema/grant/policy/RLS.
+
+## Gate de observabilidade operacional e alertas em 2026-08-24
+
+Eventos tipados e logs JSON sanitizados foram adicionados com severidades,
+política explícita de alerta, deduplicação local e SMTP opcional mockado. Não
+houve migration: `sync_runs` e `import_errors` mantêm seus contratos. Nenhum
+e-mail, acesso Google ou staging foi usado; a suíte offline cobriu a fronteira
+de alertas sem segredos.
+
+## Gate de retenção, minimização e LGPD em 2026-08-24
+
+Foi concluída auditoria offline de dados, classificação, minimização, retenção,
+offboarding, ambientes e limites de backups. A política técnica recomenda
+retenção limitada para histórico, erros, artefatos e observabilidade, sem alegar
+prazo legal. O schema atual basta para auditoria/dry-run, mas automação segura
+depende de proposta futura para hold e registro agregado de exclusão. Nenhuma
+migration, purge, acesso Google, staging ou e-mail foi executado.
+
+## Gate de desenho do schema de retenção em 2026-08-25
+
+Preflight confirmou branch `dev` e worktree limpo. Baseline exclusivamente
+offline passou com compileall, 183 testes (13 pulados), check-docs, pip check e
+git diff check. As três migrations aplicadas foram lidas como texto; nenhum DDL
+foi executado e nenhum serviço externo foi acessado.
+
+O desenho mínimo ficou registrado na ADR
+`20260825_retention_schema_design.md`: lifecycle em `data_sources`, holds
+institucionais/por fonte, `purge_runs` separada de `sync_runs`, policy externa
+versionada, dry-run sem DML, offboarding humano e evidência apenas agregada.
+`raw_current_rows` permanece fora de purge histórico e sua FK
+`last_sync_run_id` continua protegendo runs necessárias à reconciliação. A
+proposta não cria migration, código, tabela, grant ou scheduler.
+
+Classificação: `retention_schema_design_validated`. Próximo gate único: revisão
+humana da ADR e autorização para criar somente localmente a migration 4 e seus
+testes offline.
+
+## Migration 4 de retenção validada localmente em 2026-08-25
+
+Preflight confirmou branch `dev` e worktree limpo; a baseline executou 183
+testes, com 13 pulados e zero falhas. A ADR e as três migrations existentes
+foram relidas. Digests confirmaram que as migrations 1–3 permaneceram byte a
+byte intactas.
+
+Foi criada somente `20260825120000_add_retention_controls.sql`, com lifecycle em
+`data_sources`, hold global/por fonte e `purge_runs`. A migration também reduziu
+grants antigos ao contrato do sincronizador, sem conceder DELETE. Docker e
+Supabase local foram iniciados; `supabase db reset --local` aplicou 4/4
+migrations e `supabase db lint --local` passou. Nenhum comando linked ou push
+foi usado.
+
+Quatorze testes PostgreSQL locais passaram. Fixtures com lifecycle, holds,
+evidência e tentativa de remoção de run referenciada foram revertidas. O
+catálogo confirmou FKs, índices, RLS, zero policies, grants negativos e ausência
+de trigger/procedure de retenção. Nenhum purge, Google, staging ou commit foi
+executado.
+
+Classificação: `retention_schema_local_validated`. Próximo gate único: revisão
+humana do DDL, grants e evidência local antes de qualquer autorização separada
+para staging.
+
+## Revisão técnica read-only da Migration 4 em 2026-08-27
+
+Preflight confirmou branch `dev`, worktree inicialmente limpo, compileall,
+198 testes (19 pulados), documentação, dependências e diff sem falhas. As quatro
+migrations e os documentos de retenção/segurança foram relidos. Git, blobs e
+SHA-256 confirmaram as migrations 1–3 byte a byte intactas. No Supabase local,
+`migration list` mostrou 4/4, lint passou e os seis casos PostgreSQL existentes
+de retention controls passaram.
+
+Provas adicionais, sempre em transações locais revertidas, mostraram que hold
+institucional ativo permite excluir a fonte e iniciar `offboarding`. Hold de
+fonte ativo bloqueia a exclusão da fonte com SQLSTATE `23514`, mas permite
+`offboarding` e exclusão direta do histórico. Holds liberados, inclusive vários
+históricos, permitem a retirada e preservam a evidência com FK nula. O banco
+também não barra runs/raw para lifecycle não ativo. Em `purge_runs`, os CHECKs
+básicos funcionam, mas executor/hold check, ordem aprovação-término, chaves e
+valores dos JSONB e ausência semântica de PII não são garantidos pelo banco.
+
+O staging foi inspecionado somente com `migration list --linked` e transações
+PostgreSQL explicitamente read-only. Há 3 migrations remotas; a Migration 4 não
+está aplicada. O schema das migrations 1–3, RLS, zero policies, grants e FKs
+críticas foram confirmados. Existe uma fonte habilitada e nenhuma desabilitada,
+compatível com o backfill. Não houve escrita remota, lock explícito, DDL, push,
+purge, sync ou acesso Google.
+
+Classificação: `requires_changes`. Próximo gate único: corrigir deliberadamente
+o DDL/testes para tornar hold ativo e lifecycle não ativo barreiras efetivas;
+depois repetir validação local e revisão read-only antes de nova decisão sobre
+staging.
+
+## Revalidação local corrigida da Migration 4 em 2026-08-27
+
+Sem acesso remoto, Google, linked, push ou purge, as falhas anteriores foram
+reproduzidas localmente: fonte offboarding aceitou sync/raw, holds não barraram
+offboarding/delete e a evidence aceitou JSONB arbitrário, negativo e cronologia
+inválida. A própria Migration 4 foi então corrigida; nenhuma Migration 5 foi
+criada e os digests das migrations 1–3 permaneceram intactos.
+
+O DDL agora usa guard de lifecycle em `sync_runs`, função central de hold e
+triggers para lifecycle/delete/evidence. Cutoffs e contagens tornaram-se
+colunas tipadas; evidence destrutiva exige aprovação anterior, executor e hold
+check, e evidence terminal fica imutável no limite do owner/admin. O repositório
+retorna `source_inactive` não repetível antes de criar run ou mutar raw.
+
+Docker 29.7.2 e Supabase local estavam ativos. Dois resets locais aplicaram
+4/4 migrations. Dez testes unitários da migration, oito de retention controls,
+sete do repositório e dois operacionais PostgreSQL passaram; o script opt-in
+totalizou 17 testes PostgreSQL aprovados. Nenhuma fixture de retenção foi
+persistida fora dos testes locais. Classificação:
+`retention_schema_local_revalidated`.
+
+Próximo gate único: revisão humana da Migration 4 corrigida e da evidência
+local antes de qualquer autorização separada para staging.
+
+## Revisão técnica final da Migration 4 corrigida em 2026-08-27
+
+Preflight confirmou branch `dev`; o worktree continha somente as correções e
+evidências locais já esperadas da Migration 4. `compileall`, 203 testes offline
+(22 pulados), documentação, dependências e diff passaram. Os SHA-256 das
+migrations 1–3 permaneceram byte a byte intactos e o digest atual da Migration 4
+é `02231058463cd2482b2406b7f23b7aaa56e862f3367bd3191c4b48621b0cee87`.
+
+O catálogo local confirmou seis funções SECURITY INVOKER com `search_path`
+restrito e EXECUTE direto revogado, dez triggers, RLS sem policies, grants
+mínimos e FKs restritivas de current. Dez testes estruturais e 17 testes
+PostgreSQL opt-in passaram; `migration list --local` mostrou 4/4 e o lint local
+não encontrou erros.
+
+Apesar da regressão verde, probes adicionais em transações revertidas
+comprovaram quatro estados administrativos indevidos: `planned` destrutiva com
+início/executor sem aprovação ou hold check; `failed` com contagem afetada
+positiva sem início/executor/aprovação; aprovação posterior ao término; e
+release de hold capaz de reescrever a evidência de ativação no mesmo statement.
+O catálogo também confirmou ausência de triggers de `TRUNCATE`, e o SQL não
+implementa a serialização institucional descrita para hold versus operação
+destrutiva.
+
+Classificação: `requires_changes`. Como o gate local não ficou integralmente
+verde, staging não foi acessado. Não houve DDL/DML remoto, migration, push,
+purge, sincronização ou acesso Google. Próximo gate único: corrigir a própria
+Migration 4 e seus testes, reconstruir o PostgreSQL local e repetir esta revisão
+antes de qualquer inspeção ou autorização de staging.
+
+## Correção final local da Migration 4 em 2026-08-27
+
+Sem acesso remoto, Google, linked, push ou purge real, foram primeiro
+reproduzidas localmente as seis lacunas da revisão: estado destrutivo parcial,
+terminal com efeito sem execução, aprovação posterior ao término, release que
+reescrevia ativação, race de hold e bypass por TRUNCATE. A própria Migration 4
+foi alterada, sem Migration 5; migrations 1–3 mantiveram seus digests.
+
+O DDL final fecha a máquina de `purge_runs`, mantém `failed/cancelled` sem efeito
+persistido, torna release append-only desde a transição inicial, introduz lock
+advisory de retenção na ordem instituição/fonte e protege DELETE/TRUNCATE. A
+evidência administrativa nunca pode sofrer TRUNCATE. Nove funções SECURITY
+INVOKER têm search path restrito e EXECUTE direto revogado; nenhum grant foi
+ampliado.
+
+Três resets oficiais locais concluíram 4/4. O teste estrutural passou com 11
+casos e o opt-in PostgreSQL passou com 24 casos, incluindo duas conexões reais
+nas duas ordens de concorrência global e específica. `migration list --local` e
+`db lint --local` passaram. Classificação:
+`retention_schema_local_final_validated`.
+
+Não houve staging, DDL/DML remoto, sincronização remota, Google, purge ou commit.
+Próximo gate único: revisão humana read-only do DDL, grants e evidências locais
+antes de qualquer autorização separada para staging.
+
+## Aplicação controlada da Migration 4 no staging em 2026-08-31
+
+Preflight em `dev` confirmou worktree limpo, quatro migrations, digests
+imutáveis de 1--3 e SHA-256 autorizado da Migration 4. `compileall`, 211 testes
+offline (29 pulados), `check-docs`, `pip check` e `git diff --check` passaram.
+O baseline remoto READ ONLY confirmou migrations 3/3 e agregados operacionais
+1 fonte, 6 runs, 8 eventos, 5 estados, 0 erros e 3 requests, sem run em curso.
+
+Não havia tarefa agendada do projeto. O CLI não oferece `lock_timeout` para
+`db push`; como não houve sessão de sync concorrente e o staging é pequeno, a
+janela controlada foi considerada aceitável. O dry-run remoto listou somente
+`20260825120000_add_retention_controls.sql`. O push oficial aplicou somente essa
+migration e terminou sem erro.
+
+`migration list --linked` confirmou 4/4 e `db lint --linked` não encontrou erro.
+Uma transação posterior READ ONLY confirmou lifecycle `active:1`, metadados de
+suspensão nulos, `retention_holds=0`, `purge_runs=0`, nove funções SECURITY
+INVOKER, dezoito triggers, RLS sem policies, grants mínimos, cinco índices e FK
+restritiva de current. Runs/history/current/errors/requests mantiveram os
+agregados e distribuições técnicos do baseline. Não houve purge, hold,
+offboarding, DELETE, TRUNCATE, sincronização, Google, seed, reset ou repair.
+
+Classificação: `retention_schema_staging_applied_validated`. Próximo gate único:
+autorização humana específica para rollout do código lifecycle, sem sincronização
+neste gate.
+
+## Fechamento do rollout lifecycle-aware em 2026-09-02
+
+A aplicação validada da Migration 4 ocorreu no staging; ela não implica um
+runtime de staging implantado. O código Python existente foi validado offline
+para o rollout lifecycle-aware. `PostgresRawRepository` consulta `enabled` e
+`lifecycle_status` sob `FOR SHARE` e retorna
+`source_inactive`, não repetível, antes de criar uma run ou mutar raw quando a
+fonte não está ativa. A migration mantém o guard equivalente no banco para novas
+`sync_runs`.
+
+Passaram 51 testes unitários de raw sync, falhas operacionais e controles de
+retenção; `compileall`, `check-docs` e `git diff --check` também passaram. Não
+houve conexão remota, SQL, sincronização, implantação de runtime, Google,
+purge, hold, offboarding ou alteração de dados. Classificação:
+`lifecycle_aware_code_rollout_closed`.
+
+## Validacao multi-source local em 2026-09-02
+
+O preflight em `dev` passou com 211 testes offline, 29 skips, `compileall`,
+`check-docs`, `pip check` e `git diff --check`. A auditoria confirmou que
+configuracao, estruturas operacionais, snapshots e advisory lock ja eram
+orientados a fonte. A lacuna estava na prova integrada e na classificacao do
+resultado do lote.
+
+Foram adicionadas duas fixtures estritamente ficticias, `SOURCE_A` e
+`SOURCE_B`, com schemas distintos e a mesma business key textual. A prova no
+PostgreSQL local validou current/history/runs e versoes independentes,
+idempotencia, updates isolados, tombstone/restore em A, drift apenas em A, lock
+A/A busy com B livre, rollback e retry de A com B intacta, lifecycle apenas em
+A e hold especifico sem alcance em B. A configuracao recusa pares
+planilha/aba duplicados. O lote sequencial agora classifica sucesso, falha,
+busy e inactive e gera resumo agregado sem payload ou identificadores externos.
+
+`supabase migration list --local` confirmou 4/4 e os 25 testes PostgreSQL
+passaram. A regressao final executou 218 testes: 214 aprovados, zero falhas e 4
+pulados. As linhas de fixture foram removidas ao final do teste integrado. Nao
+houve nova migration, acesso Google, staging, scheduler, purge, relacao entre
+mirrors ou alteracao de `main`. Classificacao:
+`multi_source_local_validated`. Proximo gate unico: definir o caso de negocio e
+o contrato minimo da camada analitica.
+
+## 2026-09-03 - Contrato analitico minimo
+
+Preflight em `dev` confirmou worktree limpo. A orientacao oficial e os
+documentos de requisitos, lacunas, plano, riscos, decisoes abertas, checkpoints,
+arquitetura, roadmap, LGPD e multi-source foram revisados. Como nao existe
+dominio real aprovado, o MVP foi limitado a fixture ficticia de
+categoria/pontuacao.
+
+Foi definido Star Schema corrente com `DIM_SOURCE`, `DIM_CATEGORY` e
+`FACT_CATEGORY_SCORE`, identidade por fonte/business key, metricas count/avg/
+min/max, consolidacao multi-source somente semantica, transformacao idempotente,
+minimizacao LGPD, dois escopos futuros de leitura e quatro elementos de BI. A
+fonte ficticia de curso/status nao alimenta essa fato; raw history e payload
+nao sao promovidos. Nao houve teste, codigo, SQL, migration, acesso Google,
+staging, Supabase, dashboard ou scheduler.
+
+Classificacao: `analytical_contract_defined`. Proximo gate unico:
+`analytical_schema`, somente local e sujeito a revisao humana do DDL.
+
 ## 2026-09-09 — Meeting MVP offline
 
 Foi criado um dashboard HTML standalone e um conjunto executivo curto para a
@@ -463,3 +750,46 @@ pulados exigem Google real, PostgreSQL/Supabase local ou teste de performance
 opt-in. `git diff --check` e o check documental passaram. Nenhuma rede, Google,
 Supabase, Docker, migration ou sync real foi usada. Classificacao:
 `staging_sync_core_offline_validated`.
+
+## 2026-09-19 — integração de mudanças locais e remotas
+
+Foi integrado o branch remoto `origin/dev` aos controles de sincronização de
+staging locais. A resolução preserva a reconciliação de commit ambíguo, a
+validação fechada de source e o guard de staging, além de lifecycle,
+observabilidade, multi-source, retenção e o schema analítico do remoto.
+
+Os testes de integridade das migrations foram ajustados para calcular SHA-256
+sobre conteúdo canônico com LF; isso preserva a comparação entre migrations e
+elimina a divergência de CRLF nos checkouts Windows. A validação final executou
+224 testes, com 30 pulados por dependerem de infraestrutura local. Nenhuma
+migration, SQL, conexão Google ou sincronização remota foi executada.
+## 2026-09-11 — fluxograma executivo do sheets-supabase-sync
+
+Foi criado `docs/diagrams/sheets_supabase_sync_flow.drawio`, em uma página,
+com o fluxo validado de Google Sheets até o estado raw e a evolução analítica
+claramente marcada como planejada. O diagrama inclui a faixa transversal de
+segurança e resiliência e não afirma operação produtiva. Como não havia CLI
+Draw.io disponível no ambiente, também foi criado o fallback Mermaid
+`docs/diagrams/sheets_supabase_sync_flow.md`; SVG e PNG não foram gerados.
+Nenhum código, migration, serviço externo, banco ou dado foi acessado.
+
+## 2026-09-11 — fluxograma operacional proposto
+
+Foi criado `docs/diagrams/sheets_supabase_sync_operational_flow.drawio` como
+artefato separado do fluxograma técnico. O desenho organiza Cliente, Inicie,
+Aplicação/Pipeline, Google/Supabase e BI/Consumo em swimlanes; distingue o MVP
+assistido da evolução self-service e mantém analytics/BI como futuro. As
+responsabilidades de produto ainda abertas aparecem como decisões para validar
+com a Inicie. Também foi criado o fallback Mermaid correspondente. Nenhum
+código, migration, serviço externo, teste ou dado foi acessado.
+
+## 2026-09-11 — ADR de execução agendada do MVP
+
+Foi criada a ADR proposta
+`docs/decisions/20260911_scheduled_sync_mvp_architecture.md`. Ela documenta
+GitHub + Vercel + Supabase, Supabase Cron como despertador global, Vercel
+Function Python como worker condicionado a validação, periodicidade diária
+inicial, segurança server-side, alternativas, riscos e critérios objetivos de
+aceitação e revisão. Também foi atualizado o resumo `docs/decisions.md`.
+Nenhuma implementação, migration, integração externa, secret ou deploy foi
+executado.
