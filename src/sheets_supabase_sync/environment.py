@@ -58,8 +58,23 @@ def validate_environment(environment: Environment) -> None:
     database_url = urlparse(environment.db_url)
     if supabase_url.scheme != "https" or supabase_url.hostname != f"{environment.project_ref}.supabase.co":
         raise ValueError("URL Supabase incompativel")
-    if database_url.scheme not in {"postgres", "postgresql"} or database_url.path.strip("/") != "postgres":
+    if (
+        database_url.scheme not in {"postgres", "postgresql"}
+        or database_url.path.strip("/") != "postgres"
+        or database_url.port != 5432
+        or not _database_matches_project(database_url.hostname, database_url.username, environment.project_ref)
+    ):
         raise ValueError("URL PostgreSQL invalida")
+
+
+def _database_matches_project(hostname: str | None, username: str | None, project_ref: str) -> bool:
+    direct = hostname == f"db.{project_ref}.supabase.co" and username == "postgres"
+    session_pooler = bool(
+        hostname
+        and hostname.endswith(".pooler.supabase.com")
+        and username == f"postgres.{project_ref}"
+    )
+    return direct or session_pooler
 
 
 def sanitize(text: str) -> str:

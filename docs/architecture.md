@@ -39,3 +39,19 @@ O campo agora se chama `previous_schema`: ele armazena o estado anterior conheci
 Em 2026-08-06, nova inspecao independente e somente de leitura confirmou esse estado diretamente: cinco tabelas, 27 constraints, 14 indices, zero linhas, nenhuma tabela espelho, `previous_schema` presente e campos obsoletos/multitenant ausentes. RLS, policies, grants e Data API tambem foram verificados sem escrita.
 
 Em 2026-08-06 foi criada a migration incremental `20260806120000_add_raw_current_state.sql`. Ela é aditiva, não contém operação destrutiva e foi aplicada ao staging em 2026-08-11. A terceira migration consolidou o histórico event-only no mesmo dia. A baseline não foi editada e um teste de digest garante essa imutabilidade.
+
+## Composicao staging controlada
+
+O entrypoint `sheets-supabase-staging-sync` e separado do CLI local. Ele seleciona
+uma source da configuracao multi-source, valida o ambiente permitido e compoe
+`GoogleSheetsReader`, `StagingSyncOrchestrator`, `RawSynchronizationService` e
+`PostgresRawRepository`. A leitura e a validacao de PII ocorrem antes da
+transacao. Dentro dela, o fluxo readquire advisory lock, valida source e
+`enabled`, recarrega current state, recalcula o diff, cria/finaliza `sync_run` e
+persiste eventos/estado.
+
+O modo `dry-run` usa uma leitura PostgreSQL sem mutacao para obter o snapshot
+anterior. `apply-staging` exige `--confirm-staging`; production e destino sem
+vinculo verificavel com o project ref permitido falham fechados. O CLI
+`apply-local` e seus host-checks nao foram alterados. A decisao completa esta em
+`docs/decisions/20260909_staging_sync_composition.md`.

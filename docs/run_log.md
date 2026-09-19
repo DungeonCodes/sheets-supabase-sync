@@ -414,3 +414,52 @@ Foram conciliadas as evoluções de schema/persistência PostgreSQL e de retry
 operacional, preservando ambas as trilhas documentais. A validação local passou
 com `compileall`, 165 testes (10 pulados) e `git diff --check`; nenhuma conexão
 externa, migration, SQL ou commit foi executado.
+
+## 2026-09-09 — Meeting MVP offline
+
+Foi criado um dashboard HTML standalone e um conjunto executivo curto para a
+apresentação da Atividade 3. O conteúdo separa explicitamente capacidades
+validadas, implementadas sem validação completa, planejadas e demonstrativas.
+O analytics usa somente dados sintéticos embutidos e não consulta Google,
+Supabase, PostgreSQL ou qualquer serviço externo.
+
+Os números apresentados foram limitados aos checkpoints existentes neste
+clone: suíte de 150 testes (142 aprovados, 8 pulados, zero falhas), 3/3 testes
+PostgreSQL locais, migrations 3/3 e ciclo fictício integrado com 6 runs, 8
+eventos e 5 estados. Multi-source, retention/lifecycle, Star Schema físico,
+RBAC, BI, scheduler e E2E permanecem pendentes. O dashboard foi aberto em
+navegador local e o filtro de fonte recalculou KPIs, gráficos e tabela.
+
+## 2026-09-09 — revisão de acurácia do Meeting MVP
+
+Os artefatos da reunião foram reconciliados com os gates posteriores autorizados,
+pois a documentação presente neste clone conserva números e classificações mais
+antigos. A apresentação agora registra o pipeline operacional, retry/rollback,
+commit ambíguo, observabilidade e alert policy como validados; multi-source como
+validado localmente; e retention/lifecycle como aplicado e validado em staging
+pela Migration 4.
+
+Os indicadores foram atualizados para 218 testes totais, 214 aprovados, 4
+pulados, zero falhas, 25 testes PostgreSQL multi-source, 4/4 migrations e duas
+fontes fictícias isoladas. O analytics permaneceu como demonstração offline com
+dados fictícios. Foi criado `docs/meeting/evidence-register.md` para preservar a
+referência dos gates e impedir nova regressão documental.
+
+## 2026-09-09 — composicao staging implementada e validada offline
+
+Foi implementada a composicao segura entre o Google reader, snapshot/diff e o
+repositorio raw PostgreSQL. O novo entrypoint remoto e separado de `apply-local`,
+oferece dry-run e exige confirmacao explicita para escrita em staging. O guard
+rejeita production, ambiente desconhecido e destino PostgreSQL que nao possa ser
+vinculado ao project ref permitido.
+
+O repositorio agora valida integralmente os atributos persistidos de uma source
+existente e aplica o lifecycle disponivel no schema (`enabled`) antes de qualquer
+run ou linha raw. Retry transacional recarrega estado e recalcula o diff; commit
+ambiguo reconcilia run, eventos e current state antes de concluir ou repetir.
+
+A suite offline executou 193 testes: 183 aprovados, 10 pulados e zero falhas. Os
+pulados exigem Google real, PostgreSQL/Supabase local ou teste de performance
+opt-in. `git diff --check` e o check documental passaram. Nenhuma rede, Google,
+Supabase, Docker, migration ou sync real foi usada. Classificacao:
+`staging_sync_core_offline_validated`.
