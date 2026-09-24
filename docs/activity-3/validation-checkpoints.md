@@ -259,3 +259,39 @@ Próximo gate único: reorder controlado de headers.
 Classificação: `retention_schema_design_validated`. Próximo gate único: revisão
 humana da ADR e autorização para criar somente localmente a migration 4 e seus
 testes offline.
+
+## Gate multi-source local em 2026-09-02
+
+| Gate | Resultado | Evidencia sanitizada |
+| --- | --- | --- |
+| Configuracao | aprovado | duas fontes em `sources[]`, pares planilha/aba e mirrors distintos |
+| Identidade e schema | aprovado | mesma key textual em namespaces distintos; schemas A e B diferentes sem drift cruzado |
+| Estado e history | aprovado | primeira carga, idempotencia, update e tombstone/restore isolados por `data_source_id` |
+| Drift | aprovado | request somente para A; B permaneceu valida |
+| Lock | aprovado | A/A busy; B sincronizou enquanto A mantinha lock |
+| Resiliencia | aprovado | rollback e retry de A nao alteraram B; lote continuou apos falha |
+| Lifecycle e hold | aprovado | A inactive nao suspendeu B; hold especifico de A nao se aplicou a B |
+| Observabilidade | aprovado | referencias seguras por fonte e resumo agregado sem payload ou identificador externo |
+| Banco | aprovado | 25 testes PostgreSQL; migrations 4/4; nenhuma migration nova |
+
+Classificacao: `multi_source_local_validated`. Nao houve acesso Google,
+staging, scheduler ou purge. Proximo gate unico: definir o caso de negocio e o
+contrato minimo da camada analitica.
+
+## Gate de contrato analitico em 2026-09-03
+
+| Gate | Resultado | Evidencia de desenho |
+| --- | --- | --- |
+| Requisitos | aprovado | requisitos oficiais extraidos e separados em must-have, should-have e future-production |
+| Caso e consumidores | aprovado | avaliacao ficticia por categoria para operacoes, analista autorizado e dashboard |
+| Grain e metricas | aprovado | um registro corrente por fonte/business key; count, avg, min e max sem dupla contagem |
+| Modelo | aprovado | Star Schema com `DIM_SOURCE`, `DIM_CATEGORY` e `FACT_CATEGORY_SCORE`; sem `DIM_DATE` no MVP |
+| Multi-source | aprovado | consolidacao somente por compatibilidade semantica; curso/status nao alimenta a fato de categoria/pontuacao |
+| History e identidade | aprovado | current somente; raw history nao promovido; identidade por fonte/key, nunca por numero de linha |
+| LGPD | aprovado | payload, identificador original, hashes linkaveis e campos sem necessidade ficam fora do BI |
+| Acesso e BI | aprovado como contrato | leitura futura project-wide/row-scoped e quatro visuais mapeados; nada implementado |
+| Execucao | nao realizada | nenhum teste, SQL, migration, staging, Google, schema, dashboard ou scheduler |
+
+Classificacao: `analytical_contract_defined`. Os status dos requisitos
+permanecem inalterados por ser evidencia de desenho. Proximo gate unico:
+`analytical_schema`, somente local.

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Sheets → Supabase | Meeting MVP</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071018;
+      --panel: #0d1b27;
+      --panel-2: #102433;
+      --line: #244052;
+      --text: #edf7fb;
+      --muted: #99afbd;
+      --cyan: #38d5e8;
+      --green: #4ade80;
+      --yellow: #fbbf24;
+      --violet: #a78bfa;
+      --red: #fb7185;
+      --shadow: 0 18px 45px rgba(0, 0, 0, .25);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 85% 5%, rgba(56, 213, 232, .12), transparent 24rem),
+        radial-gradient(circle at 10% 35%, rgba(167, 139, 250, .08), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font: 16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    a { color: inherit; text-decoration: none; }
+    button, select { font: inherit; }
+    .shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+    .nav {
+      position: sticky; top: 0; z-index: 20;
+      backdrop-filter: blur(14px);
+      background: rgba(7, 16, 24, .84);
+      border-bottom: 1px solid rgba(153, 175, 189, .15);
+    }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; min-height: 62px; gap: 20px; }
+    .brand { font-weight: 800; letter-spacing: -.02em; }
+    .brand span { color: var(--cyan); }
+    .nav-links { display: flex; gap: 18px; color: var(--muted); font-size: .86rem; }
+    .nav-links a:hover { color: var(--text); }
+    .hero { padding: 92px 0 62px; }
+    .eyebrow { color: var(--cyan); font-weight: 800; text-transform: uppercase; letter-spacing: .15em; font-size: .78rem; }
+    h1 { max-width: 900px; margin: 18px 0; font-size: clamp(2.65rem, 7vw, 5.6rem); line-height: .98; letter-spacing: -.055em; }
+    h1 .arrow { color: var(--cyan); }
+    .lead { max-width: 750px; color: #c0d2dc; font-size: clamp(1.05rem, 2vw, 1.32rem); }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .hero-flow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; color: #c8d8e0; font-size: .86rem; font-weight: 700; }
+    .hero-flow span { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(7, 16, 24, .58); }
+    .badge { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 999px; border: 1px solid; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .validated { color: var(--green); background: rgba(74, 222, 128, .08); border-color: rgba(74, 222, 128, .38); }
+    .local { color: var(--cyan); background: rgba(56, 213, 232, .08); border-color: rgba(56, 213, 232, .38); }
+    .staging { color: var(--violet); background: rgba(167, 139, 250, .09); border-color: rgba(167, 139, 250, .4); }
+    .building { color: var(--yellow); background: rgba(251, 191, 36, .08); border-color: rgba(251, 191, 36, .38); }
+    .planned { color: #b5c3cc; background: rgba(181, 195, 204, .07); border-color: rgba(181, 195, 204, .25); }
+    .mock { color: var(--violet); background: rgba(167, 139, 250, .09); border-color: rgba(167, 139, 250, .4); }
+    section { padding: 70px 0; }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 30px; margin-bottom: 28px; }
+    h2 { margin: 6px 0 0; font-size: clamp(1.8rem, 4vw, 3rem); line-height: 1.08; letter-spacing: -.035em; }
+    .section-note { max-width: 520px; color: var(--muted); }
+    .panel { background: linear-gradient(145deg, rgba(16, 36, 51, .94), rgba(10, 25, 36, .94)); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+    .architecture { display: grid; grid-template-columns: repeat(9, minmax(90px, 1fr)); gap: 10px; padding: 24px; overflow-x: auto; }
+    .node { min-width: 105px; padding: 18px 12px; border: 1px solid var(--line); border-radius: 13px; text-align: center; background: rgba(7, 16, 24, .6); }
+    .node strong { display: block; margin-bottom: 8px; font-size: .91rem; }
+    .node small { color: var(--muted); font-size: .73rem; }
+    .node.ok { border-top: 3px solid var(--green); }
+    .node.build { border-top: 3px solid var(--yellow); }
+    .arrow-node { min-width: 26px; align-self: center; color: var(--cyan); font-size: 1.5rem; text-align: center; }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 24px 24px; }
+    .cap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    .cap { min-height: 140px; padding: 18px; }
+    .cap h3 { margin: 20px 0 7px; font-size: 1rem; }
+    .cap p { margin: 0; color: var(--muted); font-size: .84rem; }
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .metric { padding: 22px; }
+    .metric .number { display: block; margin: 6px 0 4px; color: var(--cyan); font-weight: 850; font-size: clamp(2rem, 4vw, 3.1rem); letter-spacing: -.05em; }
+    .metric p { color: var(--muted); margin: 0; font-size: .85rem; }
+    .source-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: stretch; }
+    .source-card { padding: 24px; }
+    .source-card h3 { margin-top: 0; }
+    .schema-line { display: flex; gap: 8px; flex-wrap: wrap; color: var(--muted); }
+    .schema-line code { padding: 5px 7px; color: var(--text); background: #071018; border-radius: 6px; }
+    .same-key { align-self: center; color: var(--cyan); font-weight: 800; text-align: center; }
+    .source-rules { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+    .rule { padding: 14px; border-left: 3px solid var(--green); color: #c8d8e0; font-size: .86rem; }
+    .demo-wrap { border: 1px solid rgba(167, 139, 250, .5); border-radius: 22px; background: rgba(24, 17, 45, .32); padding: 26px; }
+    .demo-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 20px; }
+    label { color: var(--muted); font-size: .85rem; }
+    select { margin-left: 8px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 34px 9px 12px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .kpi { padding: 18px; }
+    .kpi span { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+    .kpi strong { display: block; margin-top: 8px; font-size: 2rem; }
+    .viz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    .chart { padding: 20px; }
+    .chart h3 { margin-top: 0; font-size: 1rem; }
+    .bar-row { display: grid; grid-template-columns: 96px 1fr 42px; gap: 10px; align-items: center; margin: 12px 0; font-size: .81rem; }
+    .bar-track { height: 11px; background: #071018; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; min-width: 3px; background: linear-gradient(90deg, var(--cyan), var(--violet)); border-radius: inherit; transition: width .3s ease; }
+    .table-wrap { margin-top: 16px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 13px 15px; border-bottom: 1px solid var(--line); text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+    .star { display: grid; grid-template-columns: 1fr 72px 1.35fr 72px 1fr; align-items: center; padding: 34px; }
+    .schema-box { padding: 22px; border: 1px solid var(--line); border-radius: 13px; background: #091620; text-align: center; }
+    .schema-box.fact { border-color: var(--violet); box-shadow: 0 0 40px rgba(167, 139, 250, .12); }
+    .connector { height: 2px; background: var(--cyan); position: relative; }
+    .connector::after { content: ""; position: absolute; right: 0; top: -4px; border-left: 8px solid var(--cyan); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+    .flows { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .flow { padding: 24px; }
+    .flow-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .flow-step { padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; background: #091620; font-size: .82rem; }
+    .flow .flow-arrow { color: var(--cyan); }
+    .governance { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .gov { padding: 18px; }
+    .gov strong { color: var(--green); }
+    .gov p { margin-bottom: 0; color: var(--muted); font-size: .84rem; }
+    .status-list { overflow: hidden; }
+    .status-row { display: grid; grid-template-columns: 1.25fr 1fr 2fr; gap: 18px; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--line); }
+    .status-row:last-child { border-bottom: 0; }
+    .status-row p { margin: 0; color: var(--muted); font-size: .84rem; }
+    .roadmap { display: flex; align-items: flex-start; gap: 0; overflow-x: auto; padding: 28px; }
+    .milestone { min-width: 120px; flex: 1; position: relative; padding-top: 32px; text-align: center; color: var(--muted); font-size: .78rem; }
+    .milestone::before { content: ""; position: absolute; top: 9px; left: 50%; width: 100%; height: 2px; background: var(--line); }
+    .milestone:last-child::before { display: none; }
+    .dot { position: absolute; top: 2px; left: calc(50% - 8px); z-index: 1; width: 16px; height: 16px; border-radius: 50%; background: #52636e; border: 3px solid var(--bg); }
+    .milestone.done .dot { background: var(--green); }
+    .milestone.active .dot { background: var(--yellow); box-shadow: 0 0 16px rgba(251,191,36,.5); }
+    footer { padding: 45px 0 60px; color: var(--muted); border-top: 1px solid var(--line); }
+    .footer-inner { display: flex; justify-content: space-between; gap: 20px; }
+    @media (max-width: 850px) {
+      .nav-links { display: none; }
+      .metric-grid, .kpis, .governance, .source-rules { grid-template-columns: repeat(2, 1fr); }
+      .viz-grid, .flows { grid-template-columns: 1fr; }
+      .source-grid { grid-template-columns: 1fr; }
+      .same-key { padding: 4px; }
+      .star { grid-template-columns: 1fr; gap: 12px; }
+      .connector { width: 2px; height: 35px; margin: auto; }
+      .connector::after { right: -4px; top: auto; bottom: 0; border-top: 8px solid var(--cyan); border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 0; }
+      .status-row { grid-template-columns: 1fr; gap: 7px; }
+    }
+    @media (max-width: 560px) {
+      .shell { width: min(100% - 20px, 1180px); }
+      .hero { padding-top: 64px; }
+      section { padding: 48px 0; }
+      .section-head, .demo-toolbar, .footer-inner { align-items: flex-start; flex-direction: column; }
+      .metric-grid, .kpis, .governance, .source-rules { grid-template-columns: 1fr; }
+      .demo-wrap { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="shell nav-inner">
+      <div class="brand">Sheets <span>→</span> Supabase</div>
+      <div class="nav-links">
+        <a href="#arquitetura">Solução</a><a href="#capacidades">Pipeline</a><a href="#resultados">Resultados</a>
+        <a href="#multisource">Multi-source</a><a href="#resiliencia">Resiliência</a><a href="#analytics">Demo</a><a href="#roadmap">Roadmap</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero shell">
+    <div class="eyebrow">Atividade 3 · Protótipo técnico</div>
+    <h1>Google Sheets <span class="arrow">→</span> Dados prontos para analytics</h1>
+    <p class="lead">Um pipeline resiliente em Python e Supabase/PostgreSQL que transforma atualizações de planilhas em dados rastreáveis, seguros e preparados para BI.</p>
+    <div class="hero-flow"><span>Sheets read-only</span><span>Pipeline resiliente</span><span>Supabase / PostgreSQL</span><span>Analytics / BI</span></div>
+    <div class="hero-meta"><span class="badge validated">● Pipeline operacional validado</span><span class="badge mock">Analytics em demonstração</span></div>
+  </header>
+
+  <main>
+    <section id="arquitetura" class="shell">
+      <div class="section-head"><div><div class="eyebrow">01 · Arquitetura</div><h2>Da origem ao consumo</h2></div><p class="section-note">Até current/history e controles operacionais, o fluxo está implementado e validado. O contrato analytics está definido; a materialização e o BI seguem adiante.</p></div>
+      <div class="panel architecture" aria-label="Fluxo da arquitetura">
+        <div class="node ok"><strong>Google Sheets</strong><small>somente leitura</small></div><div class="arrow-node">→</div>
+        <div class="node ok"><strong>Python Synchronizer</strong><small>orquestração</small></div><div class="arrow-node">→</div>
+        <div class="node ok"><strong>Schema + Diff</strong><small>validação e mudanças</small></div><div class="arrow-node">→</div>
+        <div class="node ok"><strong>PostgreSQL / Supabase</strong><small>current + history + controles</small></div><div class="arrow-node">→</div>
+        <div class="node build"><strong>Analytics + BI</strong><small>contrato definido · físico em implementação</small></div>
+      </div>
+      <div class="legend"><span class="badge validated">Validado</span><span class="badge local">Validado localmente</span><span class="badge staging">Aplicado em staging</span><span class="badge building">Em implementação</span><span class="badge planned">Planejado</span><span class="badge mock">Demonstração</span></div>
+    </section>
+
+    <section id="capacidades" class="shell">
+      <div class="section-head"><div><div class="eyebrow">02 · Capacidades</div><h2>O que existe hoje</h2></div><p class="section-note">Cada cartão declara o alcance atual. “Validado” inclui evidência offline, local ou staging descrita no projeto.</p></div>
+      <div class="cap-grid">
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Google read-only</h3><p>Leitura da fixture fictícia com escopo mínimo.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Idempotência</h3><p>Repetição não cria eventos nem versões.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Insert e update</h3><p>Mudanças geram eventos e versão correta.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Tombstone e restore</h3><p>Exclusão lógica e restauração preservam identidade.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Reorder neutro</h3><p>Ordem física não altera o conteúdo lógico.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Schema drift</h3><p>Drift bloqueado; reorder compatível por nome.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Rollback</h3><p>Falhas locais preservam atomicidade.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Advisory locks</h3><p>Concorrência isolada por fonte.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Retry e rollback</h3><p>Retry PostgreSQL controlado, rollback e reconciliação validados.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Commit ambíguo</h3><p>Reconciliação sem retry cego validada.</p></article>
+        <article class="panel cap"><span class="badge validated">Validado</span><h3>Observabilidade</h3><p>Eventos, health e política de alerta validados.</p></article>
+        <article class="panel cap"><span class="badge planned">Transporte pendente</span><h3>Alertas em produção</h3><p>Canal real de entrega continua planejado.</p></article>
+        <article class="panel cap"><span class="badge staging">Aplicado em staging</span><h3>Retention e lifecycle</h3><p>Migration 4, legal hold, evidência de purge e guards validados; rollout persistente não se aplica sem runtime.</p></article>
+        <article class="panel cap"><span class="badge local">Validado localmente</span><h3>Multi-source</h3><p>Duas fontes isoladas, schemas distintos e falhas independentes.</p></article>
+      </div>
+    </section>
+
+    <section id="resultados" class="shell">
+      <div class="section-head"><div><div class="eyebrow">03 · Evidências</div><h2>Resultados validados</h2></div><p class="section-note">Evidências reconciliadas com os gates posteriores ao material documental deste clone.</p></div>
+      <div class="metric-grid">
+        <article class="panel metric"><small>Testes totais</small><span class="number">218</span><p>214 aprovados · 4 pulados</p></article>
+        <article class="panel metric"><small>Falhas</small><span class="number">0</span><p>na suíte multi-source local</p></article>
+        <article class="panel metric"><small>PostgreSQL multi-source</small><span class="number">25</span><p>testes aprovados</p></article>
+        <article class="panel metric"><small>Migrations no staging</small><span class="number">4/4</span><p>Migration 4 aplicada e validada</p></article>
+        <article class="panel metric"><small>Fontes da prova</small><span class="number">2</span><p>fictícias e isoladas</p></article>
+      </div>
+    </section>
+
+    <section id="multisource" class="shell">
+      <div class="section-head"><div><div class="eyebrow">04 · Multi-source</div><h2>Isolamento comprovado localmente</h2></div><span class="badge local">Validado localmente</span></div>
+      <div class="source-grid">
+        <article class="panel source-card"><h3>Fonte A</h3><div class="schema-line"><code>registro_id</code><code>curso</code><code>status</code></div><p class="section-note">Exemplo: 001 · Curso Alfa · ativo</p></article>
+        <div class="same-key">mesma chave<br>≠ mesmo registro</div>
+        <article class="panel source-card"><h3>Fonte B</h3><div class="schema-line"><code>registro_id</code><code>categoria</code><code>pontuação</code></div><p class="section-note">Exemplo: 001 · Categoria A · 82</p></article>
+      </div>
+      <div class="source-rules">
+        <div class="panel rule">Schemas podem ser diferentes</div><div class="panel rule">Locks independentes por fonte</div>
+        <div class="panel rule">Falha de A não deve interromper B</div><div class="panel rule">Drift de A não deve bloquear B</div>
+      </div>
+      <p class="section-note">A prova usou duas fontes fictícias com a mesma business key e schemas diferentes. Validou current/history, idempotência, update, tombstone/restore, drift, locks A/A e A/B, rollback, retry, lifecycle e continuidade do batch após falha. Não comprova operação produtiva, scheduler persistente ou escala.</p>
+    </section>
+
+    <section id="analytics" class="shell">
+      <div class="demo-wrap">
+        <div class="section-head"><div><div class="eyebrow">05 · Analytics MVP · Demonstração</div><h2>Leitura executiva por categoria</h2></div><span class="badge mock">Dados fictícios de demonstração</span></div>
+        <div class="demo-toolbar"><p class="section-note">Dataset sintético embutido neste arquivo. Não representa dados operacionais, clientes ou resultados reais.</p><label for="sourceFilter">Filtrar fonte<select id="sourceFilter"><option value="Todas">Todas</option><option value="Fonte 01">Fonte 01</option><option value="Fonte 02">Fonte 02</option></select></label></div>
+        <div class="kpis">
+          <article class="panel kpi"><span>Total de registros</span><strong id="kpiTotal">—</strong></article>
+          <article class="panel kpi"><span>Pontuação média</span><strong id="kpiAvg">—</strong></article>
+          <article class="panel kpi"><span>Pontuação mínima</span><strong id="kpiMin">—</strong></article>
+          <article class="panel kpi"><span>Pontuação máxima</span><strong id="kpiMax">—</strong></article>
+        </div>
+        <div class="viz-grid">
+          <article class="panel chart"><h3>Média por categoria</h3><div id="avgChart"></div></article>
+          <article class="panel chart"><h3>Volume por categoria</h3><div id="volumeChart"></div></article>
+          <article class="panel chart"><h3>Distribuição por fonte</h3><div id="sourceChart"></div></article>
+          <article class="panel chart"><h3>Como ler</h3><p class="section-note">O filtro recalcula os indicadores, as barras e a tabela no navegador. Nenhuma consulta externa é feita.</p></article>
+        </div>
+        <div class="panel table-wrap"><table><thead><tr><th>Categoria</th><th>Quantidade</th><th>Média</th><th>Mínimo</th><th>Máximo</th></tr></thead><tbody id="categoryTable"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="resiliencia" class="shell">
+      <div class="section-head"><div><div class="eyebrow">06 · Contrato analítico</div><h2>Star Schema visual</h2></div><span class="badge building">Contrato definido · implementação em andamento</span></div>
+      <div class="panel star">
+        <div class="schema-box"><strong>DIM_SOURCE</strong><br><small>origem e contexto</small></div><div class="connector"></div>
+        <div class="schema-box fact"><strong>FACT_CATEGORY_SCORE</strong><br><small>observação e pontuação</small></div><div class="connector"></div>
+        <div class="schema-box"><strong>DIM_CATEGORY</strong><br><small>categoria normalizada</small></div>
+      </div>
+      <p class="section-note">A camada analítica separa dados técnicos/raw dos dados preparados para BI. O schema físico ainda não está aplicado.</p>
+    </section>
+
+    <section id="seguranca" class="shell">
+      <div class="section-head"><div><div class="eyebrow">07 · Resiliência</div><h2>Falhar sem corromper</h2></div></div>
+      <div class="flows">
+        <article class="panel flow"><h3>Falha operacional</h3><div class="flow-line"><span class="flow-step">Falha</span><span class="flow-arrow">→</span><span class="flow-step">Rollback</span><span class="flow-arrow">→</span><span class="flow-step">Retry controlado</span><span class="flow-arrow">→</span><span class="flow-step">Último estado válido</span></div></article>
+        <article class="panel flow"><h3>Schema drift</h3><div class="flow-line"><span class="flow-step">Drift</span><span class="flow-arrow">→</span><span class="flow-step">Bloqueio</span><span class="flow-arrow">→</span><span class="flow-step">Revisão</span><span class="flow-arrow">→</span><span class="flow-step">Sem publicação incorreta</span></div></article>
+      </div>
+    </section>
+
+    <section id="status" class="shell">
+      <div class="section-head"><div><div class="eyebrow">08 · Segurança e governança</div><h2>Privilégio mínimo por desenho</h2></div></div>
+      <div class="governance">
+        <article class="panel gov"><strong>Entrada controlada</strong><p>Google read-only e credenciais fora do repositório.</p></article>
+        <article class="panel gov"><strong>Banco restritivo</strong><p>Service role no backend, grants mínimos e RLS operacional.</p></article>
+        <article class="panel gov"><strong>Separação de camadas</strong><p>Raw isolado do BI; payload bruto não é promovido automaticamente.</p></article>
+        <article class="panel gov"><span class="badge validated">Validado</span><p>Política operacional de retention/LGPD validada; o dashboard MVP não requer PII.</p></article>
+        <article class="panel gov"><span class="badge staging">Aplicado em staging</span><p>Retention/lifecycle estrutural, legal hold, state machine e guards validados.</p></article>
+        <article class="panel gov"><span class="badge planned">Planejado</span><p>RBAC hierárquico e anonimização antes de analytics com dados reais.</p></article>
+      </div>
+      <p class="section-note">Os controles reduzem risco, mas não constituem declaração jurídica de conformidade com a LGPD.</p>
+    </section>
+
+    <section id="roadmap" class="shell">
+      <div class="section-head"><div><div class="eyebrow">09 · Onde estamos</div><h2>Status do projeto</h2></div></div>
+      <div class="panel status-list">
+        <div class="status-row"><strong>Pipeline operacional</strong><span class="badge validated">Validado</span><p>Raw, resiliência, controle de mudanças e governança comprovados.</p></div>
+        <div class="status-row"><strong>Retention/lifecycle</strong><span class="badge staging">Aplicado em staging</span><p>Migration 4 validada; executor real de purge permanece futuro.</p></div>
+        <div class="status-row"><strong>Multi-source</strong><span class="badge local">Validado localmente</span><p>Duas fontes fictícias, isolamento e batch sequencial comprovados.</p></div>
+        <div class="status-row"><strong>Analytical contract</strong><span class="badge building">Definido</span><p>`DIM_SOURCE`, `DIM_CATEGORY` e `FACT_CATEGORY_SCORE`.</p></div>
+        <div class="status-row"><strong>Analytical schema</strong><span class="badge building">Em implementação</span><p>Bloqueado temporariamente pelo ambiente local.</p></div>
+        <div class="status-row"><strong>RBAC e BI</strong><span class="badge planned">Próximo</span><p>Dependem do modelo analítico e matriz de acesso.</p></div>
+        <div class="status-row"><strong>Scheduler</strong><span class="badge planned">Planejado</span><p>Cadência e SLA ainda exigem decisão.</p></div>
+        <div class="status-row"><strong>E2E final</strong><span class="badge planned">Pendente</span><p>Após analytics, segurança e operação.</p></div>
+      </div>
+    </section>
+
+    <section class="shell">
+      <div class="section-head"><div><div class="eyebrow">10 · Roadmap</div><h2>Do pipeline ao produto analítico</h2></div></div>
+      <div class="panel roadmap">
+        <div class="milestone done"><span class="dot"></span>Pipeline</div><div class="milestone done"><span class="dot"></span>Retention / lifecycle</div>
+        <div class="milestone done"><span class="dot"></span>Multi-source</div><div class="milestone done"><span class="dot"></span>Contrato analítico</div><div class="milestone active"><span class="dot"></span>Analytics Schema</div>
+        <div class="milestone"><span class="dot"></span>Transformation</div><div class="milestone"><span class="dot"></span>RBAC</div>
+        <div class="milestone"><span class="dot"></span>BI</div><div class="milestone"><span class="dot"></span>Scheduler</div><div class="milestone"><span class="dot"></span>E2E</div>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="shell footer-inner"><strong>Sheets → Supabase · Meeting MVP</strong><span>Dashboard offline · dados analíticos 100% fictícios</span></div></footer>
+  <script>
+    "use strict";
+    const demoRows = [
+      { source: "Fonte 01", category: "Categoria A", score: 78 },
+      { source: "Fonte 01", category: "Categoria A", score: 86 },
+      { source: "Fonte 01", category: "Categoria B", score: 69 },
+      { source: "Fonte 01", category: "Categoria C", score: 91 },
+      { source: "Fonte 01", category: "Categoria D", score: 74 },
+      { source: "Fonte 02", category: "Categoria A", score: 82 },
+      { source: "Fonte 02", category: "Categoria B", score: 88 },
+      { source: "Fonte 02", category: "Categoria B", score: 77 },
+      { source: "Fonte 02", category: "Categoria C", score: 95 },
+      { source: "Fonte 02", category: "Categoria D", score: 71 },
+      { source: "Fonte 02", category: "Categoria D", score: 84 }
+    ];
+    const categories = ["Categoria A", "Categoria B", "Categoria C", "Categoria D"];
+    const byId = (id) => document.getElementById(id);
+    const average = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    const formatScore = (value) => value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    function groupedStats(rows) {
+      return categories.map((category) => {
+        const scores = rows.filter((row) => row.category === category).map((row) => row.score);
+        return { category, count: scores.length, avg: scores.length ? average(scores) : 0, min: scores.length ? Math.min(...scores) : 0, max: scores.length ? Math.max(...scores) : 0 };
+      });
+    }
+    function renderBars(target, entries, maxValue, formatter) {
+      target.replaceChildren(...entries.map((entry) => {
+        const row = document.createElement("div"); row.className = "bar-row";
+        const label = document.createElement("span"); label.textContent = entry.label;
+        const track = document.createElement("div"); track.className = "bar-track";
+        const fill = document.createElement("div"); fill.className = "bar-fill"; fill.style.width = `${maxValue ? (entry.value / maxValue) * 100 : 0}%`; track.append(fill);
+        const value = document.createElement("strong"); value.textContent = formatter(entry.value);
+        row.append(label, track, value); return row;
+      }));
+    }
+    function updateDashboard() {
+      const selected = byId("sourceFilter").value;
+      const rows = selected === "Todas" ? demoRows : demoRows.filter((row) => row.source === selected);
+      const scores = rows.map((row) => row.score);
+      byId("kpiTotal").textContent = rows.length.toLocaleString("pt-BR");
+      byId("kpiAvg").textContent = formatScore(average(scores));
+      byId("kpiMin").textContent = Math.min(...scores).toLocaleString("pt-BR");
+      byId("kpiMax").textContent = Math.max(...scores).toLocaleString("pt-BR");
+      const stats = groupedStats(rows);
+      renderBars(byId("avgChart"), stats.map((s) => ({ label: s.category.replace("Categoria ", "Cat. "), value: s.avg })), 100, formatScore);
+      const maxCount = Math.max(...stats.map((s) => s.count));
+      renderBars(byId("volumeChart"), stats.map((s) => ({ label: s.category.replace("Categoria ", "Cat. "), value: s.count })), maxCount, String);
+      const sourceEntries = ["Fonte 01", "Fonte 02"].map((source) => ({ label: source, value: rows.filter((row) => row.source === source).length }));
+      renderBars(byId("sourceChart"), sourceEntries, Math.max(...sourceEntries.map((entry) => entry.value)), String);
+      byId("categoryTable").replaceChildren(...stats.map((stat) => {
+        const tr = document.createElement("tr");
+        [stat.category, stat.count, formatScore(stat.avg), stat.min, stat.max].forEach((value) => { const td = document.createElement("td"); td.textContent = value; tr.append(td); });
+        return tr;
+      }));
+    }
+    byId("sourceFilter").addEventListener("change", updateDashboard);
+    updateDashboard();
+  </script>
+</body>
+</html>

@@ -112,6 +112,11 @@ Use [institution.example.json](configs/examples/institution.example.json) como
 configuração executável sem credenciais. Cada fonte define `spreadsheet_id`,
 `sheet_name`, `target_table`, `business_key` e `sync_interval_minutes`.
 
+O exemplo [multi-source.example.json](configs/examples/multi-source.example.json)
+declara duas fontes ficticias no mesmo projeto institucional. Cada par
+planilha/aba e cada mirror devem ser unicos; business keys iguais continuam
+isoladas por fonte.
+
 O núcleo lista fontes vencidas e executa cada uma isoladamente; um scheduler de
 provedor ainda não foi implantado.
 

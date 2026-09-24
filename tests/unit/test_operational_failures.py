@@ -11,8 +11,13 @@ from sheets_supabase_sync.operational_failures import (
     busy_decision,
     classify_postgres_failure,
 )
-from sheets_supabase_sync.raw_repository import InMemoryRawStateRepository, PostgresRawRepository
-from sheets_supabase_sync.raw_sync import RawInputRow, RawSyncSource
+from sheets_supabase_sync.raw_repository import (
+    InMemoryRawStateRepository,
+    PostgresRawRepository,
+    RawSchemaAssessment,
+    ReconciliationOutcome,
+)
+from sheets_supabase_sync.raw_sync import RawInputRow, RawSyncSource, build_raw_snapshot, compare_raw_snapshots
 from sheets_supabase_sync.raw_sync_service import RawSynchronizationService
 from sheets_supabase_sync.retries import RetryPolicy
 from sheets_supabase_sync.postgres_retry import connect_with_retry
@@ -27,6 +32,49 @@ HEADER = ("id", "value")
 class DriverError(Exception):
     def __init__(self, sqlstate: str) -> None:
         self.sqlstate = sqlstate
+
+
+class ScriptedCursor:
+    def __init__(self, connection) -> None:
+        self.connection = connection
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return None
+
+    def execute(self, statement, parameters=()) -> None:
+        self.connection.executed.append((statement, parameters))
+
+    def fetchall(self):
+        return self.connection.fetchall_results.pop(0)
+
+    def fetchone(self):
+        return self.connection.fetchone_results.pop(0)
+
+
+class ScriptedConnection:
+    def __init__(self, *, fetchall_results=(), fetchone_results=(), commit_error=None) -> None:
+        self.fetchall_results = list(fetchall_results)
+        self.fetchone_results = list(fetchone_results)
+        self.commit_error = commit_error
+        self.executed = []
+        self.rollback_calls = 0
+        self.closed = False
+
+    def cursor(self):
+        return ScriptedCursor(self)
+
+    def commit(self) -> None:
+        if self.commit_error:
+            raise self.commit_error
+
+    def rollback(self) -> None:
+        self.rollback_calls += 1
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def rows(value: str = "one") -> tuple[RawInputRow, ...]:
@@ -87,6 +135,7 @@ class TransactionRetryTests(unittest.TestCase):
         repository = InMemoryRawStateRepository(faults={"state": [transient]})
         result = service(repository).persist_locally(SOURCE, HEADER, rows(), NOW)
         self.assertTrue(result.persisted)
+        self.assertEqual(2, repository._lock_attempts)
         self.assertEqual(2, repository._snapshot_loads)
         self.assertEqual(2, repository._started_execution_ids.count("11111111-1111-4111-8111-111111111111"))
         self.assertEqual(1, len(repository.current_rows(SOURCE_HASH)))
@@ -121,14 +170,45 @@ class TransactionRetryTests(unittest.TestCase):
         self.assertEqual(1, len(repository.history()))
         self.assertEqual(1, next(iter(repository.current_rows(SOURCE_HASH).values())).version)
 
-    def test_unknown_commit_is_preserved_and_never_retried(self) -> None:
+    def test_ambiguous_commit_already_persisted_is_reconciled_without_retry(self) -> None:
         repository = InMemoryRawStateRepository(lose_commit_ack=True)
+        result = service(repository).persist_locally(SOURCE, HEADER, rows(), NOW)
+        self.assertEqual(ReconciliationOutcome.APPLIED, result.reconciliation)
+        self.assertEqual(1, len(repository._started_execution_ids))
+        self.assertEqual(1, repository._reconciliation_calls)
+        self.assertEqual(1, len(repository.history()))
+        self.assertEqual("applied", repository.run_status("11111111-1111-4111-8111-111111111111"))
+
+    def test_ambiguous_commit_not_persisted_retries_full_transaction(self) -> None:
+        repository = InMemoryRawStateRepository(
+            ambiguous_reconciliations=(ReconciliationOutcome.NOT_PERSISTED,),
+        )
+        result = service(repository).persist_locally(SOURCE, HEADER, rows(), NOW)
+        self.assertTrue(result.persisted)
+        self.assertEqual("not_required", result.reconciliation)
+        self.assertEqual(2, repository._snapshot_loads)
+        self.assertEqual(2, len(repository._started_execution_ids))
+        self.assertEqual(1, len(repository.history()))
+
+    def test_ambiguous_commit_inconclusive_fails_closed_without_retry(self) -> None:
+        repository = InMemoryRawStateRepository(
+            ambiguous_reconciliations=(ReconciliationOutcome.INCONCLUSIVE,),
+        )
         with self.assertRaises(SyncError) as raised:
             service(repository).persist_locally(SOURCE, HEADER, rows(), NOW)
         self.assertEqual(ErrorCode.AMBIGUOUS_OUTCOME, raised.exception.code)
         self.assertEqual(1, len(repository._started_execution_ids))
-        self.assertEqual(1, len(repository.history()))
-        self.assertEqual("applied", repository.run_status("11111111-1111-4111-8111-111111111111"))
+        self.assertEqual(1, repository._reconciliation_calls)
+
+    def test_non_retryable_transaction_error_is_not_retried(self) -> None:
+        repository = InMemoryRawStateRepository(
+            faults={"state": [SyncError(ErrorCode.DATABASE, "permanent", False)]},
+        )
+        with self.assertRaises(SyncError) as raised:
+            service(repository).persist_locally(SOURCE, HEADER, rows(), NOW)
+        self.assertEqual(ErrorCode.DATABASE, raised.exception.code)
+        self.assertEqual(1, repository._lock_attempts)
+        self.assertEqual(1, len(repository._started_execution_ids))
 
     def test_busy_does_not_create_a_run_or_retry(self) -> None:
         repository = InMemoryRawStateRepository()
@@ -158,6 +238,69 @@ class TransactionRetryTests(unittest.TestCase):
         statement = PostgresRawRepository.reconcile_run_sql()
         self.assertIn("WHERE id = %s AND data_source_id = %s", statement)
         self.assertIn("snapshot_hash", statement)
+
+
+class PostgresReconciliationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.plan = compare_raw_snapshots(build_raw_snapshot(SOURCE, HEADER, rows(), NOW), None)
+        self.source_row = ("source-id", "fixture", "fixture", "Fixture", "fixture_raw", ["id"], True)
+
+    def repository(self, connection: ScriptedConnection) -> PostgresRawRepository:
+        return PostgresRawRepository(
+            RawSchemaAssessment(True, ()),
+            "postgresql://redacted@host/postgres",
+            connection_factory=lambda _: connection,
+        )
+
+    def test_postgres_preview_is_read_only_unlocked_and_write_free(self) -> None:
+        connection = ScriptedConnection(fetchall_results=([self.source_row], []))
+        snapshot = self.repository(connection).preview_snapshot(SOURCE, HEADER, NOW)
+        self.assertIsNone(snapshot)
+        statements = [statement.upper() for statement, _ in connection.executed]
+        self.assertEqual("SET TRANSACTION READ ONLY", statements[0])
+        self.assertNotIn("FOR SHARE", " ".join(statements))
+        self.assertNotIn("FOR UPDATE", " ".join(statements))
+        self.assertTrue(all(statement.startswith(("SELECT", "SET TRANSACTION READ ONLY")) for statement in statements))
+
+    def test_postgres_write_source_lookup_keeps_share_lock(self) -> None:
+        connection = ScriptedConnection(fetchall_results=([self.source_row],))
+        repository = self.repository(connection)
+        repository._connection = connection
+        repository.prepare_source(SOURCE)
+        self.assertIn("FOR SHARE", connection.executed[0][0].upper())
+
+    def test_postgres_reconciliation_confirms_applied_run_events_and_state(self) -> None:
+        connection = ScriptedConnection(
+            fetchall_results=([self.source_row],),
+            fetchone_results=(("applied", self.plan.snapshot.snapshot_hash, 1, 0, 0, 0, 0), (1,), (1,)),
+        )
+        outcome = self.repository(connection).reconcile_run(SOURCE, "run-id", self.plan)
+        self.assertEqual(ReconciliationOutcome.APPLIED, outcome)
+        statements = " ".join(statement for statement, _ in connection.executed)
+        self.assertIn("SET TRANSACTION READ ONLY", statements)
+        self.assertNotIn("FOR SHARE", statements.upper())
+        self.assertNotIn("FOR UPDATE", statements.upper())
+        self.assertIn("raw_import_rows", statements)
+        self.assertIn("raw_current_rows", statements)
+
+    def test_postgres_reconciliation_identifies_absent_run_as_not_persisted(self) -> None:
+        connection = ScriptedConnection(fetchall_results=([self.source_row],), fetchone_results=(None,))
+        self.assertEqual(ReconciliationOutcome.NOT_PERSISTED, self.repository(connection).reconcile_run(SOURCE, "run-id", self.plan))
+
+    def test_postgres_reconciliation_fails_closed_on_divergent_run(self) -> None:
+        connection = ScriptedConnection(
+            fetchall_results=([self.source_row],),
+            fetchone_results=(("running", self.plan.snapshot.snapshot_hash, 0, 0, 0, 0, 0),),
+        )
+        self.assertEqual(ReconciliationOutcome.INCONCLUSIVE, self.repository(connection).reconcile_run(SOURCE, "run-id", self.plan))
+
+    def test_postgres_commit_connection_loss_is_exposed_as_ambiguous(self) -> None:
+        connection = ScriptedConnection(commit_error=DriverError("08006"))
+        repository = self.repository(connection)
+        repository._connection = connection
+        with self.assertRaises(SyncError) as raised:
+            repository.commit_transaction(SOURCE_HASH, "run-id")
+        self.assertEqual(ErrorCode.AMBIGUOUS_OUTCOME, raised.exception.code)
 
 
 class ConnectionRetryTests(unittest.TestCase):

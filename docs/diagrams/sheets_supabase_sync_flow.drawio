@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-09-11T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="sheets-supabase-sync-flow" name="Fluxo executivo">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="sheets-supabase-sync | Fluxo executivo e técnico" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;fontColor=#172B4D;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="900" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Ingestão e estado raw validados com fixtures • Analytics e BI são a próxima evolução • Não representa produção" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontColor=#5E6C84;" vertex="1" parent="1">
+          <mxGeometry x="40" y="56" width="950" height="26" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="legend_validated" value="VALIDADO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3FCEF;strokeColor=#36B37E;fontColor=#164B35;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="28" width="115" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_progress" value="EM IMPLEMENTAÇÃO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF0B3;strokeColor=#FFAB00;fontColor=#614700;fontStyle=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1235" y="28" width="145" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_planned" value="PLANEJADO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DEEBFF;strokeColor=#4C9AFF;fontColor=#0747A6;fontStyle=1;fontSize=11;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="28" width="115" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="implemented_band" value="A. VALIDADO / IMPLEMENTADO" style="swimlane;html=1;horizontal=1;startSize=38;rounded=1;fillColor=#F3FFF8;swimlaneFillColor=#E3FCEF;strokeColor=#36B37E;fontColor=#164B35;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="30" y="95" width="1490" height="365" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="origin" value="&lt;b&gt;ORIGEM&lt;/b&gt;&lt;br&gt;Google Forms&lt;br&gt;Google Sheets" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=14;spacing=8;" vertex="1" parent="implemented_band">
+          <mxGeometry x="25" y="92" width="175" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="ingestion" value="&lt;b&gt;INGESTÃO&lt;/b&gt;&lt;br&gt;Service Account read-only&lt;br&gt;GoogleSheetsReader" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;spacing=8;" vertex="1" parent="implemented_band">
+          <mxGeometry x="230" y="92" width="185" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="preparation" value="&lt;b&gt;PREPARAÇÃO&lt;/b&gt;&lt;br&gt;Snapshot&lt;br&gt;Normalização + validação&lt;br&gt;Business key + row hash" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;spacing=8;" vertex="1" parent="implemented_band">
+          <mxGeometry x="445" y="80" width="205" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="comparison" value="&lt;b&gt;COMPARAÇÃO&lt;/b&gt;&lt;br&gt;Estado recebido × estado atual&lt;br&gt;&lt;b&gt;Diff por fonte/chave&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;spacing=8;" vertex="1" parent="implemented_band">
+          <mxGeometry x="680" y="92" width="200" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="changes" value="&lt;b&gt;MUDANÇAS&lt;/b&gt;&lt;br&gt;INSERT • UPDATE&lt;br&gt;TOMBSTONE • RESTORE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;spacing=8;" vertex="1" parent="implemented_band">
+          <mxGeometry x="910" y="92" width="185" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="transaction" value="&lt;b&gt;PERSISTÊNCIA&lt;/b&gt;&lt;br&gt;Transação psycopg&lt;br&gt;Supabase / PostgreSQL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;spacing=8;" vertex="1" parent="implemented_band">
+          <mxGeometry x="1125" y="92" width="175" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="raw_state" value="&lt;b&gt;ESTADO RAW&lt;/b&gt;&lt;br&gt;raw_import_rows&lt;br&gt;raw_current_rows&lt;br&gt;sync_runs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#36B37E;strokeWidth=2;fontColor=#172B4D;fontSize=13;spacing=8;" vertex="1" parent="implemented_band">
+          <mxGeometry x="1330" y="80" width="135" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="implemented_note" value="Escopo validado: fixtures fictícias, leitura Google somente leitura e fluxo raw; não implica runtime produtivo." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3FCEF;strokeColor=#ABF5D1;fontColor=#164B35;fontSize=12;align=center;" vertex="1" parent="implemented_band">
+          <mxGeometry x="300" y="270" width="880" height="48" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#36B37E;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="implemented_band" source="origin" target="ingestion"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#36B37E;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="implemented_band" source="ingestion" target="preparation"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#36B37E;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="implemented_band" source="preparation" target="comparison"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#36B37E;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="implemented_band" source="comparison" target="changes"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#36B37E;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="implemented_band" source="changes" target="transaction"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#36B37E;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="implemented_band" source="transaction" target="raw_state"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="future_band" value="B. PRÓXIMA CAMADA / EVOLUÇÃO — PLANEJADO / PRÓXIMA ETAPA" style="swimlane;html=1;horizontal=1;startSize=38;rounded=1;fillColor=#F7F9FC;swimlaneFillColor=#DEEBFF;strokeColor=#4C9AFF;fontColor=#0747A6;fontStyle=1;fontSize=14;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="30" y="485" width="1490" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="analytical_transform" value="&lt;b&gt;TRANSFORMAÇÃO ANALÍTICA&lt;/b&gt;&lt;br&gt;Idempotente e minimizada&lt;br&gt;Origem: raw_current_rows" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4C9AFF;strokeWidth=2;fontColor=#0747A6;fontSize=13;spacing=8;dashed=1;" vertex="1" parent="future_band">
+          <mxGeometry x="310" y="60" width="250" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="star_schema" value="&lt;b&gt;STAR SCHEMA&lt;/b&gt;&lt;br&gt;DIM_SOURCE • DIM_CATEGORY&lt;br&gt;FACT_CATEGORY_SCORE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4C9AFF;strokeWidth=2;fontColor=#0747A6;fontSize=13;spacing=8;dashed=1;" vertex="1" parent="future_band">
+          <mxGeometry x="620" y="60" width="250" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="dashboard" value="&lt;b&gt;DASHBOARD / BI&lt;/b&gt;&lt;br&gt;Somente dados curados&lt;br&gt;Acesso mínimo + RLS/RBAC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#4C9AFF;strokeWidth=2;fontColor=#0747A6;fontSize=13;spacing=8;dashed=1;" vertex="1" parent="future_band">
+          <mxGeometry x="930" y="60" width="250" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="f1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4C9AFF;strokeWidth=2;dashed=1;endArrow=block;endFill=1;" edge="1" parent="future_band" source="analytical_transform" target="star_schema"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="f2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4C9AFF;strokeWidth=2;dashed=1;endArrow=block;endFill=1;" edge="1" parent="future_band" source="star_schema" target="dashboard"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="raw_to_future" value="próxima etapa" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4C9AFF;strokeWidth=2;dashed=1;endArrow=block;endFill=1;fontColor=#0747A6;fontSize=11;" edge="1" parent="1" source="raw_state" target="analytical_transform">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1490" y="475"/><mxPoint x="465" y="475"/></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="controls_band" value="CONTROLES DE SEGURANÇA E RESILIÊNCIA" style="swimlane;html=1;horizontal=1;startSize=38;rounded=1;fillColor=#FAFBFC;swimlaneFillColor=#F4F5F7;strokeColor=#A5ADBA;fontColor=#172B4D;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="30" y="690" width="1490" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="control_google" value="&lt;b&gt;ACESSO E ISOLAMENTO&lt;/b&gt;&lt;br&gt;Google somente leitura&lt;br&gt;Fonte isolada • business key&lt;br&gt;Lifecycle / source enabled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A5ADBA;fontColor=#172B4D;fontSize=12;spacing=7;" vertex="1" parent="controls_band"><mxGeometry x="25" y="55" width="330" height="90" as="geometry"/></mxCell>
+        <mxCell id="control_quality" value="&lt;b&gt;QUALIDADE&lt;/b&gt;&lt;br&gt;Schema drift bloqueante&lt;br&gt;Sem mudança destrutiva automática&lt;br&gt;Último estado válido preservado" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A5ADBA;fontColor=#172B4D;fontSize=12;spacing=7;" vertex="1" parent="controls_band"><mxGeometry x="385" y="55" width="330" height="90" as="geometry"/></mxCell>
+        <mxCell id="control_transaction" value="&lt;b&gt;CONCORRÊNCIA E FALHAS&lt;/b&gt;&lt;br&gt;Advisory/source lock&lt;br&gt;Retry PostgreSQL • rollback&lt;br&gt;Commit ambíguo → reconciliação" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A5ADBA;fontColor=#172B4D;fontSize=12;spacing=7;" vertex="1" parent="controls_band"><mxGeometry x="745" y="55" width="330" height="90" as="geometry"/></mxCell>
+        <mxCell id="control_environment" value="&lt;b&gt;AMBIENTE E OPERAÇÃO&lt;/b&gt;&lt;br&gt;Staging guard • produção bloqueada&lt;br&gt;Logs/eventos sanitizados&lt;br&gt;Falha de uma fonte não interrompe as demais" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A5ADBA;fontColor=#172B4D;fontSize=12;spacing=7;" vertex="1" parent="controls_band"><mxGeometry x="1105" y="55" width="360" height="90" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
