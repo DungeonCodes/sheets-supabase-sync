@@ -446,7 +446,7 @@ class PostgresRawRepository:
         )
         try:
             self._cursor().execute(self.read_only_transaction_sql())
-            matches = self._find_sources(self._cursor(), source)
+            matches = self._find_sources(self._cursor(), source, lock=False)
             if not matches:
                 return None
             self._data_source_id = str(_validate_registered_source(source, matches))
@@ -593,7 +593,7 @@ class PostgresRawRepository:
                 source_prefix=source.source_hash,
             )
             self._cursor().execute(self.read_only_transaction_sql())
-            matches = self._find_sources(self._cursor(), source)
+            matches = self._find_sources(self._cursor(), source, lock=False)
             if not matches:
                 return ReconciliationOutcome.NOT_PERSISTED
             self._data_source_id = str(_validate_registered_source(source, matches, require_active=False))
@@ -674,20 +674,21 @@ class PostgresRawRepository:
         if self._failure_injector is not None:
             self._failure_injector(point)
 
-    def _find_sources(self, cursor: Any, source: RawSyncSource) -> list[tuple[Any, ...]]:
+    def _find_sources(self, cursor: Any, source: RawSyncSource, *, lock: bool = True) -> list[tuple[Any, ...]]:
         cursor.execute(
-            self.find_source_sql(),
+            self.find_source_sql(lock=lock),
             (source.logical_name, source.target_table, source.spreadsheet_id, source.sheet_name),
         )
         return list(cursor.fetchall())
 
     @staticmethod
-    def find_source_sql() -> str:
-        return (
+    def find_source_sql(*, lock: bool = True) -> str:
+        statement = (
             "SELECT id, name, spreadsheet_id, sheet_name, target_table, business_key, lifecycle_status, enabled "
             "FROM public.data_sources WHERE name = %s OR target_table = %s "
-            "OR (spreadsheet_id = %s AND sheet_name = %s) FOR SHARE"
+            "OR (spreadsheet_id = %s AND sheet_name = %s)"
         )
+        return f"{statement} FOR SHARE" if lock else statement
 
     @staticmethod
     def read_only_transaction_sql() -> str:

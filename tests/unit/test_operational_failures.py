@@ -252,6 +252,23 @@ class PostgresReconciliationTests(unittest.TestCase):
             connection_factory=lambda _: connection,
         )
 
+    def test_postgres_preview_is_read_only_unlocked_and_write_free(self) -> None:
+        connection = ScriptedConnection(fetchall_results=([self.source_row], []))
+        snapshot = self.repository(connection).preview_snapshot(SOURCE, HEADER, NOW)
+        self.assertIsNone(snapshot)
+        statements = [statement.upper() for statement, _ in connection.executed]
+        self.assertEqual("SET TRANSACTION READ ONLY", statements[0])
+        self.assertNotIn("FOR SHARE", " ".join(statements))
+        self.assertNotIn("FOR UPDATE", " ".join(statements))
+        self.assertTrue(all(statement.startswith(("SELECT", "SET TRANSACTION READ ONLY")) for statement in statements))
+
+    def test_postgres_write_source_lookup_keeps_share_lock(self) -> None:
+        connection = ScriptedConnection(fetchall_results=([self.source_row],))
+        repository = self.repository(connection)
+        repository._connection = connection
+        repository.prepare_source(SOURCE)
+        self.assertIn("FOR SHARE", connection.executed[0][0].upper())
+
     def test_postgres_reconciliation_confirms_applied_run_events_and_state(self) -> None:
         connection = ScriptedConnection(
             fetchall_results=([self.source_row],),
@@ -261,6 +278,8 @@ class PostgresReconciliationTests(unittest.TestCase):
         self.assertEqual(ReconciliationOutcome.APPLIED, outcome)
         statements = " ".join(statement for statement, _ in connection.executed)
         self.assertIn("SET TRANSACTION READ ONLY", statements)
+        self.assertNotIn("FOR SHARE", statements.upper())
+        self.assertNotIn("FOR UPDATE", statements.upper())
         self.assertIn("raw_import_rows", statements)
         self.assertIn("raw_current_rows", statements)
 

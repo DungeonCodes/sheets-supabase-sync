@@ -182,6 +182,9 @@ class RawSyncTests(unittest.TestCase):
         self.assertIn("lifecycle_status", PostgresRawRepository.find_source_sql())
         self.assertIn("enabled", PostgresRawRepository.find_source_sql())
         self.assertIn("for share", PostgresRawRepository.find_source_sql().lower())
+        read_only_lookup = PostgresRawRepository.find_source_sql(lock=False).lower()
+        self.assertNotIn("for share", read_only_lookup)
+        self.assertNotIn("for update", read_only_lookup)
         self.assertIn("lifecycle_status", PostgresRawRepository.register_source_sql())
 
     def test_raw_modules_do_not_depend_on_google_transport(self) -> None:
