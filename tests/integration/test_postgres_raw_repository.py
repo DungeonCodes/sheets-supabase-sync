@@ -158,6 +158,37 @@ class PostgresRawRepositoryIntegrationTests(unittest.TestCase):
             ),
         )
 
+    def test_nonactive_source_is_rejected_before_new_run_or_raw_mutation(self) -> None:
+        contract = source(f"lifecycle_guard_{self.suffix}")
+        persist(contract, rows((2, "a", "one")))
+        data_source_id = self.source_id(contract)
+        expected = {
+            "sync_runs": self.scalar("select count(*) from public.sync_runs where data_source_id=%s", (data_source_id,)),
+            "raw_import_rows": self.scalar("select count(*) from public.raw_import_rows where data_source_id=%s", (data_source_id,)),
+            "raw_current_rows": self.scalar("select count(*) from public.raw_current_rows where data_source_id=%s", (data_source_id,)),
+        }
+        for lifecycle_status in ("suspended", "offboarding", "retired"):
+            with psycopg.connect(DATABASE_URL) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "update public.data_sources set enabled=false, lifecycle_status=%s, "
+                    "lifecycle_reason_code='controlled_test', lifecycle_changed_by_ref='operator:test' where id=%s",
+                    (lifecycle_status, data_source_id),
+                )
+                connection.commit()
+            with self.assertRaises(SyncError) as raised:
+                persist(contract, rows((2, "a", "changed")))
+            self.assertEqual(ErrorCode.SOURCE_INACTIVE, raised.exception.code)
+            self.assertFalse(raised.exception.retryable)
+            for table, count in expected.items():
+                self.assertEqual(count, self.scalar(f"select count(*) from public.{table} where data_source_id=%s", (data_source_id,)))
+            with psycopg.connect(DATABASE_URL) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "update public.data_sources set enabled=true, lifecycle_status='active', "
+                    "lifecycle_reason_code=null, lifecycle_changed_by_ref=null where id=%s",
+                    (data_source_id,),
+                )
+                connection.commit()
+
     def test_retry_after_rollback_reapplies_one_event_and_one_version(self) -> None:
         contract = source(f"retry_{self.suffix}")
         persist(contract, rows((2, "a", "one")))

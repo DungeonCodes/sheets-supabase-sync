@@ -16,7 +16,7 @@ class EventOnlyMigrationTests(unittest.TestCase):
 
     def test_is_exactly_the_third_migration(self) -> None:
         self.assertTrue(PATH.exists())
-        self.assertEqual(4, len(list(MIGRATIONS.glob("*.sql"))))
+        self.assertEqual(5, len(list(MIGRATIONS.glob("*.sql"))))
         self.assertEqual(PATH, sorted(MIGRATIONS.glob("*.sql"))[2])
 
     def test_replaces_physical_identity_with_logical_event_identity(self) -> None:

@@ -26,8 +26,9 @@ exclusivamente `spreadsheets.readonly`, e RLS/grants permanecem restritivos.
 
 - Google Sheets real com fixture fictícia, somente leitura;
 - staging PostgreSQL pelo Session Pooler na porta 5432;
-- migrations 3/3 coerentes, RLS/grants restritivos e tabelas raw validadas;
-- primeira carga, idempotência, update, tombstone, restore e reorder de linhas;
+- quatro migrations operacionais aplicadas no staging, RLS/grants restritivos e tabelas raw validadas;
+- primeira carga e repetição idempotente reais de `forms_demo` no staging;
+- update, tombstone, restore e reorder de linhas validados nos gates anteriores;
 - identidade lógica, estado raw versionado e histórico event-only;
 - schema drift: alteração de colunas bloqueada, reorder de headers compatível e
   header duplicado rejeitado;
@@ -35,12 +36,11 @@ exclusivamente `spreadsheets.readonly`, e RLS/grants permanecem restritivos.
   nova transação/releitura/diff e commit ambíguo sem retry cego;
 - observabilidade estruturada, sanitização, política de alertas e deduplicação
   local; SMTP opcional testado por mock;
-- 178 testes offline sem falhas e 8 testes PostgreSQL locais opt-in aprovados.
+- multi-source e lifecycle validados; dry-run real de staging com 3 linhas inalteradas e zero escrita.
 
 ### Pendente
 
-- retenção, minimização e LGPD (política definida; automação depende de decisão revisada);
-- múltiplas fontes;
+- automação de retenção e operação com dados reais;
 - RBAC hierárquico;
 - camada analítica e BI.
 
@@ -61,6 +61,47 @@ O comando CLI é um dry-run local: produz artefatos em `runtime/` e não acessa
 Google ou Supabase. Veja [.env.example](.env.example) para placeholders
 seguros. Em staging autorizado, a conexão transacional usa Session Pooler na
 porta 5432; a URL permanece exclusivamente no ambiente privado.
+
+## Operação assistida da v0.1 em staging
+
+Instale as dependências com os três primeiros comandos do setup acima. Para a
+operação Google → Supabase, copie `.env.example` para `.env.local` e preencha
+`APP_ENV=staging`, os dois project refs iguais ao projeto de staging permitido,
+`SUPABASE_URL`, `SUPABASE_DB_URL` (Session Pooler na porta 5432) e
+`GOOGLE_SERVICE_ACCOUNT_FILE`. Guarde o JSON da service account fora do
+repositório e conceda a ela somente leitura da planilha fictícia. `.env.local`
+e `runtime/` são ignorados pelo Git; não registre secrets ou dados reais.
+
+Copie `configs/examples/institution.example.json` para
+`runtime/staging.config.json` e configure uma entrada em `sources[]`: `name`,
+`spreadsheet_id`, `sheet_name`, `target_table`, `business_key` (nomes de colunas
+normalizados), `sync_interval_minutes` e `enabled=true`. Para uma source já
+cadastrada, nome, planilha, aba, target e business key devem coincidir com o
+registro do staging; divergência gera `source_mismatch` e não altera a source.
+`GOOGLE_TEST_*` em `.env.example` serve ao diagnóstico Google, não substitui os
+campos da source neste fluxo.
+
+Depois de revisar o destino e a fixture, execute o dry-run read-only:
+
+```powershell
+.\.venv\Scripts\python.exe -m sheets_supabase_sync.staging_cli --config runtime/staging.config.json --source pesquisa-satisfacao --mode dry-run
+```
+
+No JSON, `snapshot_rows` é o total lido do Google; `counts.new`, `changed`,
+`removed` e `restored` são, respectivamente, inserts, updates, tombstones e
+restores planejados. `counts.unchanged` não gera evento de mudança.
+`persisted_rows=0` e `status=dry_run` indicam que nada foi persistido. Revise o
+plano antes da escrita. Para a sync manual autorizada em staging, use:
+
+```powershell
+.\.venv\Scripts\python.exe -m sheets_supabase_sync.staging_cli --config runtime/staging.config.json --source pesquisa-satisfacao --mode apply-staging --confirm-staging
+```
+
+O guard exige `APP_ENV=staging`, project ref/URLs do mesmo projeto permitido e
+confirmação explícita para escrita. Production é recusada. Um sucesso retorna
+`status=applied`; `persisted_rows` conta mudanças, enquanto `sync_runs` pode
+aumentar mesmo com diff zero. Falhas retornam apenas categoria sanitizada.
+Consulte o [runbook](docs/runbook.md) antes de repetir uma falha ambígua.
 
 ## Testes
 
@@ -112,6 +153,11 @@ Use [institution.example.json](configs/examples/institution.example.json) como
 configuração executável sem credenciais. Cada fonte define `spreadsheet_id`,
 `sheet_name`, `target_table`, `business_key` e `sync_interval_minutes`.
 
+O exemplo [multi-source.example.json](configs/examples/multi-source.example.json)
+declara duas fontes ficticias no mesmo projeto institucional. Cada par
+planilha/aba e cada mirror devem ser unicos; business keys iguais continuam
+isoladas por fonte.
+
 O núcleo lista fontes vencidas e executa cada uma isoladamente; um scheduler de
 provedor ainda não foi implantado.
 
@@ -129,9 +175,9 @@ usa apenas `spreadsheets.readonly`, não exibe células e não acessa Supabase.
 
 ## Limitações atuais
 
-Retenção, minimização/LGPD, múltiplas fontes, RBAC hierárquico e a camada analítica/BI
-permanecem pendentes. Consulte [docs/roadmap.md](docs/roadmap.md) e os
-documentos da Atividade 3 para o planejamento detalhado.
+Esta entrega é assistida e limitada a staging com fixture fictícia. Automação
+de retenção, Migration 5, analytics/BI, RBAC analítico, scheduler, onboarding
+self-service e produção ficam para depois. Consulte [docs/roadmap.md](docs/roadmap.md).
 
 ## Falhas operacionais e retry
 
@@ -140,6 +186,6 @@ A política separa `retryable`, `non_retryable`, `busy_deferred` e
 `40001`/`40P01`, sempre em nova transação completa. Lock ocupado não espera nem
 cria execução; perda de conexão durante `COMMIT` nunca dispara retry cego.
 
-O comportamento foi validado em PostgreSQL local real. A compatibilidade remota
-foi confirmada por staging somente read-only: não houve fault injection, DML ou
-sincronização nesse gate.
+O comportamento de falhas foi validado em PostgreSQL local real. A primeira
+carga e a repetição idempotente foram validadas no staging; fault injection
+remoto não faz parte desta entrega.

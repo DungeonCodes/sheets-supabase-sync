@@ -100,11 +100,11 @@ Toda pesquisa temporal deverá ser datada e citar documentação oficial; suposi
 | Quotas e rate limit | Quotas oficiais documentadas; retry integrado com jitter, orçamento e `Retry-After`; sem coordenação global. | parcial |
 | Batch versus quase tempo real | Intervalo configurável e seleção de vencidas; decisão/SLA e scheduler ausentes. | parcial / decisão externa |
 | Backoff exponencial | Integrado ao leitor para 429/5xx/timeout/rede, com jitter, `Retry-After` e testes offline. | implementado, validação real pendente |
-| Isolamento por fonte | Batch captura falha de uma fonte e continua; teste aprovado. | validado offline |
-| Schema drift | Adição/remoção/rename bloqueados sem mutação; reorder neutro por nome e duplicidade rejeitada antes da transação. | validado para fonte única |
-| Dados brutos | Histórico event-only e estado atual persistidos no staging com fixture fictícia; retenção permanece indefinida. | parcialmente validado |
-| Staging | Camada raw operacional validada; camada analítica inexistente. | parcialmente validado |
-| Star Schema / fato / dimensão | Nenhum objeto ou transformação analítica. | não implementado |
+| Isolamento por fonte | Batch captura falha de uma fonte e continua; duas fontes foram validadas no PostgreSQL local. | validado localmente |
+| Schema drift | Adição/remoção/rename bloqueados sem mutação; a prova multi-source isolou drift por fonte. | validado localmente |
+| Dados brutos | Histórico event-only e estado atual persistidos; retenção/lifecycle têm schema validado, sem executor de purge. | parcialmente validado |
+| Staging | Camada raw operacional validada; contrato analitico definido, sem objetos. | parcialmente validado |
+| Star Schema / fato / dimensão | Star minimo, grain, fato e dimensoes definidos; nenhum objeto ou transformacao. | desenho concluido / nao implementado |
 | Ferramenta de BI | Nenhuma escolha ou conexão. | bloqueado por decisão |
 | RLS por usuário | RLS fechado nas tabelas operacionais; sem policies/hierarquia. | parcial |
 | Alertas por e-mail | Regras de severidade existem; entrega não. | não implementado |

@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sheets_supabase_sync.errors import ErrorCode, SyncError, classify_http_error, safe_error_message
-from sheets_supabase_sync.google_config import SHEETS_READONLY_SCOPE, load_google_sheets_config
+from sheets_supabase_sync.google_config import SHEETS_READONLY_SCOPE, load_google_sheets_config, load_google_sheets_config_for_source
 from sheets_supabase_sync.google_sheets import GoogleSheetsReader, validate_fictitious_fixture
 from sheets_supabase_sync.retries import RetryPolicy
 
@@ -63,6 +63,13 @@ class GoogleConfigurationTests(unittest.TestCase):
         self.write_environment()
         config = load_google_sheets_config(self.repository)
         self.assertEqual("Fixture", config.sheet_name)
+
+    def test_source_specific_configuration_does_not_use_global_fixture_identity(self) -> None:
+        self.write_environment(spreadsheet_id="old-fixture", sheet_name="Old Fixture")
+        config = load_google_sheets_config_for_source(self.repository, "selected-source-id", "Selected Sheet", "A1:D20")
+        self.assertEqual("selected-source-id", config.spreadsheet_id)
+        self.assertEqual("Selected Sheet", config.sheet_name)
+        self.assertEqual("A1:D20", config.optional_range)
 
     def test_missing_credential(self) -> None:
         self.write_environment(self.base / "missing.json")
@@ -269,6 +276,16 @@ class GoogleReaderTests(unittest.TestCase):
         personal_value = reader(FakeTransport(values={"values": [["codigo"], ["someone@example.test"]]})).read("secret-id", "Fixture")
         with self.assertRaises(SyncError):
             validate_fictitious_fixture(personal_value)
+
+    def test_address_header_and_formatted_cpf_or_phone_are_rejected(self) -> None:
+        address = reader(FakeTransport(values={"values": [["endere\u00e7o"], ["Rua ficticia"]]})).read("secret-id", "Fixture")
+        with self.assertRaises(SyncError):
+            validate_fictitious_fixture(address)
+        for value in ("123.456.789-00", "(11) 99999-9999"):
+            with self.subTest(value=value):
+                personal = reader(FakeTransport(values={"values": [["codigo"], [value]]})).read("secret-id", "Fixture")
+                with self.assertRaises(SyncError):
+                    validate_fictitious_fixture(personal)
 
     def test_fictitious_non_personal_fixture_is_accepted(self) -> None:
         result = reader(FakeTransport()).read("secret-id", "Fixture")

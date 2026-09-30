@@ -11,8 +11,9 @@ from uuid import uuid4
 
 from .errors import ErrorCode, SyncError
 from .observability import log_event
+from .operational_failures import DatabaseStage, postgres_sync_error
 from .operational_events import OperationalEvent, Severity
-from .raw_repository import RawStateRepository
+from .raw_repository import RawStateRepository, ReconciliationOutcome
 from .raw_schema import RawSchema, compare_raw_schemas
 from .raw_sync import RawChangePlan, RawInputRow, RawSnapshot, RawSyncSource, build_raw_snapshot, compare_raw_snapshots
 from .retries import RetryNotice, RetryPolicy, retry
@@ -30,6 +31,7 @@ class RawSyncResult:
     plan: RawChangePlan
     metrics: RawSyncMetrics
     persisted: bool
+    reconciliation: str = "not_required"
 
 
 class RawSynchronizationService:
@@ -67,7 +69,7 @@ class RawSynchronizationService:
         plan = compare_raw_snapshots(snapshot, previous)
         return RawSyncResult(plan, RawSyncMetrics(len(rows), 0, duration_ms), False)
 
-    def persist_locally(
+    def persist(
         self,
         source: RawSyncSource,
         header: Sequence[str],
@@ -77,13 +79,14 @@ class RawSynchronizationService:
     ) -> RawSyncResult:
         if self._repository is None:
             raise SyncError(ErrorCode.DATABASE, "Repositorio raw nao configurado")
+        snapshot = build_raw_snapshot(source, header, rows, read_at)
         execution_id = self._execution_id_factory()
         attempt = 0
 
         def operation() -> RawSyncResult:
             nonlocal attempt
             attempt += 1
-            return self._persist_attempt(source, header, rows, read_at, duration_ms, execution_id, attempt)
+            return self._persist_attempt(source, snapshot, rows, read_at, duration_ms, execution_id, attempt)
 
         return retry(
             operation,
@@ -94,10 +97,21 @@ class RawSynchronizationService:
             on_retry=lambda notice: self._log_retry(source, notice),
         )
 
-    def _persist_attempt(
+    def persist_locally(
         self,
         source: RawSyncSource,
         header: Sequence[str],
+        rows: Sequence[RawInputRow],
+        read_at: datetime,
+        duration_ms: int = 0,
+    ) -> RawSyncResult:
+        """Alias mantido para compatibilidade com os fluxos e testes locais existentes."""
+        return self.persist(source, header, rows, read_at, duration_ms)
+
+    def _persist_attempt(
+        self,
+        source: RawSyncSource,
+        snapshot: RawSnapshot,
         rows: Sequence[RawInputRow],
         read_at: datetime,
         duration_ms: int,
@@ -110,21 +124,19 @@ class RawSynchronizationService:
             self._log(source, "raw_sync_deferred", "busy_deferred", plan=None, duration_ms=duration_ms, attempt=attempt, error=error)
             raise error
         run_id: str | None = None
-        run_attempted = False
+        plan: RawChangePlan | None = None
         try:
-            snapshot = build_raw_snapshot(source, header, rows, read_at)
             self._repository.prepare_source(source)
             baseline_schema = self._repository.load_schema(source.source_hash)
-            proposed_schema = RawSchema.from_header(header)
+            proposed_schema = RawSchema.from_header(snapshot.header)
             if baseline_schema is not None:
                 schema_change = compare_raw_schemas(baseline_schema, proposed_schema)
                 if schema_change.is_blocking:
                     self._repository.record_schema_change(schema_change)
                     self._repository.commit_transaction(source.source_hash, "")
                     raise SyncError(ErrorCode.SCHEMA, "Schema da fonte divergiu; revisao humana obrigatoria")
-            previous = self._repository.load_snapshot(source.source_hash, tuple(header), read_at)
+            previous = self._repository.load_snapshot(source.source_hash, snapshot.header, read_at)
             plan = compare_raw_snapshots(snapshot, previous)
-            run_attempted = True
             run_id = self._repository.start_run(source.source_hash, plan.snapshot.snapshot_hash, execution_id)
             self._repository.append_history(source.source_hash, run_id, plan)
             self._repository.set_active_plan(plan)
@@ -132,13 +144,25 @@ class RawSynchronizationService:
             self._repository.finish_run(run_id)
             self._repository.commit_transaction(source.source_hash, run_id)
         except Exception as error:
-            if run_attempted and not (isinstance(error, SyncError) and error.code is ErrorCode.AMBIGUOUS_OUTCOME):
+            classified = error if isinstance(error, SyncError) else postgres_sync_error(error, DatabaseStage.TRANSACTION)
+            if classified.code is ErrorCode.AMBIGUOUS_OUTCOME and plan is not None:
+                self._repository.release(source.source_hash)
+                reconciliation = self._repository.reconcile_run(source, execution_id, plan)
+                if reconciliation is ReconciliationOutcome.APPLIED:
+                    self._log(source, "raw_sync_reconciled", "success", plan=plan, duration_ms=duration_ms, attempt=attempt)
+                    return RawSyncResult(plan, RawSyncMetrics(len(rows), _persisted_count(plan), duration_ms), True, reconciliation.value)
+                if reconciliation is ReconciliationOutcome.NOT_PERSISTED:
+                    classified = SyncError(ErrorCode.DATABASE_TRANSIENT, "Commit confirmado como nao persistido", True)
+                else:
+                    classified = SyncError(ErrorCode.AMBIGUOUS_OUTCOME, "Resultado do commit permanece inconclusivo")
+            else:
                 self._repository.rollback(source.source_hash, run_id)
-            outcome = "ambiguous_outcome" if isinstance(error, SyncError) and error.code is ErrorCode.AMBIGUOUS_OUTCOME else "failed"
-            self._log(source, "raw_sync_failed", outcome, plan=None, duration_ms=duration_ms, attempt=attempt, error=error)
-            raise
+            outcome = "ambiguous_outcome" if classified.code is ErrorCode.AMBIGUOUS_OUTCOME else "failed"
+            self._log(source, "raw_sync_failed", outcome, plan=None, duration_ms=duration_ms, attempt=attempt, error=classified)
+            raise classified from error
         finally:
             self._repository.release(source.source_hash)
+        assert plan is not None
         self._log(source, "raw_sync_persisted", "success", plan=plan, duration_ms=duration_ms, attempt=attempt)
         return RawSyncResult(plan, RawSyncMetrics(len(rows), _persisted_count(plan), duration_ms), True)
 
@@ -156,7 +180,17 @@ class RawSynchronizationService:
             duration_ms=round(notice.elapsed_seconds * 1000),
             outcome="retrying",
         )
-        self._emit("retrying", Severity.WARNING, source, notice.attempt, notice.max_attempts, True, notice.error_code, 0, round(notice.wait_seconds * 1000))
+        self._emit(
+            "retrying",
+            Severity.WARNING,
+            source,
+            notice.attempt,
+            notice.max_attempts,
+            True,
+            notice.error_code,
+            0,
+            round(notice.wait_seconds * 1000),
+        )
 
     def _log(
         self,
@@ -189,12 +223,56 @@ class RawSynchronizationService:
             rows_unchanged=counts.get("unchanged", 0),
             error_code=error.code.value if isinstance(error, SyncError) else None,
         )
-        severity = Severity.INFO if status == "success" else Severity.WARNING if status == "busy_deferred" else Severity.CRITICAL if isinstance(error, SyncError) and error.code is ErrorCode.AMBIGUOUS_OUTCOME else Severity.ERROR
-        self._emit(status, severity, source, attempt, self._retry_policy.max_attempts, error.retryable if isinstance(error, SyncError) else None, error.code.value if isinstance(error, SyncError) else None, duration_ms, 0)
+        severity = (
+            Severity.INFO
+            if status == "success"
+            else Severity.WARNING
+            if status == "busy_deferred"
+            else Severity.CRITICAL
+            if isinstance(error, SyncError) and error.code is ErrorCode.AMBIGUOUS_OUTCOME
+            else Severity.ERROR
+        )
+        self._emit(
+            status,
+            severity,
+            source,
+            attempt,
+            self._retry_policy.max_attempts,
+            error.retryable if isinstance(error, SyncError) else None,
+            error.code.value if isinstance(error, SyncError) else None,
+            duration_ms,
+            0,
+        )
 
-    def _emit(self, outcome: str, severity: Severity, source: RawSyncSource, attempt: int, max_attempts: int, retryable: bool | None, error_code: str | None, duration_ms: int, backoff_ms: int) -> None:
+    def _emit(
+        self,
+        outcome: str,
+        severity: Severity,
+        source: RawSyncSource,
+        attempt: int,
+        max_attempts: int,
+        retryable: bool | None,
+        error_code: str | None,
+        duration_ms: int,
+        backoff_ms: int,
+    ) -> None:
         if self._reporter is not None:
-            self._reporter(OperationalEvent.create(component="raw_sync", operation="postgres_transaction", outcome=outcome, severity=severity, source_ref=source.source_hash[:12], attempt=attempt, max_attempts=max_attempts, retryable=retryable, error_category=error_code, error_code=error_code, duration_ms=duration_ms, backoff_ms=backoff_ms))
+            self._reporter(
+                OperationalEvent.create(
+                    component="raw_sync",
+                    operation="postgres_transaction",
+                    outcome=outcome,
+                    severity=severity,
+                    source_ref=source.source_hash[:12],
+                    attempt=attempt,
+                    max_attempts=max_attempts,
+                    retryable=retryable,
+                    error_category=error_code,
+                    error_code=error_code,
+                    duration_ms=duration_ms,
+                    backoff_ms=backoff_ms,
+                )
+            )
 
 
 def _persisted_count(plan: RawChangePlan) -> int:

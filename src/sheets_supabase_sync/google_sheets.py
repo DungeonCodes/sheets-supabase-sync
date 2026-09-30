@@ -14,9 +14,13 @@ from .identifiers import normalize_headers
 from .observability import log_event
 from .retries import RetryNotice, RetryPolicy, retry
 
-_PROHIBITED_FIXTURE_HEADERS = frozenset({"cpf", "email", "e_mail", "telefone", "phone", "nome", "name"})
+_PROHIBITED_FIXTURE_HEADERS = frozenset(
+    {"address", "cpf", "email", "e_mail", "endereco", "endere_o", "logradouro", "name", "nome", "phone", "telefone"}
+)
 _EMAIL = re.compile(r"\b[^\s@]+@[^\s@]+\.[^\s@]+\b")
 _LONG_DIGIT_SEQUENCE = re.compile(r"(?:\D|^)(\d{10,14})(?:\D|$)")
+_FORMATTED_CPF = re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b")
+_FORMATTED_PHONE = re.compile(r"(?:\+?55\s*)?\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4}\b")
 
 
 class SheetsTransport(Protocol):
@@ -199,5 +203,5 @@ def validate_fictitious_fixture(result: SheetReadResult) -> None:
         raise SyncError(ErrorCode.VALIDATION, "Fixture possui coluna de dado pessoal proibida")
     for row in result.rows:
         for value in row.values:
-            if _EMAIL.search(value) or _LONG_DIGIT_SEQUENCE.search(value):
+            if _EMAIL.search(value) or _LONG_DIGIT_SEQUENCE.search(value) or _FORMATTED_CPF.search(value) or _FORMATTED_PHONE.search(value):
                 raise SyncError(ErrorCode.VALIDATION, "Fixture possui padrao de dado pessoal proibido")

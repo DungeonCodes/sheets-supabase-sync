@@ -24,10 +24,31 @@ class GoogleSheetsConfig:
 
 def load_google_sheets_config(root: Path) -> GoogleSheetsConfig:
     values = load_environment_values(root)
-    credential_value = values.get("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
     spreadsheet_id = values.get("GOOGLE_TEST_SPREADSHEET_ID", "").strip()
     sheet_name = values.get("GOOGLE_TEST_SHEET_NAME", "").strip()
-    if not credential_value or not spreadsheet_id or not sheet_name:
+    return _build_google_sheets_config(root, values, spreadsheet_id, sheet_name)
+
+
+def load_google_sheets_config_for_source(
+    root: Path,
+    spreadsheet_id: str,
+    sheet_name: str,
+    optional_range: str | None = None,
+) -> GoogleSheetsConfig:
+    """Carrega credencial/retry sem usar a fixture Google global como fonte."""
+    values = load_environment_values(root)
+    return _build_google_sheets_config(root, values, spreadsheet_id, sheet_name, optional_range)
+
+
+def _build_google_sheets_config(
+    root: Path,
+    values: dict[str, str],
+    spreadsheet_id: str,
+    sheet_name: str,
+    optional_range: str | None = None,
+) -> GoogleSheetsConfig:
+    credential_value = values.get("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
+    if not credential_value or not spreadsheet_id.strip() or not sheet_name.strip():
         raise SyncError(ErrorCode.CONFIGURATION, "Configuracao Google Sheets incompleta")
     if any(marker in spreadsheet_id.lower() for marker in PLACEHOLDER_MARKERS):
         raise SyncError(ErrorCode.CONFIGURATION, "Identificador da planilha ainda e placeholder")
@@ -42,8 +63,8 @@ def load_google_sheets_config(root: Path) -> GoogleSheetsConfig:
         )
     except ValueError as error:
         raise SyncError(ErrorCode.CONFIGURATION, "Valores de timeout ou retry invalidos") from error
-    optional_range = values.get("GOOGLE_TEST_OPTIONAL_RANGE", "").strip() or None
-    config = GoogleSheetsConfig(Path(credential_value).expanduser(), spreadsheet_id, sheet_name, optional_range, timeout_seconds, retry_policy)
+    selected_range = optional_range if optional_range is not None else values.get("GOOGLE_TEST_OPTIONAL_RANGE", "").strip() or None
+    config = GoogleSheetsConfig(Path(credential_value).expanduser(), spreadsheet_id, sheet_name, selected_range, timeout_seconds, retry_policy)
     validate_google_sheets_config(config, root)
     return config
 

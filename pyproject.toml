@@ -11,6 +11,7 @@ dependencies = ["google-auth[requests]==2.56.3", "psycopg[binary]==3.3.4"]
 
 [project.scripts]
 sheets-supabase-sync = "sheets_supabase_sync.cli:main"
+sheets-supabase-staging-sync = "sheets_supabase_sync.staging_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

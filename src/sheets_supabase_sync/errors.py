@@ -21,6 +21,8 @@ class ErrorCode(StrEnum):
     SCHEMA = "schema"
     EMPTY_SHEET = "empty_sheet"
     VALIDATION = "validation"
+    SOURCE_INACTIVE = "source_inactive"
+    SOURCE_MISMATCH = "source_mismatch"
     DATABASE = "database"
     DATABASE_TRANSIENT = "database_transient"
     BUSY = "busy"
