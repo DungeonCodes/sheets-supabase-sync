@@ -48,5 +48,9 @@ O dry-run consulta somente a source e o current state, calcula o plano em memori
 e nao cadastra source, cria run ou persiste linhas. O caminho historico
 `apply-local` permanece separado e continua recusando hosts remotos.
 
+O lookup da source em preview e reconciliacao de commit usa `SELECT` sem row lock
+em transacao `READ ONLY`. O caminho de escrita conserva `FOR SHARE` para validar
+source/lifecycle sob a protecao transacional existente.
+
 Este ADR registra apenas implementacao e testes offline. Nenhuma chamada Google,
 conexao Supabase/PostgreSQL, migration ou sync real foi executada neste gate.

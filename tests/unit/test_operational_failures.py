@@ -252,6 +252,26 @@ class PostgresReconciliationTests(unittest.TestCase):
             connection_factory=lambda _: connection,
         )
 
+    def test_postgres_preview_uses_read_only_unlocked_lookup_without_writes(self) -> None:
+        connection = ScriptedConnection(fetchall_results=([self.source_row], []))
+        snapshot = self.repository(connection).preview_snapshot(SOURCE, HEADER, NOW)
+        self.assertIsNone(snapshot)
+        statements = [statement for statement, _ in connection.executed]
+        self.assertEqual("SET TRANSACTION READ ONLY", statements[0])
+        self.assertIn("FROM public.data_sources", statements[1])
+        self.assertNotIn("FOR SHARE", statements[1])
+        self.assertTrue(all(statement.startswith(("SET", "SELECT")) for statement in statements))
+        self.assertGreaterEqual(connection.rollback_calls, 1)
+        self.assertTrue(connection.closed)
+
+    def test_postgres_write_source_lookup_keeps_row_lock(self) -> None:
+        connection = ScriptedConnection(fetchall_results=([self.source_row],))
+        repository = self.repository(connection)
+        repository._connection = connection
+        repository.prepare_source(SOURCE)
+        source_lookup = next(statement for statement, _ in connection.executed if "FROM public.data_sources" in statement)
+        self.assertIn("FOR SHARE", source_lookup)
+
     def test_postgres_reconciliation_confirms_applied_run_events_and_state(self) -> None:
         connection = ScriptedConnection(
             fetchall_results=([self.source_row],),
@@ -261,6 +281,8 @@ class PostgresReconciliationTests(unittest.TestCase):
         self.assertEqual(ReconciliationOutcome.APPLIED, outcome)
         statements = " ".join(statement for statement, _ in connection.executed)
         self.assertIn("SET TRANSACTION READ ONLY", statements)
+        source_lookup = next(statement for statement, _ in connection.executed if "FROM public.data_sources" in statement)
+        self.assertNotIn("FOR SHARE", source_lookup)
         self.assertIn("raw_import_rows", statements)
         self.assertIn("raw_current_rows", statements)
 
