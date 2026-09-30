@@ -1,0 +1,79 @@
+name: staging-sync-dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Source name from the staging configuration
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-sync-dispatch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Materialize ephemeral staging configuration
+        env:
+          APP_ENV: ${{ secrets.APP_ENV }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ALLOWED_PROJECT_REF: ${{ secrets.SUPABASE_ALLOWED_PROJECT_REF }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          STAGING_SYNC_CONFIG_JSON: ${{ secrets.STAGING_SYNC_CONFIG_JSON }}
+        run: |
+          set -euo pipefail
+          : "${APP_ENV:?APP_ENV is required}"
+          : "${SUPABASE_PROJECT_REF:?SUPABASE_PROJECT_REF is required}"
+          : "${SUPABASE_ALLOWED_PROJECT_REF:?SUPABASE_ALLOWED_PROJECT_REF is required}"
+          : "${SUPABASE_URL:?SUPABASE_URL is required}"
+          : "${SUPABASE_DB_URL:?SUPABASE_DB_URL is required}"
+          : "${GOOGLE_SERVICE_ACCOUNT_JSON:?GOOGLE_SERVICE_ACCOUNT_JSON is required}"
+          : "${STAGING_SYNC_CONFIG_JSON:?STAGING_SYNC_CONFIG_JSON is required}"
+          test "$APP_ENV" = staging
+          umask 077
+          printf '%s\n' \
+            "APP_ENV=$APP_ENV" \
+            "SUPABASE_PROJECT_REF=$SUPABASE_PROJECT_REF" \
+            "SUPABASE_ALLOWED_PROJECT_REF=$SUPABASE_ALLOWED_PROJECT_REF" \
+            "SUPABASE_URL=$SUPABASE_URL" \
+            "SUPABASE_DB_URL=$SUPABASE_DB_URL" \
+            "GOOGLE_SERVICE_ACCOUNT_FILE=$RUNNER_TEMP/google-service-account.json" \
+            > .env.local
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/google-service-account.json"
+          printf '%s' "$STAGING_SYNC_CONFIG_JSON" > runtime/staging.config.json
+
+      - name: Validate staging guard
+        run: >-
+          python -c "from pathlib import Path; from sheets_supabase_sync.environment import load_environment;
+          from sheets_supabase_sync.staging_guard import validate_staging_access;
+          validate_staging_access(load_environment(Path.cwd()), write_requested=True, confirmed=True)"
+
+      - name: Run official staging entrypoint
+        env:
+          SOURCE_NAME: ${{ inputs.source }}
+        run: >-
+          python -m sheets_supabase_sync.staging_cli --config runtime/staging.config.json
+          --source "$SOURCE_NAME" --mode apply-staging --confirm-staging
+
+      - name: Remove ephemeral files
+        if: always()
+        run: rm -f .env.local runtime/staging.config.json "$RUNNER_TEMP/google-service-account.json"

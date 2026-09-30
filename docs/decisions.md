@@ -63,3 +63,16 @@ Cron, trigger Google em tempo real e worker permanente.
 Impacto esperado: uma execução global diária no MVP, endpoint autenticado,
 credenciais server-side e evolução para runtime dedicado quando limites
 objetivos forem atingidos.
+
+## 2026-09-30
+
+Data: 2026-09-30
+Decisao: preparar GitHub Actions como disparador manual de staging, reutilizando
+o entrypoint Python oficial por source e sem agendamento recorrente.
+Motivo: validar a borda de execução remota sem duplicar regras de sincronização
+nem ativar Supabase Cron antes de existir um dispatcher central de fontes vencidas.
+Alternativas consideradas: cron por cliente, workflow por cliente, Vercel e
+seleção de agenda no YAML; rejeitadas neste gate.
+Impacto esperado: um workflow seguro e serializado para o primeiro disparo
+manual; o modelo de elegibilidade central permanece gate posterior. Detalhes em
+`docs/decisions/20260930_github_actions_staging_dispatch.md`.

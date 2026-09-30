@@ -860,3 +860,23 @@ agregadas, ambas em transações `READ ONLY`, confirmaram antes e depois zero
 houve migration, DDL, acesso a production nem sync real. Classificação:
 `forms_demo_preview_validated`. O próximo gate é a primeira sync real de
 `forms_demo`, sujeita a autorização separada.
+
+## 2026-09-30 — preparação do disparador manual GitHub Actions
+
+O precheck da v0.2 iniciou em `dev`, com worktree limpo e HEAD
+`ff044df5cdbf46366f14b84246577c0392737872`. O entrypoint oficial de staging
+foi auditado: ele exige config multi-source, nome de source, modo
+`apply-staging` e confirmação explícita; o staging guard valida ambiente,
+project ref, URL Supabase e destino PostgreSQL antes de escrever.
+
+Foi preparado o workflow manual `staging-sync-dispatch`, sem `schedule:`. Ele
+instala o projeto, cria configuração efêmera a partir de GitHub Environment
+secrets, valida o guard e chama exclusivamente o entrypoint existente. A
+concorrência não cancela execução em andamento. Não houve workflow remoto,
+sync, dry-run, chamada Google/Supabase, Cron, token, migration, DDL ou acesso a
+production.
+
+O domínio já possui `due_sources`, mas a seleção é parcial: o staging CLI não
+carrega estado operacional atualizado de `last_sync_at` nem consulta agenda no
+banco. O futuro Cron global depende de dispatcher Python central; quantidade de
+fontes e capacidade permanecem decisão pendente do Eric.
