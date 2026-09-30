@@ -683,11 +683,12 @@ class PostgresRawRepository:
 
     @staticmethod
     def find_source_sql(*, lock: bool = True) -> str:
-        return (
+        statement = (
             "SELECT id, name, spreadsheet_id, sheet_name, target_table, business_key, lifecycle_status, enabled "
             "FROM public.data_sources WHERE name = %s OR target_table = %s "
             "OR (spreadsheet_id = %s AND sheet_name = %s)"
-        ) + (" FOR SHARE" if lock else "")
+        )
+        return f"{statement} FOR SHARE" if lock else statement
 
     @staticmethod
     def read_only_transaction_sql() -> str:

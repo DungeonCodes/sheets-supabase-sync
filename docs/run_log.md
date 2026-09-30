@@ -844,3 +844,19 @@ relações públicas e o histórico remoto manteve 4 migrations aplicadas. Não
 houve DDL, DML, terceira sync, acesso a production, push ou release. O README
 recebeu somente o fluxo operacional assistido de staging e o estado atual da
 v0.1. Classificação: `v0_1_ready_for_delivery`.
+
+## 2026-09-24 — correção do preview PostgreSQL read-only
+
+O lookup de `data_sources` passou a aceitar explicitamente consulta sem lock nos
+fluxos PostgreSQL `READ ONLY` de preview e reconciliação. O caminho de escrita
+continua usando `FOR SHARE`. Os testes direcionados executaram 93 casos: 86
+aprovados, 7 integrações locais puladas por ausência de `LOCAL_DATABASE_URL` e
+zero falhas.
+
+O preview real de `forms_demo` leu 3 linhas e calculou 3 inserts, zero updates,
+zero tombstones e zero restores contra zero linhas atuais. Leituras remotas
+agregadas, ambas em transações `READ ONLY`, confirmaram antes e depois zero
+`sync_runs`, zero `raw_import_rows` e zero `raw_current_rows` para a fonte. Não
+houve migration, DDL, acesso a production nem sync real. Classificação:
+`forms_demo_preview_validated`. O próximo gate é a primeira sync real de
+`forms_demo`, sujeita a autorização separada.
