@@ -261,6 +261,8 @@ class PostgresReconciliationTests(unittest.TestCase):
         self.assertNotIn("FOR SHARE", " ".join(statements))
         self.assertNotIn("FOR UPDATE", " ".join(statements))
         self.assertTrue(all(statement.startswith(("SELECT", "SET TRANSACTION READ ONLY")) for statement in statements))
+        self.assertGreaterEqual(connection.rollback_calls, 1)
+        self.assertTrue(connection.closed)
 
     def test_postgres_write_source_lookup_keeps_share_lock(self) -> None:
         connection = ScriptedConnection(fetchall_results=([self.source_row],))

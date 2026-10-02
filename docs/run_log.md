@@ -818,6 +818,57 @@ aceitação e revisão. Também foi atualizado o resumo `docs/decisions.md`.
 Nenhuma implementação, migration, integração externa, secret ou deploy foi
 executado.
 
+## 2026-09-30 — reconciliação da idempotência forms_demo e audit v0.1
+
+Precheck: branch `dev`, HEAD `663ccee2b06c4882e18ff783cebe8492acdd305f`,
+worktree limpo antes deste registro; projeto linked igual ao permitido,
+`APP_ENV=staging`, production=false e staging guard aprovado. A nova leitura
+Google read-only retornou 3 linhas, 4 colunas, zero retries e passou pelo
+validador da fixture fictícia. Uma segunda leitura confirmou que o snapshot
+corresponde semanticamente ao estado raw e ao hash da última run.
+
+O baseline remoto revelou que a segunda sync já havia sido executada em
+2026-09-24, antes deste gate. As duas runs de `forms_demo` estão `applied` e têm
+o mesmo hash de snapshot. A primeira registrou 3 inserts/3 eventos; a segunda
+registrou 3 unchanged, zero inserts/updates/tombstones/restores e zero eventos.
+O current tem 3 linhas ativas, todas na versão 1. Assim, a segunda sync existente
+comprova deltas zero em current e nos quatro tipos de evento, com `sync_runs` +1.
+Nenhuma terceira sync foi executada. Classificação do E2E operacional:
+`forms_demo_e2e_idempotency_validated`.
+
+No audit mínimo da v0.1, o entrypoint `staging_cli --mode dry-run` falhou com
+categoria `database`. A causa foi reproduzida sem escrita: `SELECT ... FOR SHARE`
+na transação `READ ONLY` retorna SQLSTATE 25006. O README ainda não fornece o
+comando de staging, e apresenta estado/testes/limitações anteriores aos gates
+atuais. Esses são bloqueadores da entrega operacional até correção e validação
+direcionada. `pip check`, imports do entrypoint e `--help` passaram. Configuração
+local e credenciais não estão versionadas. Não houve migration, SQL de escrita,
+mudança Google, alteração de source, sync adicional, release ou push.
+Classificação da entrega: `v0_1_blocked`.
+
+## 2026-09-30 — desbloqueio do dry-run e documentação operacional v0.1
+
+O precheck permaneceu em `dev`, HEAD `663ccee2b06c4882e18ff783cebe8492acdd305f`.
+O histórico local, reflog e objetos Git não continham a correção específica do
+lookup sem lock. Foi reaplicada uma alteração mínima: preview e reconciliação
+mantêm `READ ONLY` e consultam a source sem `FOR SHARE`; escrita conserva o
+`FOR SHARE` padrão. Testes direcionados de raw sync, falhas operacionais,
+staging e repositório PostgreSQL: 68 executados, 61 aprovados, 7 pulados por
+dependerem de PostgreSQL local, zero falhas.
+
+O primeiro dry-run após o ajuste de código retornou `source_mismatch`: somente
+`target_table` no arquivo local ignorado diferia da source existente. A
+configuração local foi alinhada ao identificador já registrado, sem alterar a
+source remota. O dry-run real seguinte retornou `snapshot_rows=3`, 3 unchanged,
+zero inserts/updates/tombstones/restores e `persisted_rows=0`.
+
+Antes e depois, `raw_current_rows=3`, `sync_runs=2` e `raw_import_rows=3`.
+O fingerprint técnico de current permaneceu igual; o catálogo manteve 34
+relações públicas e o histórico remoto manteve 4 migrations aplicadas. Não
+houve DDL, DML, terceira sync, acesso a production, push ou release. O README
+recebeu somente o fluxo operacional assistido de staging e o estado atual da
+v0.1. Classificação: `v0_1_ready_for_delivery`.
+
 ## 2026-09-24 — correção do preview PostgreSQL read-only
 
 O lookup de `data_sources` passou a aceitar explicitamente consulta sem lock nos
@@ -833,3 +884,23 @@ agregadas, ambas em transações `READ ONLY`, confirmaram antes e depois zero
 houve migration, DDL, acesso a production nem sync real. Classificação:
 `forms_demo_preview_validated`. O próximo gate é a primeira sync real de
 `forms_demo`, sujeita a autorização separada.
+
+## 2026-09-30 — preparação do disparador manual GitHub Actions
+
+O precheck da v0.2 iniciou em `dev`, com worktree limpo e HEAD
+`ff044df5cdbf46366f14b84246577c0392737872`. O entrypoint oficial de staging
+foi auditado: ele exige config multi-source, nome de source, modo
+`apply-staging` e confirmação explícita; o staging guard valida ambiente,
+project ref, URL Supabase e destino PostgreSQL antes de escrever.
+
+Foi preparado o workflow manual `staging-sync-dispatch`, sem `schedule:`. Ele
+instala o projeto, cria configuração efêmera a partir de GitHub Environment
+secrets, valida o guard e chama exclusivamente o entrypoint existente. A
+concorrência não cancela execução em andamento. Não houve workflow remoto,
+sync, dry-run, chamada Google/Supabase, Cron, token, migration, DDL ou acesso a
+production.
+
+O domínio já possui `due_sources`, mas a seleção é parcial: o staging CLI não
+carrega estado operacional atualizado de `last_sync_at` nem consulta agenda no
+banco. O futuro Cron global depende de dispatcher Python central; quantidade de
+fontes e capacidade permanecem decisão pendente do Eric.
