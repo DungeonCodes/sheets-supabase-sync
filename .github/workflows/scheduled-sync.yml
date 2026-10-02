@@ -1,0 +1,37 @@
+name: staging-dispatch
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: staging-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    env:
+      APP_ENV: ${{ secrets.APP_ENV }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_ALLOWED_PROJECT_REF: ${{ secrets.SUPABASE_ALLOWED_PROJECT_REF }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      GOOGLE_SERVICE_ACCOUNT_FILE: .runtime-google-credential.json
+      STAGING_CONFIG_PATH: runtime/staging.config.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e .
+      - name: Prepare runtime-only configuration
+        shell: bash
+        run: |
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$GOOGLE_SERVICE_ACCOUNT_FILE"
+          printf '%s\n' APP_ENV= SUPABASE_PROJECT_REF= SUPABASE_ALLOWED_PROJECT_REF= SUPABASE_URL= SUPABASE_DB_URL= SUPABASE_SECRET_KEY= GOOGLE_SERVICE_ACCOUNT_FILE= > .env.local
+      - name: Dispatch due staging sources
+        run: python -m sheets_supabase_sync.batch_cli --config "$STAGING_CONFIG_PATH" --confirm-staging

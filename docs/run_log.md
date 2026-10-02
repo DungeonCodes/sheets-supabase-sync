@@ -1,5 +1,29 @@
 # Registro de Execução
 
+## 2026-10-02 — dispatcher central de staging v0.2
+
+Foi implementado o entrypoint `python -m sheets_supabase_sync.batch_cli`. Ele
+consulta `data_sources` em transação `READ ONLY`, deriva a última sync válida
+de `sync_runs` aplicadas e finalizadas e executa somente fontes vencidas pelo
+core staging existente. Fontes inativas, não vencidas, divergentes, busy e com
+falha possuem resultado agregado sanitizado; uma falha não interrompe as
+demais. `--dry-select` não acessa Google e não cria run ou linha raw.
+
+Não foi criada nem alterada migration, DDL ou Cron. A migration 5 permaneceu
+intocada. O workflow manual `scheduled-sync.yml` foi preparado para chamar o
+dispatcher com concorrência serializada e timeout de 20 minutos, sem
+`schedule`.
+
+Os 47 testes direcionados passaram, assim como `compileall` e `git diff
+--check`. O gate real executou apenas `--dry-select` contra staging usando a
+fixture configurada: `sources_total=1`, `sources_due=1`, `sources_skipped=0`.
+As contagens read-only antes/depois foram `sync_runs=8`, `raw_import_rows=11`
+e `raw_current_rows=8`; todos os deltas foram zero. Não houve acesso a
+production, Google, aplicação de batch, token GitHub ou segredo versionado.
+
+Classificação: `automation_dispatcher_ready`. Próximo gate único: executar
+uma vez manualmente o GitHub Actions no staging; não ativar Supabase Cron.
+
 ## Formato
 
 Data:
