@@ -1,5 +1,63 @@
 # Registro de Execução
 
+## 2026-10-18 — retomada autorizada do staging e conectividade recuperada
+
+Após aprovação explícita para reativar exclusivamente staging, a autenticação
+existente da CLI foi utilizada com a Management API oficial. A identidade do
+projeto foi reconfirmada contra o staging guard e a organização correspondente;
+o estado era `INACTIVE` e o plano da organização foi confirmado como `free`.
+Uma única chamada ao endpoint de retomada retornou HTTP 200. Consultas limitadas
+acompanharam `COMING_UP`, `RESTORING` e finalmente `ACTIVE_HEALTHY`. Não houve
+contratação, upgrade, criação de projeto ou alteração de credenciais.
+
+O Session Pooler existente na porta 5432 voltou a aceitar a conexão PostgreSQL.
+`SELECT 1` passou em transação `READ ONLY`, com `ssl_in_use=true`. O comando
+oficial `python -m sheets_supabase_sync.batch_cli --config
+runtime/forms_demo.config.json --dry-select` passou com uma fonte de demonstração
+autorizada, identificada somente pelo alias sanitizado `demo-668bb049b1cf`:
+`sources_total=1`, `sources_due=1`, `sources_skipped=0`, `sources_failed=0`,
+`sources_executed=0` e `sources_busy_deferred=0`. Não houve chamada Google.
+
+Baseline agregado em `2026-10-18T14:23:30.642291+00:00`: `sync_runs=8`,
+`raw_import_rows=11` e `raw_current_rows=8`; zero runs planejadas ou em execução.
+No escopo da demonstração: duas runs `applied`, três eventos `insert` e três
+estados atuais. A última run da demonstração terminou em
+`2026-09-24T10:43:23.402329+00:00`, com status `applied`. Os contadores globais
+e da demonstração permaneceram iguais antes e depois do dry-select, deltas zero.
+
+O diagnóstico TLS separado reproduziu falha de verificação da cadeia no cliente
+Python, código 19 (`self-signed certificate in chain`). A configuração existente
+usa `sslmode=prefer` implícito e a conexão PostgreSQL utilizou SSL; esse sucesso
+não comprova verificação de identidade do servidor. Nenhuma política SSL,
+connection string, secret, firewall ou código foi alterado.
+
+Classificação: `staging_postgres_read_connectivity_recovered`. O próximo
+checkpoint é aprovação de uma única execução manual do workflow na ref `dev`,
+com baseline atualizado imediatamente antes do disparo e reconciliação posterior.
+`automation_remote_runner_validated` permanece pendente. Não houve dispatch,
+sincronização real, migration, Cron, acesso a produção, commit ou push.
+
+## 2026-10-18 — preflight do runner remoto bloqueado por conectividade
+
+Em `dev`, HEAD `edf47375218f978a67ae3d50dde6c32ce3732fc9`, o fetch confirmou
+alinhamento 0/0 com `origin/dev`. O workflow `staging-dispatch` está ativo,
+sem execuções registradas, e as sete secrets esperadas estão presentes no
+Environment `staging`, restrito somente à branch `dev`, sem tags.
+
+O staging guard local passou, assim como a validação estrutural da configuração
+com uma única fonte de demonstração autorizada e do leitor Google read-only.
+A tentativa de baseline usou conexão com `default_transaction_read_only=on`,
+timeout limitado e queries agregadas; falhou na conexão antes de obter baseline.
+O diagnóstico sanitizado confirmou DNS IPv4 e `ConnectionTimeout`, sem SQLSTATE.
+Não foi possível determinar a causa de infraestrutura apenas por essa evidência.
+
+O dry-select não foi executado. Não houve acesso Google, escrita no banco,
+dispatch, migration, alteração de secrets ou ativação de recorrência.
+Classificação: `automation_remote_runner_validation_blocked_connectivity`.
+Próximo passo: recuperar conectividade PostgreSQL staging, repetir baseline e
+dry-select read-only e somente então solicitar aprovação para uma execução remota.
+O gate `automation_remote_runner_validated` permanece não atingido.
+
 ## 2026-10-02 — dispatcher central de staging v0.2
 
 Foi implementado o entrypoint `python -m sheets_supabase_sync.batch_cli`. Ele
