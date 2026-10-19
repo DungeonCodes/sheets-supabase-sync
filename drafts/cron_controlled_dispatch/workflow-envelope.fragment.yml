@@ -1,0 +1,30 @@
+# DRAFT FRAGMENT: integrate into main/dev only after review. Not a workflow file.
+# The existing Python command, secrets and environment must remain unchanged.
+run-name: staging-dispatch ${{ inputs.dispatch_id || github.run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      dispatch_id:
+        description: Nonsecret authorization UUID for a controlled Cron dispatch
+        required: false
+        type: string
+      expected_sha:
+        description: Approved commit for a controlled Cron dispatch
+        required: false
+        type: string
+# Insert as the first job step, before checkout/setup/materializing secrets:
+steps:
+  - name: Validate dispatch envelope
+    env:
+      DISPATCH_ID: ${{ inputs.dispatch_id }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    shell: bash
+    run: |
+      set -euo pipefail
+      test "$GITHUB_REF" = refs/heads/dev
+      test "$GITHUB_RUN_ATTEMPT" = 1
+      if test -n "$DISPATCH_ID$EXPECTED_SHA"; then
+        [[ "$DISPATCH_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+        [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+        test "$GITHUB_SHA" = "$EXPECTED_SHA"
+      fi

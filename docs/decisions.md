@@ -1,5 +1,20 @@
 # Decisoes
 
+## 2026-10-19 — probe sintético e leitura administrativa Supabase
+
+Autorização humana restrita aceitou leitores internos privilegiados apenas
+para estados sintéticos do probe. Prova real transacional GREEN, desativada,
+sem deltas operacionais. Não aprova isolamento de secrets, Edge ou Cron.
+Evidências e limites na [ADR](decisions/20261019_cron_single_controlled_dispatch_design.md).
+
+## 2026-10-19 — revisão de preparação Cron staging
+
+Manter integração Cron/pg_net/Edge bloqueada: ACL pg_net não é isolamento
+suportado no Supabase hospedado, bearer reutilizável e service_role amplo
+precisam correção. Preparar somente probe transacional isolado, sem extensões
+ou HTTP, para aprovação humana. Detalhes e histórico na
+[ADR](decisions/20261019_cron_single_controlled_dispatch_design.md).
+
 ## Formato
 
 Data:

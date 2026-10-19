@@ -1,0 +1,697 @@
+{
+  "gate": "CRON_STAGING_TRANSACTIONAL_PROBE_RESUME",
+  "status": "GREEN",
+  "baseline_before": {
+    "sync_runs": 9,
+    "raw_import_rows": 11,
+    "raw_current_rows": 8
+  },
+  "backend_pids": [
+    109087,
+    109098,
+    109099
+  ],
+  "roles": [
+    [
+      "anon",
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    [
+      "authenticated",
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    [
+      "authenticator",
+      true,
+      false,
+      false,
+      false,
+      false
+    ],
+    [
+      "cli_login_postgres",
+      true,
+      false,
+      false,
+      false,
+      false
+    ],
+    [
+      "pgbouncer",
+      true,
+      false,
+      false,
+      false,
+      false
+    ],
+    [
+      "postgres",
+      true,
+      false,
+      true,
+      true,
+      true
+    ],
+    [
+      "service_role",
+      false,
+      false,
+      true,
+      false,
+      false
+    ],
+    [
+      "supabase_admin",
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    [
+      "supabase_auth_admin",
+      true,
+      false,
+      false,
+      false,
+      false
+    ],
+    [
+      "supabase_etl_admin",
+      true,
+      false,
+      true,
+      true,
+      false
+    ],
+    [
+      "supabase_read_only_user",
+      true,
+      false,
+      true,
+      true,
+      false
+    ],
+    [
+      "supabase_replication_admin",
+      true,
+      false,
+      false,
+      false,
+      false
+    ],
+    [
+      "supabase_storage_admin",
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  ],
+  "extensions_before": [
+    [
+      "pg_stat_statements",
+      "1.11"
+    ],
+    [
+      "pgcrypto",
+      "1.3"
+    ],
+    [
+      "plpgsql",
+      "1.0"
+    ],
+    [
+      "supabase_vault",
+      "0.3.1"
+    ],
+    [
+      "uuid-ossp",
+      "1.1"
+    ]
+  ],
+  "transactional_tests_passed": true,
+  "disabled": true,
+  "baseline_after": {
+    "sync_runs": 9,
+    "raw_import_rows": 11,
+    "raw_current_rows": 8
+  },
+  "operational_delta": {
+    "sync_runs": 0,
+    "raw_import_rows": 0,
+    "raw_current_rows": 0
+  },
+  "extensions_unchanged": true,
+  "records": [
+    {
+      "time_utc": "2026-10-19T14:14:04.693610+00:00",
+      "step": "preflight",
+      "result": {
+        "guard": "PASS",
+        "backends": [
+          109087,
+          109098,
+          109099
+        ],
+        "baseline": {
+          "sync_runs": 9,
+          "raw_import_rows": 11,
+          "raw_current_rows": 8
+        },
+        "roles": [
+          [
+            "anon",
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          [
+            "authenticated",
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          [
+            "authenticator",
+            true,
+            false,
+            false,
+            false,
+            false
+          ],
+          [
+            "cli_login_postgres",
+            true,
+            false,
+            false,
+            false,
+            false
+          ],
+          [
+            "pgbouncer",
+            true,
+            false,
+            false,
+            false,
+            false
+          ],
+          [
+            "postgres",
+            true,
+            false,
+            true,
+            true,
+            true
+          ],
+          [
+            "service_role",
+            false,
+            false,
+            true,
+            false,
+            false
+          ],
+          [
+            "supabase_admin",
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          [
+            "supabase_auth_admin",
+            true,
+            false,
+            false,
+            false,
+            false
+          ],
+          [
+            "supabase_etl_admin",
+            true,
+            false,
+            true,
+            true,
+            false
+          ],
+          [
+            "supabase_read_only_user",
+            true,
+            false,
+            true,
+            true,
+            false
+          ],
+          [
+            "supabase_replication_admin",
+            true,
+            false,
+            false,
+            false,
+            false
+          ],
+          [
+            "supabase_storage_admin",
+            true,
+            false,
+            false,
+            false,
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "time_utc": "2026-10-19T14:14:04.993635+00:00",
+      "step": "setup",
+      "result": {
+        "schema": "cron_tx_probe",
+        "tables": 2,
+        "functions_invoker": 2,
+        "triggers": 1
+      }
+    },
+    {
+      "time_utc": "2026-10-19T14:14:05.120941+00:00",
+      "step": "initial_state",
+      "result": [
+        {
+          "case_name": "expired",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "race",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "rollback",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        }
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:05.121023+00:00",
+      "step": "effective_acl",
+      "result": [
+        {
+          "rolname": "anon",
+          "rolcanlogin": false,
+          "rolsuper": false,
+          "rolbypassrls": false,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "authenticated",
+          "rolcanlogin": false,
+          "rolsuper": false,
+          "rolbypassrls": false,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "authenticator",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": false,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "cli_login_postgres",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": false,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "pgbouncer",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": false,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "postgres",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": true,
+          "schema_usage": true,
+          "permit_read": true,
+          "permit_update": true,
+          "claim_execute": true
+        },
+        {
+          "rolname": "service_role",
+          "rolcanlogin": false,
+          "rolsuper": false,
+          "rolbypassrls": true,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "supabase_admin",
+          "rolcanlogin": true,
+          "rolsuper": true,
+          "rolbypassrls": true,
+          "schema_usage": true,
+          "permit_read": true,
+          "permit_update": true,
+          "claim_execute": true
+        },
+        {
+          "rolname": "supabase_auth_admin",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": false,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "supabase_etl_admin",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": true,
+          "schema_usage": true,
+          "permit_read": true,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "supabase_read_only_user",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": true,
+          "schema_usage": true,
+          "permit_read": true,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "supabase_replication_admin",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": false,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        },
+        {
+          "rolname": "supabase_storage_admin",
+          "rolcanlogin": true,
+          "rolsuper": false,
+          "rolbypassrls": false,
+          "schema_usage": false,
+          "permit_read": false,
+          "permit_update": false,
+          "claim_execute": false
+        }
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:06.118034+00:00",
+      "step": "ownership_and_function_security",
+      "result": {
+        "tables": [
+          [
+            "control",
+            "postgres"
+          ],
+          [
+            "permits",
+            "postgres"
+          ]
+        ],
+        "functions": [
+          [
+            "claim",
+            "postgres",
+            false,
+            [
+              "search_path=pg_catalog"
+            ],
+            false
+          ],
+          [
+            "no_rearm",
+            "postgres",
+            false,
+            [
+              "search_path=pg_catalog"
+            ],
+            false
+          ]
+        ],
+        "public_execute": false
+      }
+    },
+    {
+      "time_utc": "2026-10-19T14:14:06.620740+00:00",
+      "step": "uncommitted_claim_invisible",
+      "result": [
+        {
+          "case_name": "expired",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "race",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "rollback",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        }
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:06.746854+00:00",
+      "step": "failure_before_confirmation",
+      "result": {
+        "sqlstate": "22012",
+        "expected": true
+      }
+    },
+    {
+      "time_utc": "2026-10-19T14:14:06.997260+00:00",
+      "step": "rollback_not_persisted",
+      "result": [
+        {
+          "case_name": "expired",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "race",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "rollback",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        }
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:07.500072+00:00",
+      "step": "independent_commit_visible",
+      "result": [
+        {
+          "case_name": "expired",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "race",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "rollback",
+          "claim_count": 1,
+          "claimed_by_other_backend": true
+        }
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:07.875384+00:00",
+      "step": "replay_after_committed_claim",
+      "result": false
+    },
+    {
+      "time_utc": "2026-10-19T14:14:08.622070+00:00",
+      "step": "concurrency_lock",
+      "result": {
+        "b_waits_for_a": true,
+        "a_pid": 109087,
+        "b_pid": 109098
+      }
+    },
+    {
+      "time_utc": "2026-10-19T14:14:08.747863+00:00",
+      "step": "race_uncommitted_invisible",
+      "result": [
+        {
+          "case_name": "expired",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "race",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "rollback",
+          "claim_count": 1,
+          "claimed_by_other_backend": true
+        }
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:08.998929+00:00",
+      "step": "concurrency_result",
+      "result": {
+        "a_won": true,
+        "b_won": false
+      }
+    },
+    {
+      "time_utc": "2026-10-19T14:14:09.124939+00:00",
+      "step": "race_committed_visible",
+      "result": [
+        {
+          "case_name": "expired",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "race",
+          "claim_count": 1,
+          "claimed_by_other_backend": true
+        },
+        {
+          "case_name": "rollback",
+          "claim_count": 1,
+          "claimed_by_other_backend": true
+        }
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:09.875609+00:00",
+      "step": "replay_expired_unknown",
+      "result": {
+        "race": false,
+        "expired": false,
+        "unknown": false
+      }
+    },
+    {
+      "time_utc": "2026-10-19T14:14:10.002521+00:00",
+      "step": "final_verification",
+      "result": [
+        [
+          {
+            "exactly_three_cases": true,
+            "two_consumed": true,
+            "expired_unused": true,
+            "bounded_claims": true
+          }
+        ],
+        [
+          {
+            "no_definer_functions": true
+          }
+        ]
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:10.999421+00:00",
+      "step": "disabled_and_claim_refused",
+      "result": [
+        [
+          {
+            "disabled": true
+          }
+        ]
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:11.125463+00:00",
+      "step": "disabled_final_state",
+      "result": [
+        {
+          "case_name": "expired",
+          "claim_count": 0,
+          "claimed_by_other_backend": false
+        },
+        {
+          "case_name": "race",
+          "claim_count": 1,
+          "claimed_by_other_backend": true
+        },
+        {
+          "case_name": "rollback",
+          "claim_count": 1,
+          "claimed_by_other_backend": true
+        }
+      ]
+    },
+    {
+      "time_utc": "2026-10-19T14:14:11.867877+00:00",
+      "step": "reconciliation",
+      "result": {
+        "after": {
+          "sync_runs": 9,
+          "raw_import_rows": 11,
+          "raw_current_rows": 8
+        },
+        "delta": {
+          "sync_runs": 0,
+          "raw_import_rows": 0,
+          "raw_current_rows": 0
+        },
+        "extensions_unchanged": true
+      }
+    }
+  ],
+  "closed_at_utc": "2026-10-19T14:14:11.868622+00:00"
+}
