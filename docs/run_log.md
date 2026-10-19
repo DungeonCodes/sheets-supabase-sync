@@ -1,5 +1,13 @@
 # Registro de Execução
 
+## 2026-10-19 — resolução da sincronização Git
+
+A branch dev foi atualizada por fast-forward para origin/dev (14b6672).
+Os registros remotos de 18/10 e o registro local de 16/10 foram preservados
+no mesmo arquivo, em ordem cronológica decrescente. Não houve commit, push,
+pull, rebase ou alteração de código. Validação documental: diff sem erros
+de whitespace, ausência de conflitos no índice e preservação das entradas.
+
 ## 2026-10-18 — retomada autorizada do staging e conectividade recuperada
 
 Após aprovação explícita para reativar exclusivamente staging, a autenticação
@@ -57,6 +65,36 @@ Classificação: `automation_remote_runner_validation_blocked_connectivity`.
 Próximo passo: recuperar conectividade PostgreSQL staging, repetir baseline e
 dry-select read-only e somente então solicitar aprovação para uma execução remota.
 O gate `automation_remote_runner_validated` permanece não atingido.
+
+## 2026-10-16 — preflight do GitHub Actions remoto bloqueado
+
+A raiz foi descoberta por `git rev-parse --show-toplevel`. O preflight confirmou
+branch `dev`, worktree limpo e HEAD `edf4737`; após `git fetch origin`,
+`origin/dev...dev` retornou `0/0`. Os documentos e entrypoints do gate foram
+inspecionados, sem reabrir gates anteriores.
+
+O workflow `scheduled-sync.yml` contém somente `workflow_dispatch`, runner
+`ubuntu-latest`, environment `staging`, concorrência por ref com
+`cancel-in-progress: false` e timeout de 20 minutos. Prepara Python 3.13,
+instala o projeto e chama `python -m sheets_supabase_sync.batch_cli`; o YAML
+limita-se à preparação operacional, sem lógica de seleção/sincronização.
+Não foram identificados valores de secrets hardcoded. O workflow exige
+`APP_ENV=staging` e executa o guard antes do dispatcher; o guard vincula
+ambiente, project ref permitido e destinos Supabase/PostgreSQL. Os valores
+remotos efetivos não puderam ser confirmados.
+
+GitHub CLI 2.102.0 está disponível, mas `gh auth status` informou ausência de
+autenticação. `gh workflow list` e `gh secret list` falharam por esse motivo;
+a existência dos sete nomes esperados permanece não verificada, sem afirmar
+que estejam ausentes.
+
+Resultado: gate YELLOW, bloqueio de autenticação GitHub no preflight.
+`automation_remote_runner_validated` não pode ser atribuída. Nenhum baseline,
+disparo remoto, acesso Google/Supabase, migration, alteração de secrets,
+recorrência, Cron, commit ou push foi executado. Nenhum segredo foi exibido.
+Próximo passo: autenticação humana do GitHub CLI e retomada deste mesmo gate,
+incluindo verificação das secrets, destino staging, baseline e uma única
+execução manual, seguidos de reconciliação e revisão humana.
 
 ## 2026-10-02 — dispatcher central de staging v0.2
 
