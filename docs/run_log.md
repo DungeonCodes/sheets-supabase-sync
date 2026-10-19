@@ -1,5 +1,200 @@
 # Registro de Execução
 
+## 2026-10-19 — AUTOMATION_REMOTE_RUNNER_EXECUTION (GREEN)
+
+Classificação: automation_remote_runner_validated. O usuário autorizou
+explicitamente UMA execução manual staging neste gate. Segurança permanece
+MITIGATED: os dois tokens Legacy foram revogados pelo usuário; nenhum PAT
+revogado foi utilizado, nenhum token foi criado e nenhuma chamada à Management
+API Supabase foi feita. Sem evidência de exposição das sete GitHub Secrets.
+
+Revalidação imediata: repositório DungeonCodes/sheets-supabase-sync, branch dev,
+HEAD local e remoto 1e0d21831bfba3f6b98b1d7598272988ef372cac. Workflow
+staging-dispatch ativo, exclusivamente manual e idêntico ao arquivo local.
+Environment staging com uma única política de branch dev, sem política de tags.
+Os sete nomes de secrets foram conferidos, sem acesso a valores. Zero runs
+anteriores desse workflow e nenhuma execução concorrente do repositório nos
+estados consultados. A fonte de demonstração única, habilitada e ativa,
+correspondeu integralmente à configuração operacional. Staging guard aprovado.
+Dry-selection oficial: sources_total=1, sources_due=1, sources_failed=0,
+sources_executed=0, sources_busy_deferred=0; nenhuma chamada Google local.
+
+Baseline imediato em 2026-10-19T11:48:00.477637+00:00, via PostgreSQL staging
+já autorizado: SELECT 1 passou, transação READ ONLY, TLS cliente ativo e zero
+runs planned/running. Totais: sync_runs=8, raw_import_rows=11,
+raw_current_rows=8. No escopo demo: duas runs, três eventos insert, três estados
+atuais e zero tombstones; demais tipos de eventos zero.
+
+Comando executado exatamente uma vez, sem retry:
+gh workflow run scheduled-sync.yml --repo DungeonCodes/sheets-supabase-sync --ref dev
+
+GitHub run_id=39247320871, run_attempt=1, event=workflow_dispatch, headBranch=dev,
+headSha=1e0d21831bfba3f6b98b1d7598272988ef372cac, conclusion=success.
+URL: https://github.com/DungeonCodes/sheets-supabase-sync/actions/runs/39247320871
+Job dispatch=118042313121, GitHub-hosted runner (grupo GitHub Actions,
+ubuntu-latest); deployment=7172925346, environment=staging, ref=dev e SHA
+aprovado, confirmado pelas statuses de deployment vinculadas ao mesmo job.
+
+Evidências do runner: checkout dev e SHA aprovado; Python 3.13.16 efetivo;
+instalação do projeto/dependências concluída; materialização temporária,
+staging guard, batch_cli/dispatcher e remoção de arquivos temporários passaram.
+Os logs foram processados em memória, com saída restrita a campos permitidos,
+sem imprimir ou persistir logs brutos nesta análise. O mascaramento do GitHub
+substituiu também delimitadores JSON; contadores e status foram extraídos por
+campos estritos e reconciliados independentemente no banco.
+
+Resumo do dispatcher: sources_total=1, sources_due=1, sources_executed=1,
+sources_failed=0, sources_busy_deferred=0, sources_no_changes=1,
+sources_skipped=0; único status individual: demo autorizada -> no_changes.
+
+Reconciliação em 2026-10-19T11:50:31.624321+00:00, somente PostgreSQL staging,
+transação READ ONLY: sync_runs=9, raw_import_rows=11, raw_current_rows=8.
+Deltas globais: +1, 0, 0. Exatamente uma nova run da demo, status applied,
+iniciada e concluída em 2026-10-19T11:48:49.361510+00:00, com inserts=0,
+updates=0, tombstones=0, restores=0 e unchanged=3. Nenhuma run nova de outra
+fonte; zero planned/running. Estado da fonte: enabled=true,
+lifecycle_status=active, consecutive_failures=0.
+
+Totais da demo após execução: três runs, três eventos insert, três estados
+atuais e zero tombstones. Deltas de eventos insert/update/tombstone/restore=0;
+fingerprint agregado do estado (chaves/conteúdos já em hash, versões e flags
+de exclusão) idêntico antes/depois. Efeitos compatíveis com no_changes: nova
+run auditável, sem eventos raw nem alteração de estado. Nenhuma divergência
+inesperada. Consulta final GitHub confirmou exatamente uma run, attempt=1.
+
+Limites residuais já documentados: revogação não comprova ausência de uso
+indevido passado; TLS ativo não comprova verificação de identidade do servidor.
+Nenhuma política SSL/TLS foi alterada. Nenhuma produção acessada, recorrência
+habilitada, migration aplicada, secret alterada, benchmark iniciado, código
+Python modificado, commit ou push realizado. A única alteração local foi
+adicionar este registro a docs/run_log.md, preservando entradas anteriores.
+
+Próximo gate: SUPABASE_CRON_SINGLE_CONTROLLED_DISPATCH, NÃO iniciado.
+Risco de prazo: LOW, sem bloqueio técnico observado para concluir este gate.
+A autorização deste gate foi consumida; nova execução exige nova autorização.
+
+## 2026-10-19 — revalidação do REMOTE_RUNNER_FINAL_PREFLIGHT (GREEN)
+
+PRE_DISPATCH_SECURITY_TRIAGE: MITIGATED. O usuário confirmou a revogação manual
+dos dois tokens Legacy no Dashboard. Não houve nova investigação dos tokens,
+criação de PAT, autenticação Supabase ou uso da Management API. Não há evidência
+de exposição das sete GitHub Secrets. Risco residual: a revogação não demonstra
+ausência de uso indevido anterior nem elimina cópias históricas; não houve
+rotação das credenciais sem relação demonstrada com o incidente.
+
+Repositório descoberto por git rev-parse: branch dev, HEAD 1e0d218. Após fetch,
+origin/dev...HEAD = 0/0, também confirmado pela referência remota. A alteração
+local pendente era somente docs/run_log.md, incluindo registro anterior de
+preflight; todas as entradas existentes foram preservadas nesta revalidação.
+
+GitHub: staging-dispatch ativo (scheduled-sync.yml), sem execuções registradas.
+Workflow disponível em main e dev, com conteúdo idêntico ao arquivo local.
+Environment staging usa custom_branch_policies e possui uma única regra:
+branch dev, sem política de tags. Conferida somente a presença dos sete nomes:
+APP_ENV, SUPABASE_PROJECT_REF, SUPABASE_ALLOWED_PROJECT_REF, SUPABASE_URL,
+SUPABASE_DB_URL, GOOGLE_SERVICE_ACCOUNT_JSON e STAGING_SYNC_CONFIG_JSON.
+Os valores das secrets não foram acessados.
+
+Staging guard aprovado para leitura e para a validação de escrita confirmada;
+a validação de escrita sem confirmação foi bloqueada, sem tentativa de escrita.
+A configuração local contém somente a fonte de demonstração já autorizada,
+habilitada e correspondente ao estado operacional. A configuração Google foi
+validada localmente, sem chamadas de rede Google. Não houve acesso a produção.
+
+Baseline anterior à seleção: 2026-10-19T11:17:47.075046+00:00. Baseline posterior:
+2026-10-19T11:17:50.928658+00:00. SELECT 1 passou em transação READ ONLY,
+transaction_read_only=on, conexão cliente com TLS ativo. Contadores globais:
+sync_runs=8, raw_import_rows=11, raw_current_rows=8; runs planned/running=0.
+No escopo da demonstração: uma fonte, duas runs, três eventos raw e três estados
+atuais. Deltas globais zero contra 18/10 e contra o preflight já registrado em
+19/10; deltas zero antes/depois do dry-select. Nenhuma divergência inesperada.
+
+Comando oficial executado: python -m sheets_supabase_sync.batch_cli --config
+runtime/forms_demo.config.json --dry-select, com READ ONLY e timeouts impostos
+às conexões por PGOPTIONS/PGCONNECT_TIMEOUT. Resultado: sources_total=1,
+sources_due=1, sources_failed=0, sources_executed=0, sources_skipped=0 e
+sources_busy_deferred=0. O primeiro diagnóstico auxiliar falhou apenas ao
+consultar o atributo de TLS do cliente; corrigido para conn.pgconn.ssl_in_use,
+sem mudança no código do projeto e sem alteração de SSL/TLS.
+
+Limites: presença de secrets não valida seus conteúdos; a configuração efetiva
+do runner e a conectividade Google remota permanecem para a execução aprovada.
+TLS ativo não comprova verificação da identidade do servidor; a pendência TLS
+anterior permanece documentada, sem alterações neste gate.
+
+Preflight GREEN, aguardando APROVAR 1 EXECUÇÃO MANUAL STAGING. Comando apenas
+preparado, NÃO executado:
+gh workflow run scheduled-sync.yml --repo DungeonCodes/sheets-supabase-sync --ref dev
+
+Nenhum workflow_dispatch, sincronização real, escrita no banco, alteração de
+secrets, migration, Cron, commit ou push. automation_remote_runner_validated
+permanece pendente até execução única aprovada e reconciliação posterior.
+
+## 2026-10-19 — preflight final do runner remoto (GREEN, aguardando aprovação)
+
+Gate REMOTE_RUNNER_FINAL_PREFLIGHT. Segurança: o usuário confirmou a revogação
+dos dois tokens Legacy; a triagem foi encerrada como MITIGATED com risco
+residual documentado. Nenhum token novo, nenhum uso de PAT, nenhuma chamada à
+Management API.
+
+Preflight: `dev` em `1e0d218`, igual a `origin/dev` pela API do GitHub, sem
+merge/rebase; única alteração local é este arquivo. O workflow `staging-dispatch`
+(`scheduled-sync.yml`) está ativo, somente `workflow_dispatch`, sem execuções, e
+o conteúdo remoto em `dev` é idêntico ao local. O Environment `staging` tem as sete
+secrets, permite só a branch `dev`, sem revisores obrigatórios e com bypass de
+administradores. O staging guard local passou com `APP_ENV=staging` e bloqueou
+escrita sem confirmação. A configuração local tem uma fonte habilitada
+(`forms_demo`); o conteúdo da secret `STAGING_SYNC_CONFIG_JSON` não é legível e
+será conferido pelo resumo da primeira execução.
+
+Baseline READ ONLY em `2026-10-19T11:14:45Z`: `SELECT 1` passou,
+`transaction_read_only=on`, TLS no cliente ativo. O dry-select oficial retornou
+`sources_total=1`, `sources_due=1`, `sources_failed=0`, `sources_executed=0`.
+Contadores: `sync_runs=8` (todas `applied`), `raw_import_rows=11`,
+`raw_current_rows=8`; iguais ao baseline de 18/10 e com deltas zero antes/depois
+do dry-select (`n_tup_ins/upd/del` zero nas tabelas do escopo). Investigado:
+`data_sources=2` porque `fixture_raw_staging` existe desde 13/08 (6 runs, última
+em 17/08), fora da configuração e portanto fora do dispatcher; não é mudança.
+O `ssl=false` de `pg_stat_ssl` mede o trecho pooler→Postgres, não o cliente.
+
+Nenhum dispatch, sincronização, escrita, alteração de secrets, migration, Cron,
+acesso a produção, commit ou push. Próxima aprovação: APROVAR 1 EXECUÇÃO MANUAL
+STAGING. Este registro não autoriza execução.
+
+## 2026-10-19 — preparação de rotação de tokens Supabase (YELLOW)
+
+Gate SUPABASE_TOKEN_ROTATION_PREPARATION: inventário de PATs da conta não
+acessível por canal autenticado seguro nesta sessão. A descoberta encontrou
+plugin Supabase não conectado, sem capacidade de inventário de PATs confirmada.
+Não foram utilizados tokens suspeitos nem reabertos históricos de credenciais.
+Nenhum nome, data, tipo ou escopo de token da conta foi confirmado.
+
+Os dois workflows versionados não referenciam SUPABASE_ACCESS_TOKEN nem
+comandos da CLI Supabase; o dispatcher referencia sete secrets operacionais.
+Não foi encontrada a variável de PAT nos ambientes de processo, usuário ou
+máquina, nem o arquivo de fallback padrão da CLI. Isso não exclui credencial
+no armazenamento nativo, perfis alternativos ou integrações externas.
+
+Intervenção necessária: consultar manualmente Account > Access Tokens no
+Dashboard e fornecer somente nomes, criação, expiração, Legacy/Scoped,
+escopos e dependências conhecidas. Não copiar valores nem criar novos tokens.
+Após o inventário, selecionar conservadoramente candidatos Legacy relacionados
+à CLI de 18/10 e sem necessidade operacional confirmada, avaliar interrupções
+e obter aprovação nominal antes de qualquer revogação. Tokens sem relação
+demonstrada e as sete GitHub Secrets devem ser preservados.
+
+Nenhum PAT novo é necessário para os workflows inspecionados. Se a CLI de
+gerenciamento continuar necessária após a revogação, propor separadamente PAT
+Scoped somente para staging, com permissões e validade mínimas. Evitar o fluxo
+de login da CLI pelo navegador, que cria token clássico. Referência oficial:
+https://supabase.com/docs/guides/platform/personal-access-tokens
+
+Resultado YELLOW: candidatos e dependências externas ainda não identificados.
+Nenhuma credencial criada, revogada, exibida ou testada; nenhum acesso a
+produção, dispatch, alteração de secrets, migration, Cron, commit ou push.
+Próxima aprovação: APROVAR REVOGAÇÃO CONTROLADA, condicionada à lista nominal
+de candidatos e à avaliação das dependências. Este registro não autoriza execução.
+
 ## 2026-10-19 — resolução da sincronização Git
 
 A branch dev foi atualizada por fast-forward para origin/dev (14b6672).
