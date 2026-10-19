@@ -1,4 +1,5 @@
-// DRAFT: built-in fetch only; never log response bodies or credentials.
+// LEGACY REJECTED FIXTURE: preserved for historical tests; never deploy this adapter.
+// Current dedicated-role SQL adapter: ../redesign/edge/ledger.mjs.
 export function createRpc({ stagingUrl, serviceKey, fetchImpl }) {
   const base = new URL(stagingUrl);
   if (base.protocol !== "https:" || base.pathname !== "/" || base.username || base.password ||

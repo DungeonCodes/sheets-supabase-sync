@@ -1,4 +1,5 @@
-// DRAFT: no deployment or environment access. All boundaries are injected.
+// LEGACY REJECTED FIXTURE: preserved for historical tests, not a deployment proposal.
+// Current redesign lives in ../redesign/edge/. No operational entrypoint imports this.
 export const GITHUB_DISPATCH_URL =
   "https://api.github.com/repos/DungeonCodes/sheets-supabase-sync/actions/workflows/scheduled-sync.yml/dispatches";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

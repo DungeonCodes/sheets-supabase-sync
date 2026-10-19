@@ -1,5 +1,11 @@
 # Rascunho: CRON_CONTROLLED_DISPATCH_SQL_PREPARATION
 
+> **Proposta corrente: [CRON_EDGE_AUTHORIZATION_REDESIGN](redesign/README.md), YELLOW.**
+> Decisão humana exige prova da origem Cron. Wake-only não pode consumir.
+> SQL privado/handler novos preparados offline; verificador real e identidade DB
+> ainda pendentes. Nenhum entrypoint ou DDL liberado para implantação. Os textos
+> e scripts anteriores abaixo permanecem como histórico, não instrução vigente.
+
 > **Revisão vigente: CRON_STAGING_INACTIVE_PREPARATION_REVIEW — YELLOW.**
 > A integração abaixo NÃO está aprovada para implantação, nem inativa.
 > As premissas de ACL pg_net e bearer reutilizável foram rejeitadas.

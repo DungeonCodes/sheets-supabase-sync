@@ -1,5 +1,12 @@
 # Decisoes
 
+## 2026-10-19 — redesenho da autorização Cron/Edge
+
+Humano exige prova da origem Cron; wake público não pode consumir autorização.
+Preparar SQL privado com capacidade Edge restrita e handler sem chave ampla;
+ingresso autenticado real permanece bloqueador, sem aceitar mocks como prova.
+[ADR do redesign](decisions/20261019_cron_edge_authorization_redesign.md).
+
 ## 2026-10-19 — probe sintético e leitura administrativa Supabase
 
 Autorização humana restrita aceitou leitores internos privilegiados apenas

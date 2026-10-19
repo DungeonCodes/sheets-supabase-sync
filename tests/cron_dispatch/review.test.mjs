@@ -13,7 +13,8 @@ test('operational setup and activation fail closed pending security redesign', (
     assert.match(source, /begin\s+raise exception 'inactive_preparation_review_blocked_see_review_md';/);
   }
   const entry = read('edge/index.ts');
-  assert.ok(entry.indexOf('throw new Error("inactive_preparation_review_blocked') < entry.indexOf('Deno.env.get'));
+  assert.match(entry, /throw new Error\("inactive_preparation_review_blocked/);
+  assert.doesNotMatch(entry, /Deno\.env\.get|Deno\.serve/);
 });
 
 test('probe has no network, extension, scheduling, business table or credential access', () => {

@@ -46,7 +46,10 @@ class CronDraftSecurityContractTests(unittest.TestCase):
         self.assertNotIn("api.github.com", sql)
         self.assertEqual(1, sql.count("net.http_post("))
         edge = (DRAFT / "edge" / "index.ts").read_text(encoding="utf-8")
-        self.assertIn('Deno.env.get("GITHUB_DISPATCH_PAT")', edge)
+        self.assertIn('inactive_preparation_review_blocked', edge)
+        self.assertNotIn('SUPABASE_SERVICE_ROLE_KEY', edge)
+        redesigned = (DRAFT / "redesign" / "edge" / "dispatch.mjs").read_text(encoding="utf-8")
+        self.assertIn('githubPat', redesigned)
 
     def test_definer_functions_fix_search_path_and_require_explicit_execute_grants(self) -> None:
         sql = sql_without_comments(DRAFT / "sql" / "30_routines.draft.sql")

@@ -1,5 +1,83 @@
 # Registro de Execução
 
+## 2026-10-19 — CRON_EDGE_AUTHORIZATION_REDESIGN (YELLOW, somente offline)
+
+Repositório sheets-supabase-sync, branch dev. HEAD inicial 7c3649c; na verificação
+final passou a 772d43e755f9c6755e704520f4b6410989e85e35 por operação externa a esta
+execução. Nenhum comando Git de escrita foi executado pelo agente. Registros,
+rascunhos e evidência do probe anterior preservados; não repetir gates concluídos.
+automation_remote_runner_validated e probe transacional continuam GREEN.
+Baseline 9/11/8 usado apenas como contexto, sem nova conexão ao staging.
+
+Decisão humana adicional, obtida por esclarecimento de política: EXIGIR PROVA
+DA ORIGEM CRON, mesmo quando a chamada falsa ocorra depois de uma liberação
+válida. Não se aceitou que um UUID público e o estado released autorizem o
+chamador HTTP. Wake-only para iniciar dispatch foi rejeitado; header X-Cron,
+IP compartilhado, bearer permanente, nonce copiado da fila e integridade de
+uma mensagem sem resistência à corrida de replay não satisfazem o requisito.
+Referências oficiais de visibilidade/default grants pg_net foram reconsultadas.
+
+Pacote corrente preparado em drafts/cron_controlled_dispatch/redesign/:
+- edge/dispatch.mjs: wake público sem ledger/transport/PAT, retorna 403; handler
+  de dispatch exige verificador independente antes da claim. Grant vinculado
+  a UUID/release/repo/workflow/dev/SHA/janela curta; sem autenticação baseada em
+  bearer global, header declarado pelo cliente ou conhecimento do identificador.
+- edge/ledger.mjs: adapter de identidade PostgreSQL dedicada, somente três SQLs
+  fixos parametrizados, conexão/transação independente por chamada, COMMIT
+  confirmado antes do retorno e confirmação READ ONLY. Sem service_role,
+  PostgREST público, retries, logs ou detalhes de erros do driver.
+- sql/10_control.draft.sql e 20_routines.draft.sql: schema privado novo, owner
+  NOLOGIN/NOBYPASSRLS sem privilégios amplos, capacidade Edge NOLOGIN com USAGE
+  e somente EXECUTE de claim/confirm/finish. Release/cancel só operador, tabela
+  inacessível diretamente à Edge, trigger/invariantes contra rearme. Sem xids
+  como prova de commit. Instalação nova, não alteração do probe ou das migrations.
+- sql/30_audit_readonly.sql: catálogo de owners/roles/ACL/EXECUTE/schemas, não
+  executado. SQLs mutáveis abortam incondicionalmente antes de DDL.
+
+Repo DungeonCodes/sheets-supabase-sync, workflow scheduled-sync.yml e ref dev
+fixos. GitHub fetch com timeout 15s, redirect:error e sem retry. HTTP 200 só é
+accepted com run_id/URLs correspondentes; 204, timeout, falha de rede ou corpo
+inválido são ambíguos. Auditoria guarda somente status/contadores/IDs sanitizados;
+falha de auditoria não autoriza novo envio. PAT futuro só no secret store Edge,
+granular Actions:write/repo único/validade limitada; nenhuma credencial criada.
+
+Bloqueio explícito: verificador real da origem Cron NÃO implementado/provisionado.
+Mocks de verificação não provam identidade. Nenhuma identidade nativa pg_net foi
+presumida. Driver vivo, identidade LOGIN dedicada, TLS/binding staging e grants
+PUBLIC herdados exigem revisão futura; um LOGIN novo pode acessar net por PUBLIC.
+Não há enqueue/job/ativação v2 porque ligá-los a wake-only violaria a decisão.
+Entrypoints antigo e novo abortam; removido wiring antigo de service_role e
+bearer reutilizável. Handler/RPC antigos mantidos como fixtures rejeitadas dos
+testes históricos, sem importação operacional. A cadeia completa não está pronta.
+
+Exceção de leitores administrativos do probe sintético não foi estendida a
+segredos, capabilities ou dados reais de autorização. Ledger novo não contém
+campos de token, senha, DSN, chave, corpo HTTP ou dados pessoais. Owner restrito
+e REVOKE não isolam a plataforma/superusuário/read-all; classificação dos metadados
+reais e identidade de ingresso precisam revisão antes de implantação.
+
+Testes offline: 68 Node aprovados (33 novos + 35 anteriores), oito contratos
+Python aprovados; Deno check --no-remote --no-config dos dois entrypoints passou.
+Testes cobrem falso/antecipado/expirado, binding incorreto, ausência de verificador,
+replay, 32 concorrentes, ausência de rearme, commit incerto, rede/timeout/redirect,
+200 inválido/204, auditoria falha, SQL parametrizado e ausência de logs/leaks.
+Casos anteriores preservados; verificações do entrypoint foram fortalecidas para
+exigir ausência de env/listener amplo. Não foi repetida a suíte extensa de 241
+testes nem qualquer gate remoto. SQL novo tem contratos textuais, não validação
+em servidor; o modelo ledger e os mocks não substituem prova da integração.
+
+ADR específica criada, índice de decisões e README atualizados. Nenhum SQL,
+extensão, Edge, token/PAT, Vault, GitHub Secret, Cron/job, workflow_dispatch,
+sincronização, Migration 5, produção, benchmark, commit ou push. Próxima aprovação:
+APROVAR REVISÃO DA FRONTEIRA DE INGRESSO COM PROVA DE ORIGEM CRON. Não é aprovação
+de implantação; manter travas até mecanismo concreto revisado. Risco MEDIUM do
+desenho ainda incompleto, sem impacto operacional neste gate.
+
+Verificador documental e git diff --check aprovados (avisos apenas LF/CRLF).
+Scan local sanitizado dos oito arquivos novos de pacote/teste: zero assinaturas
+de credenciais; valores usados nos mocks são artificiais. Scanner por padrões
+não constitui prova absoluta de ausência de segredo.
+
 ## 2026-10-19 — CRON_STAGING_TRANSACTIONAL_PROBE_RESUME (GREEN somente transacional)
 
 Autorização humana específica: retomar o probe aceitando exclusivamente leitura
