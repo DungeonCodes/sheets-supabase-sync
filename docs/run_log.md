@@ -1,5 +1,85 @@
 # Registro de Execução
 
+## 2026-10-19 — SCHEDULER_ARCHITECTURE_DECISION (proposta, YELLOW para ativação)
+
+Preflight Git: raiz sheets-supabase-sync, dev em
+00a06ecc8e3fb758351d4a14e6c991a6dd370b14, inicialmente sem alterações locais.
+Regras/contexto do repositório e workflow atual lidos. Gates remoto e probe
+transacional mantidos GREEN, sem repetição; baseline 9/11/8 somente contextual,
+sem conexão ao Supabase. Rascunhos Cron/Edge e evidências preservados intactos.
+
+Consultas GitHub exclusivamente GET via gh api: repo público não arquivado,
+default_branch=main, Actions habilitado, allowed_actions=all e pinning obrigatório
+false. Default_workflow_permissions=read; aprovação de PR por token=false.
+staging-dispatch ativo, ID 388468858; scheduled-sync.yml presente em main/dev
+e igual ao arquivo local, blob 65d16e28a9e00918a0eac2213ab57b0e73fc6ea0.
+Environment staging: custom_branch_policies=true, uma única regra branch dev,
+sem regra de tags. Sete secrets verificadas apenas por nomes, sem valores:
+APP_ENV, SUPABASE_PROJECT_REF, SUPABASE_ALLOWED_PROJECT_REF, SUPABASE_URL,
+SUPABASE_DB_URL, GOOGLE_SERVICE_ACCOUNT_JSON, STAGING_SYNC_CONFIG_JSON.
+Nenhuma variável de repositório cadastrada atualmente.
+
+Alternativas comparadas na ADR proposta e drafts/github_scheduler/README.md.
+Recomendação B: relógio separado em main, GITHUB_TOKEN automático restrito ao
+job com actions:write/contents:read, dispatch fixo scheduled-sync.yml ref dev,
+worker Python existente/environment staging. Destino mantém contents:read e
+não foi modificado; não requer Actions:write para executar o dispatcher.
+Documentação oficial confirma dispatch interno com GITHUB_TOKEN e exceção à
+supressão de novos eventos; defaults read podem ser ajustados declarativamente
+pelo job. Token efetivamente emitido e handoff real ainda precisam de teste
+autorizado futuro; não confundir permissões da CLI local com as do job futuro.
+
+YAML preparado somente drafts/github_scheduler/staging-clock.draft.yml. Sem
+schedule/expressão cron, checkout, action terceira, environment ou secrets de
+Supabase/Google. Apenas token automático; opt-in STAGING_CLOCK_ENABLED inexistente
+hoje falha fechado. Manual de teste exige confirmação, SHA e expiry até 15 min;
+essa janela não é frequência de cliente. Repo/main/event/run_attempt validados;
+destino ativo/revisão e runs concorrentes consultados antes de um único POST.
+Redirects bloqueados, timeout, sem retries ou fallback PAT. Retorno run_id/URLs
+e GET do filho conferem workflow/event/dev/SHA/attempt. Resultado do relógio
+significa dispatch aceito, não Python ou reconciliação concluídos.
+
+Riscos registrados: schedule main-only sujeito a atrasos/perdas e desativação
+em repo público após 60 dias sem atividade; sem SLA de horário. Menor intervalo
+técnico documentado de cinco minutos não foi escolhido como frequência.
+Destino atual mantém um ativo/um pendente por grupo; nova chegada pode substituir
+pendente. Preflight não evita corrida manual/automático. Concurrency não deduplica,
+reruns/new runs e ambiguidade não autorizam replay automático. Ref dev móvel
+exige congelamento no teste; conferência após POST não previne execução com SHA
+divergente. Correlação após resposta perdida pode ser inconclusiva sem inputs
+novos no destino, que não foram adicionados neste gate.
+
+Custos: runner padrão de repo público com execução gratuita documentada, sem
+prometer custo total zero, planos/quotas imutáveis. B reduz componentes/credenciais;
+A tem consumo adicional DB/Edge/egress e manutenção, sem nova consulta de cobrança.
+Ambas dependem do worker staging disponível. Frequência/SLA/timezone/volume/
+backlog/monitoramento ainda dependem dos clientes; recorrência não autorizada.
+
+32 testes Node offline aprovados, executando o JavaScript extraído do YAML real
+com fetch/process/clock/log mockados. Cobertura: payload fixo, contexto/fork/ref,
+rerun/enable/confirmação/janela/SHA, busy/paginação, rede/timeout/redirect/erros/
+204/200 ambíguo, observação e vínculo do run, ausência de secrets nos logs.
+Nenhuma chamada de API foi feita pelos testes. Não comprovam token emitido,
+validação de workflow hospedado ou execução schedule; nenhuma dependência nova.
+
+ADR docs/decisions/20261019_scheduler_architecture_decision.md permanece PROPOSTA.
+Planos de ativação separada e rollback estão no pacote: publicar manual-only
+desabilitado após aprovação, autorizar um teste novo em gate distinto, observar
+parent/child e reconciliar staging; recorrência somente depois de requisitos.
+Rollback desabilita só clock/opt-in, preserva destino manual e secrets e não
+reenvia dispatch ambíguo nem desfaz sync em andamento.
+
+Nenhum arquivo .github/workflows, código Python, SQL, objeto remoto, secret,
+PAT, extensão, Edge, Cron, schedule ativo, workflow_dispatch, sync, produção,
+Migration 5, benchmark, commit ou push alterado/executado. Supabase Cron não
+foi abandonado oficialmente. Próxima aprovação: APROVAR ADR PROPOSTA DE RELÓGIO
+GITHUB ACTIONS, sem publicação, teste ou recorrência implícitos.
+
+Verificação documental e git diff --check aprovados (apenas aviso LF/CRLF).
+Scan sanitizado de três arquivos novos do pacote/teste: zero assinaturas de
+credenciais. Valores de autenticação dos mocks são artificiais. Diff confirmou
+nenhuma alteração em .github/workflows, src ou drafts/cron_controlled_dispatch.
+
 ## 2026-10-19 — CRON_EDGE_AUTHORIZATION_REDESIGN (YELLOW, somente offline)
 
 Repositório sheets-supabase-sync, branch dev. HEAD inicial 7c3649c; na verificação

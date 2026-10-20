@@ -1,5 +1,12 @@
 # Decisoes
 
+## 2026-10-19 — arquitetura de agendamento (proposta)
+
+Recomendar avaliar relógio GitHub main com token automático para dispatch dev,
+sem credenciais adicionais e preservando staging dev-only. Frequência, teste
+real e ativação pendentes; Supabase Cron não foi abandonado.
+[ADR proposta](decisions/20261019_scheduler_architecture_decision.md).
+
 ## 2026-10-19 — redesenho da autorização Cron/Edge
 
 Humano exige prova da origem Cron; wake público não pode consumir autorização.
