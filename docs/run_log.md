@@ -1,5 +1,82 @@
 # Registro de Execução
 
+## 2026-10-20 — GITHUB_CLOCK_MANUAL_VALIDATION_PREPARATION (GREEN offline)
+
+Decisão humana registrada: alternativa B como candidata principal, apenas
+arquitetura. Host DESKTOP-VU6VMS6, sheets-supabase-sync, dev/HEAD
+b84f1b2eeca0f9ffe3fa135ba03f2468eb3928e9; origin/dev igual por ls-remote;
+main 88ae3008140905ce05a4fcf7c01bc6db72db6c78. Preservadas as cinco mudanças
+locais da etapa anterior. Nenhum Git de escrita.
+
+GETs de governança reconfirmaram main padrão/default token read e staging com
+uma única regra branch dev, sete secrets por nomes, nenhuma repository variable.
+Lista paginada de workflows contém apenas CI e executor manual; arquivos main/dev
+inspecionados, sem schedule ou relógio equivalente. Escopo não comprova ausência
+de acionadores externos. Credenciais/valores de secrets não lidos, nenhum objeto
+remoto alterado. Executor blob idêntico e sem mudança; gates GREEN não repetidos.
+
+V2 lido integralmente e preservado; candidato manual novo recusa schedule e
+workflow path alternativo, vincula autorização ao run_number exato/attempt 1,
+mantém alvo fixo dev e um POST sem retry, registra tentativa antes da chamada,
+HTTP/IDs/SHA/horários sanitizados. contents:read justificado pelo GET da revisão
+dev; actions:write explicitamente amplo no domínio Actions. Environment restringe
+branch, não arquivo de workflow. Token emitido/handoff real permanecem pendentes.
+
+Helper offline novo classifica resumo/metadados allowlisted: sources_failed>0
+em processo/GitHub bem-sucedido produz SOURCES_FAILED; ausência de guard ou
+reconciliação impede GREEN. Não lê logs/rede/DB nem altera executor. API oficial
+2026-03-10 documenta HTTP 200 com run ID; return_run_details avaliado, não listado
+no contrato atual, não enviado. Resposta ambígua exige inspeção, nunca replay.
+
+150 testes offline PASS: 50 manual + 27 observação + 32 v1 + 34 v2 + 7 dispatcher.
+PyYAML 6.0.3 já instalado no Python de sistema validou sintaxe/estrutura do YAML;
+nenhuma dependência instalada, Python/executor de produção sem mudanças.
+Documentados planos A publicação manual inerte, B teste único com outra aprovação,
+C observação/reconciliação staging, D schedule após decisão própria sem frequência.
+Rollback preserva executor/secrets e acompanha filhos já aceitos.
+
+Nenhum workflow publicado/disparado, schedule, secret, token, environment, SQL,
+produção, extensão, Edge, Cron, migration, benchmark, commit ou push executado.
+[Plano, evidências e relatório](../drafts/github_scheduler/MANUAL_VALIDATION.md).
+Próximo gate GITHUB_CLOCK_MANUAL_PUBLICATION; aguardar
+APROVAR PUBLICAÇÃO MANUAL DO RELÓGIO NA MAIN, sem autorizar dispatch real.
+
+## 2026-10-20 — SCHEDULER_ARCHITECTURE_DECISION (revisão offline, YELLOW)
+
+Host DESKTOP-VU6VMS6, raiz sheets-supabase-sync, dev no HEAD
+b84f1b2eeca0f9ffe3fa135ba03f2468eb3928e9, worktree inicialmente limpa.
+Origin/dev confirmado por ls-remote no mesmo SHA, main no
+88ae3008140905ce05a4fcf7c01bc6db72db6c78. Nenhum Git de escrita.
+Regras e documentos de contexto lidos; objetivo explícito deste gate usado.
+
+GETs GitHub confirmaram main padrão, público, Actions habilitado, default token
+read; executor ativo com mesmo blob local/main/dev. Run 39247320871 permanece
+completed/success/dev/attempt 1, apenas metadados consultados, sem repetir.
+Staging tem única política branch dev e sete secrets, conferidas só por nomes;
+repository secrets/variables vazias. Valores de secrets não consultados.
+Gates remote runner e probe transacional continuam GREEN; redesign Cron YELLOW.
+
+Documentação oficial atual reconferida. B viável com actions:write explícito no
+job, token automático, sem PAT. Novo draft v2 preserva integralmente o anterior
+e envia apenas ref dev conforme contrato atual HTTP 200/run_id; nenhum schedule.
+Tratados limites: environment restringe branch, não arquivo exclusivo de workflow;
+actions:write amplo, race em dev, perda de tick, inatividade e resposta ambígua.
+Dispatcher pode retornar zero com sources_failed>0: monitor deve ler resumo,
+não apenas verde do GitHub. Nenhum Python/executor/guard alterado.
+
+Testes offline: 34/34 v2, 32/32 históricos e 7/7 dispatcher PASS. Fetch e
+dependências operacionais simulados, nenhuma chamada Google/DB pelos testes.
+Nenhuma validação de token emitido ou execução hospedada alegada. Sem parser
+YAML/dependência instalada; validação hospedada fica para gate humano próprio.
+
+Criados draft v2, testes v2 e ADR comparativa; índice de decisões atualizado.
+Rascunhos Cron/Edge/probe e todos os documentos anteriores preservados.
+Sem alteração .github/workflows, schedule, dispatch, secret/environment, SQL,
+Cron, extensão, Edge deploy, produção, Migration 5, benchmark, commit ou push.
+[ADR e resultado obrigatório](decisions/20261020_supabase_cron_vs_github_actions_schedule.md).
+Próximo gate proposto: GITHUB_CLOCK_MANUAL_VALIDATION_PREPARATION, após decisão
+humana sobre B; publicação/teste real e recorrência continuam sem autorização.
+
 ## 2026-10-19 — SCHEDULER_ARCHITECTURE_DECISION (proposta, YELLOW para ativação)
 
 Preflight Git: raiz sheets-supabase-sync, dev em
