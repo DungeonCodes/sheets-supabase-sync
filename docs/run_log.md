@@ -1,5 +1,182 @@
 # Registro de Execução
 
+## 2026-10-20 — GITHUB_CLOCK_SINGLE_MANUAL_DISPATCH (GREEN, autorização consumida)
+
+Autorização humana explícita: armar temporariamente opt-in, uma tentativa manual
+do relógio main, um dispatch para executor dev/staging, observar/reconciliar e
+desarmar; sem recorrência. Execução GitHub CLI autenticada como DungeonCodes.
+Worktree original dev em c6d13b686eb060bc4c3c6defdd5663c57861d4f4; preservadas
+as mudanças locais existentes em run_log e SINGLE_DISPATCH_PREFLIGHT.md.
+
+### Preflight final e baseline READ ONLY
+
+Em 2026-10-20T18:49:46.605Z, GETs GitHub confirmaram exatamente os SHAs aprovados:
+main 80cdde4bb79506deecb3d37f0e9894fba03739ac;
+dev c6d13b686eb060bc4c3c6defdd5663c57861d4f4. Clock 390540622 ativo, blob
+2e4f176567d6b5a038dcc0d00f9b6f938475d7ee, zero runs, próximo run_number 1.
+Executor 388468858 ativo, blob 65d16e28a9e00918a0eac2213ab57b0e73fc6ea0,
+uma run histórica GREEN e nenhuma concorrente. Nenhum schedule ou relógio extra.
+Ambas as variables ausentes. Environment staging com política exclusiva branch
+dev; sete nomes de secrets conferidos, sem acessar valores ou alterá-los.
+
+Guard staging local PASS, project_ref corresponde à allowlist. Leitor e seleção
+existentes usados sem modificar código; transações READ ONLY, rollback e
+timeouts limitados, TLS cliente ativo. Dry-selection: total=1/due=1/executed=0,
+failed=0/skipped=0/busy_deferred=0. Nenhuma chamada Google local ou apply local.
+
+Baseline em 18:50:07.728866Z e reconferida em 18:50:10.410820Z: sync_runs=9,
+raw_import_rows=11, raw_current_rows=8, planned/running=0. Escopo autorizado:
+uma fonte, 3 runs, 3 eventos e 3 estados. Último sucesso 19/10 11:48:49.361510Z.
+Fingerprint agregado de hashes de chave/conteúdo, versão e flag de exclusão:
+2955c6490ddec36688043aafc3e36cb5. Deltas do dry-select zero.
+
+### Opt-in e única tentativa
+
+Após nova conferência de SHA/runs/variables, configuradas somente as duas
+repository variables autorizadas. Leitura em 18:50:27.644Z confirmou:
+STAGING_CLOCK_ENABLED=true e STAGING_CLOCK_AUTHORIZED_RUN_NUMBER=1.
+Nenhuma secret, workflow, environment ou permissão global alterado; nenhum PAT.
+
+Única chamada `gh workflow run staging-clock.yml`, repo fixo, ref main, iniciada
+em **18:50:45.576Z**, com confirm_dispatch=true, expected_dev_sha aprovado e
+approval_expires_at **2026-10-20T19:00:45.576Z**, calculado naquele instante
+(10 minutos). Nenhum token nos inputs; nenhuma repetição, rerun ou dispatch
+direto do executor. A resposta foi aceita e a run encontrada por leitura.
+
+Clock run_id **39478296467**, workflow 390540622, run_number **1**, attempt **1**,
+event workflow_dispatch, main e SHA aprovado. Criada em 18:50:47Z; completed/
+success em 18:50:57Z. Job clock 118819918808, todos os steps success. Logs
+processados só em memória; campos allowlisted, sem logs brutos ou tokens salvos.
+Permissões efetivamente emitidas: **Actions: write e Contents: read**, conferidas
+no setup do job. Confirma o token automático do relógio nesta execução.
+
+Registros sanitizados do clock:
+
+- 18:50:53.601Z: exatamente um dispatch_attempt_started, main/dev e SHAs aprovados;
+  dispatch_started_at=18:50:53.595Z.
+- 18:50:54.760Z: dispatch_http_response **HTTP 200**.
+- 18:50:55.022Z: dispatch_accepted_not_completed, executor_run_id **39478314244**,
+  dev/SHA esperado e attempt conferidos pelo código do clock.
+
+Aceitação foi tratada separadamente da conclusão do executor. Contagem final:
+um registro de tentativa POST e um filho aceito, compatíveis com a única run e
+única tentativa permitidas pelo código revisado. Não é garantia exactly-once
+contra outros atores externos.
+
+### Desativação confirmada
+
+Após capturar clock terminal e filho, ambas as variables foram removidas pelo
+CLI. GET em **18:51:17.257Z** confirmou **STAGING_CLOCK_ENABLED=UNSET** e
+**STAGING_CLOCK_AUTHORIZED_RUN_NUMBER=UNSET**, restaurando o estado anterior.
+Nenhuma desativação prematura; clock já havia terminado. Estado repetidamente
+confirmado no encerramento, sem autorização residual de disparo/recorrência.
+
+### Executor e reconciliação
+
+Executor run_id **39478314244**, workflow 388468858, run_number 2, attempt 1,
+event workflow_dispatch, **dev/c6d13b686eb060bc4c3c6defdd5663c57861d4f4**.
+Criado em 18:50:54Z, job dispatch 118819977179 de 18:50:59Z a 18:51:15Z,
+completed/success. Checkout, setup Python, instalação do projeto, materialização
+efêmera, staging guard, dispatcher e cleanup: todos success. Versão patch do
+Python não extraída; não inferida de outros runs.
+
+Deployment **7208288746**, environment **staging**, ref **dev**, SHA aprovado;
+status success em 18:51:15Z, URL de status/log vinculada à run filha. Nenhum
+environment ou credencial foi transferido ao clock. Proteção continua por branch,
+não identidade de arquivo de workflow.
+
+Resumo do dispatcher extraído de uma única linha do step correto, aceitando o
+mascaramento do nome staging nos logs e sem persistir conteúdo privado:
+sources_total=1, sources_due=1, **sources_executed=1**, **sources_no_changes=1**,
+sources_skipped=0, **sources_failed=0**, **sources_busy_deferred=0**. Resultado
+individual no_changes. Sucesso não foi inferido somente de exit code/GitHub verde.
+
+Reconciliação efetiva em **18:52:19.317192Z**, PostgreSQL staging READ ONLY/TLS,
+guard conferido antes da conexão:
+
+| Métrica | Antes | Depois | Delta |
+|---|---:|---:|---:|
+| sync_runs global | 9 | 10 | +1 |
+| raw_import_rows global | 11 | 11 | 0 |
+| raw_current_rows global | 8 | 8 | 0 |
+| planned/running global | 0 | 0 | 0 |
+| sync_runs da fonte autorizada | 3 | 4 | +1 |
+| eventos da fonte autorizada | 3 | 3 | 0 |
+| estados atuais da fonte autorizada | 3 | 3 | 0 |
+
+Exatamente **uma nova sync_run**, pertencente à fonte autorizada, status **applied**,
+início/fim 2026-10-20T18:51:11.015751Z, inserts=0, updates=0, tombstones=0,
+restores=0 e unchanged=3. Nenhuma run nova de outra fonte. Fonte enabled=true,
+lifecycle_status=active, consecutive_failures=0. Fingerprint do estado idêntico
+ao baseline: 2955c6490ddec36688043aafc3e36cb5. Efeitos no_changes medidos,
+sem presumir estado da planilha antes da execução. Nenhuma divergência inesperada.
+
+Conferência final **18:52:46.764Z**: uma única run total de clock, duas do executor
+(uma histórica e uma nova), ambas novas completed/success/attempt 1, zero runs
+ativas, ambas variables UNSET e schedule_enabled=false. Helper offline existente
+classificou **GREEN** com identidade, contadores, guard e reconciliação verificados.
+
+### Resultado e limites
+
+GATE_RESULT=GITHUB_CLOCK_SINGLE_MANUAL_DISPATCH, **GREEN**. Autorização consumida.
+Risco residual LOW: correlação PostgreSQL é por janela/fonte e ausência de
+concorrência, não vínculo GitHub run_id persistido em sync_runs; fingerprint cobre
+os atributos descritos, não cada coluna. TLS ativo não adiciona prova nova de
+identidade do servidor. Uma execução manual não valida entrega schedule/SLA,
+inatividade pública ou comportamento recorrente. Gates GREEN anteriores preservados.
+
+Somente docs/run_log.md atualizado por esta execução; demais mudanças locais
+anteriores preservadas. Sem modificação de código/workflows/secrets/environment,
+PAT, produção, migration, Cron, extensão, Edge, benchmark, commit ou push.
+Nenhum schedule habilitado. Próximo gate proposto:
+**GITHUB_CLOCK_RECURRENCE_READINESS_REVIEW**, sem ativação automática.
+
+Evidências GitHub:
+[clock](https://github.com/DungeonCodes/sheets-supabase-sync/actions/runs/39478296467)
+e [executor](https://github.com/DungeonCodes/sheets-supabase-sync/actions/runs/39478314244).
+
+## 2026-10-20 — GITHUB_CLOCK_SINGLE_MANUAL_DISPATCH_PREFLIGHT (GREEN somente leitura)
+
+Host DESKTOP-VU6VMS6, raiz sheets-supabase-sync, dev/HEAD
+c6d13b686eb060bc4c3c6defdd5663c57861d4f4, inicialmente limpa e igual à remota.
+Main remoto 80cdde4bb79506deecb3d37f0e9894fba03739ac. Clock publicado ativo,
+workflow ID 390540622, blob idêntico ao manual testado, sem schedule. Zero runs
+de clock, próximo número esperado 1; nenhum clock/executor concorrente. Executor
+388468858 ativo, única run anterior 39247320871 completed/success, preservada.
+Confirmação repetida ao final das leituras GitHub.
+
+Repository variables STAGING_CLOCK_ENABLED e STAGING_CLOCK_AUTHORIZED_RUN_NUMBER
+ausentes (sem valor; bloqueio esperado), nenhuma alterada. Default token read,
+workflow job explicitamente actions:write/contents:read. Suporte documental e
+configuração confirmados, token realmente emitido só poderá ser observado no
+teste autorizado futuro. Staging segue com única regra branch dev; sete nomes
+de secrets confirmados sem valores. Nenhuma alteração de permissions/secrets.
+
+Dry-selection real, local e READ ONLY pelo entrypoint existente, uma config de
+demonstração autorizada: total=1/due=1/executed=0/failed=0/skipped=0/busy=0.
+Guard staging PASS, project_ref corresponde à allowlist; conexões com READ ONLY,
+TLS ativo, timeouts limitados. Nenhuma chamada Google ou execução apply. Não
+modificado código: inspeções auxiliares temporárias em memória, saída allowlist.
+
+Baseline antes 2026-10-20T13:29:04.713099Z, depois 13:29:07.468940Z: globais
+sync_runs=9/raw_import_rows=11/raw_current_rows=8/planned_running=0; deltas zero.
+Escopo configurado: uma fonte, 3 runs/3 eventos/3 estados, último sucesso
+2026-10-19T11:48:49.361510Z; fingerprint agregado de hashes/versão/flag de exclusão
+2955c6490ddec36688043aafc3e36cb5 idêntico antes/depois. Sem payloads/credenciais.
+
+Preparado procedimento futuro para autorizar número 1/opt-in, expiração UTC +10
+min e uma única invocação main, observar parent/child, classificar falhas por
+fonte apesar de exit code 0, desarmar e reconciliar staging. Comandos somente
+documentados, não executados. Inputs SHA/expiração e baseline precisam nova
+checagem imediatamente antes de executar. Resposta ambígua implica leitura e
+interrupção sem retry. Config secreta remota não pode ser comparada por valor.
+
+[Relatório e procedimento](../drafts/github_scheduler/SINGLE_DISPATCH_PREFLIGHT.md).
+Somente documentação alterada. Nenhum clock/executor, variable mutation,
+schedule, secret, produção, migration, código, commit ou push. Próxima aprovação:
+APROVAR UM DISPARO MANUAL DO RELÓGIO, incluindo armar/desarmar temporariamente
+as variables, sem autorização implícita neste gate.
+
 ## 2026-10-20 — GITHUB_CLOCK_MANUAL_PUBLICATION (GREEN, checkpoint humano)
 
 Preflight atual: DESKTOP-VU6VMS6, raiz sheets-supabase-sync, branch dev em
