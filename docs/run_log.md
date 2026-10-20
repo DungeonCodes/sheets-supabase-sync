@@ -1,5 +1,58 @@
 # Registro de Execução
 
+## 2026-10-20 — GITHUB_CLOCK_MANUAL_PUBLICATION (GREEN, checkpoint humano)
+
+Preflight atual: DESKTOP-VU6VMS6, raiz sheets-supabase-sync, branch dev em
+4e595d6a5d2f8a9897cb6a5c8998f977aa85b554, inicialmente limpa. Origin/dev
+coincide por ls-remote; origin/main coincide com referência local em
+88ae3008140905ce05a4fcf7c01bc6db72db6c78. Checkpoint humano anterior incorporado;
+nenhum SHA antigo presumido. Regras/contexto e candidato aprovados relidos.
+
+GETs GitHub: main padrão, token default read; só workflows CI e executor manual
+ativos. Main contém somente ci.yml e scheduled-sync.yml, nos blobs já revisados;
+nenhum relógio equivalente registrado. Executor dev permanece ativo com blob
+65d16e28a9e00918a0eac2213ab57b0e73fc6ea0. Staging continua com única política
+branch dev; nenhuma repository variable de enable/autorização existe. Sem mudança
+remota, secrets ou ambiente; nenhuma run disparada. Disponibilidade operacional
+do executor é estado ativo/configuração preservada, não nova sync comprobatória.
+
+Conforme autorização explícita deste gate, criada worktree isolada:
+C:/Users/tisap/Documents/GitHub/sheets-supabase-sync-clock-publication,
+branch prepare/github-clock-manual-publication, base origin/main no SHA acima.
+Único arquivo transportado, byte a byte do candidato:
+.github/workflows/staging-clock.yml, 157 linhas, blob
+2e4f176567d6b5a038dcc0d00f9b6f938475d7ee. Executor, Python e demais arquivos
+da worktree inalterados. YAML ainda não rastreado, sem git add/commit; o diff
+normal da branch é vazio porque não houve commit. Escopo conferido pela união
+diff origin/main e ls-files --others: somente o YAML. Patch completo de novo
+arquivo preservado em drafts/github_scheduler/staging-clock-publication.patch
+nesta worktree original dev, fora da branch isolada.
+
+150 testes offline PASS (143 Node + 7 dispatcher). Igualdade byte a byte com
+o draft testado, parser PyYAML 6.0.3 já instalado e estrutura YAML PASS;
+gatilho único workflow_dispatch, permissões job actions:write/contents:read,
+inputs restritos, sem environment/secrets de dados. Scan de credenciais PASS.
+git diff --check e verificação no-index do arquivo novo PASS (aviso LF/CRLF).
+Uma tentativa inicial de validação inline teve erro de quoting do shell;
+reexecutada por stdin, sem mudanças no YAML, com todas as verificações aprovadas.
+
+Publicação por si só não executa clock/sync; opt-in e autorização por número de
+run permanecem ausentes. Push/PR futuros poderão acionar somente o CI já existente,
+distinto do relógio. Riscos preservados: actions:write amplo, dev móvel, concorrência
+externa e ambiguidade; proteção staging é por branch, não identidade de workflow.
+
+Plano humano: revisar patch, fazer staging/commit somente desse YAML na branch
+isolada, push dessa branch, PR com base main e conferência de um único arquivo;
+aprovar/merge manualmente apenas após autorização específica. Nenhum PR criado.
+Depois conferir publicação manual inerte, sem habilitar variables ou executar.
+Rollback futuro desabilita apenas clock/opt-in e acompanha filhos eventualmente
+aceitos, preservando executor/secrets. Próximo gate GITHUB_CLOCK_SINGLE_MANUAL_DISPATCH
+exige autorização separada; publicação não concede autorização de dispatch.
+
+Nenhum commit, push, PR, merge, workflow real, schedule, secret, PAT, alteração
+environment, SQL, produção, Python, migration, Edge, Cron ou benchmark executado.
+HUMAN_CHECKPOINT: APROVAR PUBLICAÇÃO MANUAL DO RELÓGIO NA MAIN.
+
 ## 2026-10-20 — GITHUB_CLOCK_MANUAL_VALIDATION_PREPARATION (GREEN offline)
 
 Decisão humana registrada: alternativa B como candidata principal, apenas
