@@ -1,5 +1,51 @@
 # Decisoes
 
+## 2026-10-20 — GitHub clock aprovado como candidato principal
+
+Humano aprovou arquiteturalmente B. Preparação manual offline concluída, sem
+publicar/disparar/ativar schedule. Candidato manual separado preserva v1/v2;
+executor staging e históricos Cron/Edge intactos. Próxima aprovação é somente
+publicação manual inerte na main, distinta da autorização de teste real.
+[Registro e plano](../drafts/github_scheduler/MANUAL_VALIDATION.md).
+
+## 2026-10-20 — SUPABASE_CRON_VS_GITHUB_ACTIONS_SCHEDULE (proposta revisada)
+
+Recomendar B: relógio main com GITHUB_TOKEN temporário e dispatch fixo dev/staging,
+sem PAT ou credenciais de dados no relógio. Preservar Cron/Edge e proposta anterior.
+API atual e políticas reais reconferidas; limites de exclusividade de secrets,
+observação de falhas por fonte e detecção independente de ticks perdidos explícitos.
+Draft v2 somente em drafts; nenhuma automação ativada. Aguardar decisão humana.
+[ADR comparativa revisada](decisions/20261020_supabase_cron_vs_github_actions_schedule.md).
+
+## 2026-10-19 — arquitetura de agendamento (proposta)
+
+Recomendar avaliar relógio GitHub main com token automático para dispatch dev,
+sem credenciais adicionais e preservando staging dev-only. Frequência, teste
+real e ativação pendentes; Supabase Cron não foi abandonado.
+[ADR proposta](decisions/20261019_scheduler_architecture_decision.md).
+
+## 2026-10-19 — redesenho da autorização Cron/Edge
+
+Humano exige prova da origem Cron; wake público não pode consumir autorização.
+Preparar SQL privado com capacidade Edge restrita e handler sem chave ampla;
+ingresso autenticado real permanece bloqueador, sem aceitar mocks como prova.
+[ADR do redesign](decisions/20261019_cron_edge_authorization_redesign.md).
+
+## 2026-10-19 — probe sintético e leitura administrativa Supabase
+
+Autorização humana restrita aceitou leitores internos privilegiados apenas
+para estados sintéticos do probe. Prova real transacional GREEN, desativada,
+sem deltas operacionais. Não aprova isolamento de secrets, Edge ou Cron.
+Evidências e limites na [ADR](decisions/20261019_cron_single_controlled_dispatch_design.md).
+
+## 2026-10-19 — revisão de preparação Cron staging
+
+Manter integração Cron/pg_net/Edge bloqueada: ACL pg_net não é isolamento
+suportado no Supabase hospedado, bearer reutilizável e service_role amplo
+precisam correção. Preparar somente probe transacional isolado, sem extensões
+ou HTTP, para aprovação humana. Detalhes e histórico na
+[ADR](decisions/20261019_cron_single_controlled_dispatch_design.md).
+
 ## Formato
 
 Data:

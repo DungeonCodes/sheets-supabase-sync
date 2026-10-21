@@ -1,5 +1,978 @@
 # Registro de Execução
 
+## 2026-10-20 — GITHUB_CLOCK_SINGLE_MANUAL_DISPATCH (GREEN, autorização consumida)
+
+Autorização humana explícita: armar temporariamente opt-in, uma tentativa manual
+do relógio main, um dispatch para executor dev/staging, observar/reconciliar e
+desarmar; sem recorrência. Execução GitHub CLI autenticada como DungeonCodes.
+Worktree original dev em c6d13b686eb060bc4c3c6defdd5663c57861d4f4; preservadas
+as mudanças locais existentes em run_log e SINGLE_DISPATCH_PREFLIGHT.md.
+
+### Preflight final e baseline READ ONLY
+
+Em 2026-10-20T18:49:46.605Z, GETs GitHub confirmaram exatamente os SHAs aprovados:
+main 80cdde4bb79506deecb3d37f0e9894fba03739ac;
+dev c6d13b686eb060bc4c3c6defdd5663c57861d4f4. Clock 390540622 ativo, blob
+2e4f176567d6b5a038dcc0d00f9b6f938475d7ee, zero runs, próximo run_number 1.
+Executor 388468858 ativo, blob 65d16e28a9e00918a0eac2213ab57b0e73fc6ea0,
+uma run histórica GREEN e nenhuma concorrente. Nenhum schedule ou relógio extra.
+Ambas as variables ausentes. Environment staging com política exclusiva branch
+dev; sete nomes de secrets conferidos, sem acessar valores ou alterá-los.
+
+Guard staging local PASS, project_ref corresponde à allowlist. Leitor e seleção
+existentes usados sem modificar código; transações READ ONLY, rollback e
+timeouts limitados, TLS cliente ativo. Dry-selection: total=1/due=1/executed=0,
+failed=0/skipped=0/busy_deferred=0. Nenhuma chamada Google local ou apply local.
+
+Baseline em 18:50:07.728866Z e reconferida em 18:50:10.410820Z: sync_runs=9,
+raw_import_rows=11, raw_current_rows=8, planned/running=0. Escopo autorizado:
+uma fonte, 3 runs, 3 eventos e 3 estados. Último sucesso 19/10 11:48:49.361510Z.
+Fingerprint agregado de hashes de chave/conteúdo, versão e flag de exclusão:
+2955c6490ddec36688043aafc3e36cb5. Deltas do dry-select zero.
+
+### Opt-in e única tentativa
+
+Após nova conferência de SHA/runs/variables, configuradas somente as duas
+repository variables autorizadas. Leitura em 18:50:27.644Z confirmou:
+STAGING_CLOCK_ENABLED=true e STAGING_CLOCK_AUTHORIZED_RUN_NUMBER=1.
+Nenhuma secret, workflow, environment ou permissão global alterado; nenhum PAT.
+
+Única chamada `gh workflow run staging-clock.yml`, repo fixo, ref main, iniciada
+em **18:50:45.576Z**, com confirm_dispatch=true, expected_dev_sha aprovado e
+approval_expires_at **2026-10-20T19:00:45.576Z**, calculado naquele instante
+(10 minutos). Nenhum token nos inputs; nenhuma repetição, rerun ou dispatch
+direto do executor. A resposta foi aceita e a run encontrada por leitura.
+
+Clock run_id **39478296467**, workflow 390540622, run_number **1**, attempt **1**,
+event workflow_dispatch, main e SHA aprovado. Criada em 18:50:47Z; completed/
+success em 18:50:57Z. Job clock 118819918808, todos os steps success. Logs
+processados só em memória; campos allowlisted, sem logs brutos ou tokens salvos.
+Permissões efetivamente emitidas: **Actions: write e Contents: read**, conferidas
+no setup do job. Confirma o token automático do relógio nesta execução.
+
+Registros sanitizados do clock:
+
+- 18:50:53.601Z: exatamente um dispatch_attempt_started, main/dev e SHAs aprovados;
+  dispatch_started_at=18:50:53.595Z.
+- 18:50:54.760Z: dispatch_http_response **HTTP 200**.
+- 18:50:55.022Z: dispatch_accepted_not_completed, executor_run_id **39478314244**,
+  dev/SHA esperado e attempt conferidos pelo código do clock.
+
+Aceitação foi tratada separadamente da conclusão do executor. Contagem final:
+um registro de tentativa POST e um filho aceito, compatíveis com a única run e
+única tentativa permitidas pelo código revisado. Não é garantia exactly-once
+contra outros atores externos.
+
+### Desativação confirmada
+
+Após capturar clock terminal e filho, ambas as variables foram removidas pelo
+CLI. GET em **18:51:17.257Z** confirmou **STAGING_CLOCK_ENABLED=UNSET** e
+**STAGING_CLOCK_AUTHORIZED_RUN_NUMBER=UNSET**, restaurando o estado anterior.
+Nenhuma desativação prematura; clock já havia terminado. Estado repetidamente
+confirmado no encerramento, sem autorização residual de disparo/recorrência.
+
+### Executor e reconciliação
+
+Executor run_id **39478314244**, workflow 388468858, run_number 2, attempt 1,
+event workflow_dispatch, **dev/c6d13b686eb060bc4c3c6defdd5663c57861d4f4**.
+Criado em 18:50:54Z, job dispatch 118819977179 de 18:50:59Z a 18:51:15Z,
+completed/success. Checkout, setup Python, instalação do projeto, materialização
+efêmera, staging guard, dispatcher e cleanup: todos success. Versão patch do
+Python não extraída; não inferida de outros runs.
+
+Deployment **7208288746**, environment **staging**, ref **dev**, SHA aprovado;
+status success em 18:51:15Z, URL de status/log vinculada à run filha. Nenhum
+environment ou credencial foi transferido ao clock. Proteção continua por branch,
+não identidade de arquivo de workflow.
+
+Resumo do dispatcher extraído de uma única linha do step correto, aceitando o
+mascaramento do nome staging nos logs e sem persistir conteúdo privado:
+sources_total=1, sources_due=1, **sources_executed=1**, **sources_no_changes=1**,
+sources_skipped=0, **sources_failed=0**, **sources_busy_deferred=0**. Resultado
+individual no_changes. Sucesso não foi inferido somente de exit code/GitHub verde.
+
+Reconciliação efetiva em **18:52:19.317192Z**, PostgreSQL staging READ ONLY/TLS,
+guard conferido antes da conexão:
+
+| Métrica | Antes | Depois | Delta |
+|---|---:|---:|---:|
+| sync_runs global | 9 | 10 | +1 |
+| raw_import_rows global | 11 | 11 | 0 |
+| raw_current_rows global | 8 | 8 | 0 |
+| planned/running global | 0 | 0 | 0 |
+| sync_runs da fonte autorizada | 3 | 4 | +1 |
+| eventos da fonte autorizada | 3 | 3 | 0 |
+| estados atuais da fonte autorizada | 3 | 3 | 0 |
+
+Exatamente **uma nova sync_run**, pertencente à fonte autorizada, status **applied**,
+início/fim 2026-10-20T18:51:11.015751Z, inserts=0, updates=0, tombstones=0,
+restores=0 e unchanged=3. Nenhuma run nova de outra fonte. Fonte enabled=true,
+lifecycle_status=active, consecutive_failures=0. Fingerprint do estado idêntico
+ao baseline: 2955c6490ddec36688043aafc3e36cb5. Efeitos no_changes medidos,
+sem presumir estado da planilha antes da execução. Nenhuma divergência inesperada.
+
+Conferência final **18:52:46.764Z**: uma única run total de clock, duas do executor
+(uma histórica e uma nova), ambas novas completed/success/attempt 1, zero runs
+ativas, ambas variables UNSET e schedule_enabled=false. Helper offline existente
+classificou **GREEN** com identidade, contadores, guard e reconciliação verificados.
+
+### Resultado e limites
+
+GATE_RESULT=GITHUB_CLOCK_SINGLE_MANUAL_DISPATCH, **GREEN**. Autorização consumida.
+Risco residual LOW: correlação PostgreSQL é por janela/fonte e ausência de
+concorrência, não vínculo GitHub run_id persistido em sync_runs; fingerprint cobre
+os atributos descritos, não cada coluna. TLS ativo não adiciona prova nova de
+identidade do servidor. Uma execução manual não valida entrega schedule/SLA,
+inatividade pública ou comportamento recorrente. Gates GREEN anteriores preservados.
+
+Somente docs/run_log.md atualizado por esta execução; demais mudanças locais
+anteriores preservadas. Sem modificação de código/workflows/secrets/environment,
+PAT, produção, migration, Cron, extensão, Edge, benchmark, commit ou push.
+Nenhum schedule habilitado. Próximo gate proposto:
+**GITHUB_CLOCK_RECURRENCE_READINESS_REVIEW**, sem ativação automática.
+
+Evidências GitHub:
+[clock](https://github.com/DungeonCodes/sheets-supabase-sync/actions/runs/39478296467)
+e [executor](https://github.com/DungeonCodes/sheets-supabase-sync/actions/runs/39478314244).
+
+## 2026-10-20 — GITHUB_CLOCK_SINGLE_MANUAL_DISPATCH_PREFLIGHT (GREEN somente leitura)
+
+Host DESKTOP-VU6VMS6, raiz sheets-supabase-sync, dev/HEAD
+c6d13b686eb060bc4c3c6defdd5663c57861d4f4, inicialmente limpa e igual à remota.
+Main remoto 80cdde4bb79506deecb3d37f0e9894fba03739ac. Clock publicado ativo,
+workflow ID 390540622, blob idêntico ao manual testado, sem schedule. Zero runs
+de clock, próximo número esperado 1; nenhum clock/executor concorrente. Executor
+388468858 ativo, única run anterior 39247320871 completed/success, preservada.
+Confirmação repetida ao final das leituras GitHub.
+
+Repository variables STAGING_CLOCK_ENABLED e STAGING_CLOCK_AUTHORIZED_RUN_NUMBER
+ausentes (sem valor; bloqueio esperado), nenhuma alterada. Default token read,
+workflow job explicitamente actions:write/contents:read. Suporte documental e
+configuração confirmados, token realmente emitido só poderá ser observado no
+teste autorizado futuro. Staging segue com única regra branch dev; sete nomes
+de secrets confirmados sem valores. Nenhuma alteração de permissions/secrets.
+
+Dry-selection real, local e READ ONLY pelo entrypoint existente, uma config de
+demonstração autorizada: total=1/due=1/executed=0/failed=0/skipped=0/busy=0.
+Guard staging PASS, project_ref corresponde à allowlist; conexões com READ ONLY,
+TLS ativo, timeouts limitados. Nenhuma chamada Google ou execução apply. Não
+modificado código: inspeções auxiliares temporárias em memória, saída allowlist.
+
+Baseline antes 2026-10-20T13:29:04.713099Z, depois 13:29:07.468940Z: globais
+sync_runs=9/raw_import_rows=11/raw_current_rows=8/planned_running=0; deltas zero.
+Escopo configurado: uma fonte, 3 runs/3 eventos/3 estados, último sucesso
+2026-10-19T11:48:49.361510Z; fingerprint agregado de hashes/versão/flag de exclusão
+2955c6490ddec36688043aafc3e36cb5 idêntico antes/depois. Sem payloads/credenciais.
+
+Preparado procedimento futuro para autorizar número 1/opt-in, expiração UTC +10
+min e uma única invocação main, observar parent/child, classificar falhas por
+fonte apesar de exit code 0, desarmar e reconciliar staging. Comandos somente
+documentados, não executados. Inputs SHA/expiração e baseline precisam nova
+checagem imediatamente antes de executar. Resposta ambígua implica leitura e
+interrupção sem retry. Config secreta remota não pode ser comparada por valor.
+
+[Relatório e procedimento](../drafts/github_scheduler/SINGLE_DISPATCH_PREFLIGHT.md).
+Somente documentação alterada. Nenhum clock/executor, variable mutation,
+schedule, secret, produção, migration, código, commit ou push. Próxima aprovação:
+APROVAR UM DISPARO MANUAL DO RELÓGIO, incluindo armar/desarmar temporariamente
+as variables, sem autorização implícita neste gate.
+
+## 2026-10-20 — GITHUB_CLOCK_MANUAL_PUBLICATION (GREEN, checkpoint humano)
+
+Preflight atual: DESKTOP-VU6VMS6, raiz sheets-supabase-sync, branch dev em
+4e595d6a5d2f8a9897cb6a5c8998f977aa85b554, inicialmente limpa. Origin/dev
+coincide por ls-remote; origin/main coincide com referência local em
+88ae3008140905ce05a4fcf7c01bc6db72db6c78. Checkpoint humano anterior incorporado;
+nenhum SHA antigo presumido. Regras/contexto e candidato aprovados relidos.
+
+GETs GitHub: main padrão, token default read; só workflows CI e executor manual
+ativos. Main contém somente ci.yml e scheduled-sync.yml, nos blobs já revisados;
+nenhum relógio equivalente registrado. Executor dev permanece ativo com blob
+65d16e28a9e00918a0eac2213ab57b0e73fc6ea0. Staging continua com única política
+branch dev; nenhuma repository variable de enable/autorização existe. Sem mudança
+remota, secrets ou ambiente; nenhuma run disparada. Disponibilidade operacional
+do executor é estado ativo/configuração preservada, não nova sync comprobatória.
+
+Conforme autorização explícita deste gate, criada worktree isolada:
+C:/Users/tisap/Documents/GitHub/sheets-supabase-sync-clock-publication,
+branch prepare/github-clock-manual-publication, base origin/main no SHA acima.
+Único arquivo transportado, byte a byte do candidato:
+.github/workflows/staging-clock.yml, 157 linhas, blob
+2e4f176567d6b5a038dcc0d00f9b6f938475d7ee. Executor, Python e demais arquivos
+da worktree inalterados. YAML ainda não rastreado, sem git add/commit; o diff
+normal da branch é vazio porque não houve commit. Escopo conferido pela união
+diff origin/main e ls-files --others: somente o YAML. Patch completo de novo
+arquivo preservado em drafts/github_scheduler/staging-clock-publication.patch
+nesta worktree original dev, fora da branch isolada.
+
+150 testes offline PASS (143 Node + 7 dispatcher). Igualdade byte a byte com
+o draft testado, parser PyYAML 6.0.3 já instalado e estrutura YAML PASS;
+gatilho único workflow_dispatch, permissões job actions:write/contents:read,
+inputs restritos, sem environment/secrets de dados. Scan de credenciais PASS.
+git diff --check e verificação no-index do arquivo novo PASS (aviso LF/CRLF).
+Uma tentativa inicial de validação inline teve erro de quoting do shell;
+reexecutada por stdin, sem mudanças no YAML, com todas as verificações aprovadas.
+
+Publicação por si só não executa clock/sync; opt-in e autorização por número de
+run permanecem ausentes. Push/PR futuros poderão acionar somente o CI já existente,
+distinto do relógio. Riscos preservados: actions:write amplo, dev móvel, concorrência
+externa e ambiguidade; proteção staging é por branch, não identidade de workflow.
+
+Plano humano: revisar patch, fazer staging/commit somente desse YAML na branch
+isolada, push dessa branch, PR com base main e conferência de um único arquivo;
+aprovar/merge manualmente apenas após autorização específica. Nenhum PR criado.
+Depois conferir publicação manual inerte, sem habilitar variables ou executar.
+Rollback futuro desabilita apenas clock/opt-in e acompanha filhos eventualmente
+aceitos, preservando executor/secrets. Próximo gate GITHUB_CLOCK_SINGLE_MANUAL_DISPATCH
+exige autorização separada; publicação não concede autorização de dispatch.
+
+Nenhum commit, push, PR, merge, workflow real, schedule, secret, PAT, alteração
+environment, SQL, produção, Python, migration, Edge, Cron ou benchmark executado.
+HUMAN_CHECKPOINT: APROVAR PUBLICAÇÃO MANUAL DO RELÓGIO NA MAIN.
+
+## 2026-10-20 — GITHUB_CLOCK_MANUAL_VALIDATION_PREPARATION (GREEN offline)
+
+Decisão humana registrada: alternativa B como candidata principal, apenas
+arquitetura. Host DESKTOP-VU6VMS6, sheets-supabase-sync, dev/HEAD
+b84f1b2eeca0f9ffe3fa135ba03f2468eb3928e9; origin/dev igual por ls-remote;
+main 88ae3008140905ce05a4fcf7c01bc6db72db6c78. Preservadas as cinco mudanças
+locais da etapa anterior. Nenhum Git de escrita.
+
+GETs de governança reconfirmaram main padrão/default token read e staging com
+uma única regra branch dev, sete secrets por nomes, nenhuma repository variable.
+Lista paginada de workflows contém apenas CI e executor manual; arquivos main/dev
+inspecionados, sem schedule ou relógio equivalente. Escopo não comprova ausência
+de acionadores externos. Credenciais/valores de secrets não lidos, nenhum objeto
+remoto alterado. Executor blob idêntico e sem mudança; gates GREEN não repetidos.
+
+V2 lido integralmente e preservado; candidato manual novo recusa schedule e
+workflow path alternativo, vincula autorização ao run_number exato/attempt 1,
+mantém alvo fixo dev e um POST sem retry, registra tentativa antes da chamada,
+HTTP/IDs/SHA/horários sanitizados. contents:read justificado pelo GET da revisão
+dev; actions:write explicitamente amplo no domínio Actions. Environment restringe
+branch, não arquivo de workflow. Token emitido/handoff real permanecem pendentes.
+
+Helper offline novo classifica resumo/metadados allowlisted: sources_failed>0
+em processo/GitHub bem-sucedido produz SOURCES_FAILED; ausência de guard ou
+reconciliação impede GREEN. Não lê logs/rede/DB nem altera executor. API oficial
+2026-03-10 documenta HTTP 200 com run ID; return_run_details avaliado, não listado
+no contrato atual, não enviado. Resposta ambígua exige inspeção, nunca replay.
+
+150 testes offline PASS: 50 manual + 27 observação + 32 v1 + 34 v2 + 7 dispatcher.
+PyYAML 6.0.3 já instalado no Python de sistema validou sintaxe/estrutura do YAML;
+nenhuma dependência instalada, Python/executor de produção sem mudanças.
+Documentados planos A publicação manual inerte, B teste único com outra aprovação,
+C observação/reconciliação staging, D schedule após decisão própria sem frequência.
+Rollback preserva executor/secrets e acompanha filhos já aceitos.
+
+Nenhum workflow publicado/disparado, schedule, secret, token, environment, SQL,
+produção, extensão, Edge, Cron, migration, benchmark, commit ou push executado.
+[Plano, evidências e relatório](../drafts/github_scheduler/MANUAL_VALIDATION.md).
+Próximo gate GITHUB_CLOCK_MANUAL_PUBLICATION; aguardar
+APROVAR PUBLICAÇÃO MANUAL DO RELÓGIO NA MAIN, sem autorizar dispatch real.
+
+## 2026-10-20 — SCHEDULER_ARCHITECTURE_DECISION (revisão offline, YELLOW)
+
+Host DESKTOP-VU6VMS6, raiz sheets-supabase-sync, dev no HEAD
+b84f1b2eeca0f9ffe3fa135ba03f2468eb3928e9, worktree inicialmente limpa.
+Origin/dev confirmado por ls-remote no mesmo SHA, main no
+88ae3008140905ce05a4fcf7c01bc6db72db6c78. Nenhum Git de escrita.
+Regras e documentos de contexto lidos; objetivo explícito deste gate usado.
+
+GETs GitHub confirmaram main padrão, público, Actions habilitado, default token
+read; executor ativo com mesmo blob local/main/dev. Run 39247320871 permanece
+completed/success/dev/attempt 1, apenas metadados consultados, sem repetir.
+Staging tem única política branch dev e sete secrets, conferidas só por nomes;
+repository secrets/variables vazias. Valores de secrets não consultados.
+Gates remote runner e probe transacional continuam GREEN; redesign Cron YELLOW.
+
+Documentação oficial atual reconferida. B viável com actions:write explícito no
+job, token automático, sem PAT. Novo draft v2 preserva integralmente o anterior
+e envia apenas ref dev conforme contrato atual HTTP 200/run_id; nenhum schedule.
+Tratados limites: environment restringe branch, não arquivo exclusivo de workflow;
+actions:write amplo, race em dev, perda de tick, inatividade e resposta ambígua.
+Dispatcher pode retornar zero com sources_failed>0: monitor deve ler resumo,
+não apenas verde do GitHub. Nenhum Python/executor/guard alterado.
+
+Testes offline: 34/34 v2, 32/32 históricos e 7/7 dispatcher PASS. Fetch e
+dependências operacionais simulados, nenhuma chamada Google/DB pelos testes.
+Nenhuma validação de token emitido ou execução hospedada alegada. Sem parser
+YAML/dependência instalada; validação hospedada fica para gate humano próprio.
+
+Criados draft v2, testes v2 e ADR comparativa; índice de decisões atualizado.
+Rascunhos Cron/Edge/probe e todos os documentos anteriores preservados.
+Sem alteração .github/workflows, schedule, dispatch, secret/environment, SQL,
+Cron, extensão, Edge deploy, produção, Migration 5, benchmark, commit ou push.
+[ADR e resultado obrigatório](decisions/20261020_supabase_cron_vs_github_actions_schedule.md).
+Próximo gate proposto: GITHUB_CLOCK_MANUAL_VALIDATION_PREPARATION, após decisão
+humana sobre B; publicação/teste real e recorrência continuam sem autorização.
+
+## 2026-10-19 — SCHEDULER_ARCHITECTURE_DECISION (proposta, YELLOW para ativação)
+
+Preflight Git: raiz sheets-supabase-sync, dev em
+00a06ecc8e3fb758351d4a14e6c991a6dd370b14, inicialmente sem alterações locais.
+Regras/contexto do repositório e workflow atual lidos. Gates remoto e probe
+transacional mantidos GREEN, sem repetição; baseline 9/11/8 somente contextual,
+sem conexão ao Supabase. Rascunhos Cron/Edge e evidências preservados intactos.
+
+Consultas GitHub exclusivamente GET via gh api: repo público não arquivado,
+default_branch=main, Actions habilitado, allowed_actions=all e pinning obrigatório
+false. Default_workflow_permissions=read; aprovação de PR por token=false.
+staging-dispatch ativo, ID 388468858; scheduled-sync.yml presente em main/dev
+e igual ao arquivo local, blob 65d16e28a9e00918a0eac2213ab57b0e73fc6ea0.
+Environment staging: custom_branch_policies=true, uma única regra branch dev,
+sem regra de tags. Sete secrets verificadas apenas por nomes, sem valores:
+APP_ENV, SUPABASE_PROJECT_REF, SUPABASE_ALLOWED_PROJECT_REF, SUPABASE_URL,
+SUPABASE_DB_URL, GOOGLE_SERVICE_ACCOUNT_JSON, STAGING_SYNC_CONFIG_JSON.
+Nenhuma variável de repositório cadastrada atualmente.
+
+Alternativas comparadas na ADR proposta e drafts/github_scheduler/README.md.
+Recomendação B: relógio separado em main, GITHUB_TOKEN automático restrito ao
+job com actions:write/contents:read, dispatch fixo scheduled-sync.yml ref dev,
+worker Python existente/environment staging. Destino mantém contents:read e
+não foi modificado; não requer Actions:write para executar o dispatcher.
+Documentação oficial confirma dispatch interno com GITHUB_TOKEN e exceção à
+supressão de novos eventos; defaults read podem ser ajustados declarativamente
+pelo job. Token efetivamente emitido e handoff real ainda precisam de teste
+autorizado futuro; não confundir permissões da CLI local com as do job futuro.
+
+YAML preparado somente drafts/github_scheduler/staging-clock.draft.yml. Sem
+schedule/expressão cron, checkout, action terceira, environment ou secrets de
+Supabase/Google. Apenas token automático; opt-in STAGING_CLOCK_ENABLED inexistente
+hoje falha fechado. Manual de teste exige confirmação, SHA e expiry até 15 min;
+essa janela não é frequência de cliente. Repo/main/event/run_attempt validados;
+destino ativo/revisão e runs concorrentes consultados antes de um único POST.
+Redirects bloqueados, timeout, sem retries ou fallback PAT. Retorno run_id/URLs
+e GET do filho conferem workflow/event/dev/SHA/attempt. Resultado do relógio
+significa dispatch aceito, não Python ou reconciliação concluídos.
+
+Riscos registrados: schedule main-only sujeito a atrasos/perdas e desativação
+em repo público após 60 dias sem atividade; sem SLA de horário. Menor intervalo
+técnico documentado de cinco minutos não foi escolhido como frequência.
+Destino atual mantém um ativo/um pendente por grupo; nova chegada pode substituir
+pendente. Preflight não evita corrida manual/automático. Concurrency não deduplica,
+reruns/new runs e ambiguidade não autorizam replay automático. Ref dev móvel
+exige congelamento no teste; conferência após POST não previne execução com SHA
+divergente. Correlação após resposta perdida pode ser inconclusiva sem inputs
+novos no destino, que não foram adicionados neste gate.
+
+Custos: runner padrão de repo público com execução gratuita documentada, sem
+prometer custo total zero, planos/quotas imutáveis. B reduz componentes/credenciais;
+A tem consumo adicional DB/Edge/egress e manutenção, sem nova consulta de cobrança.
+Ambas dependem do worker staging disponível. Frequência/SLA/timezone/volume/
+backlog/monitoramento ainda dependem dos clientes; recorrência não autorizada.
+
+32 testes Node offline aprovados, executando o JavaScript extraído do YAML real
+com fetch/process/clock/log mockados. Cobertura: payload fixo, contexto/fork/ref,
+rerun/enable/confirmação/janela/SHA, busy/paginação, rede/timeout/redirect/erros/
+204/200 ambíguo, observação e vínculo do run, ausência de secrets nos logs.
+Nenhuma chamada de API foi feita pelos testes. Não comprovam token emitido,
+validação de workflow hospedado ou execução schedule; nenhuma dependência nova.
+
+ADR docs/decisions/20261019_scheduler_architecture_decision.md permanece PROPOSTA.
+Planos de ativação separada e rollback estão no pacote: publicar manual-only
+desabilitado após aprovação, autorizar um teste novo em gate distinto, observar
+parent/child e reconciliar staging; recorrência somente depois de requisitos.
+Rollback desabilita só clock/opt-in, preserva destino manual e secrets e não
+reenvia dispatch ambíguo nem desfaz sync em andamento.
+
+Nenhum arquivo .github/workflows, código Python, SQL, objeto remoto, secret,
+PAT, extensão, Edge, Cron, schedule ativo, workflow_dispatch, sync, produção,
+Migration 5, benchmark, commit ou push alterado/executado. Supabase Cron não
+foi abandonado oficialmente. Próxima aprovação: APROVAR ADR PROPOSTA DE RELÓGIO
+GITHUB ACTIONS, sem publicação, teste ou recorrência implícitos.
+
+Verificação documental e git diff --check aprovados (apenas aviso LF/CRLF).
+Scan sanitizado de três arquivos novos do pacote/teste: zero assinaturas de
+credenciais. Valores de autenticação dos mocks são artificiais. Diff confirmou
+nenhuma alteração em .github/workflows, src ou drafts/cron_controlled_dispatch.
+
+## 2026-10-19 — CRON_EDGE_AUTHORIZATION_REDESIGN (YELLOW, somente offline)
+
+Repositório sheets-supabase-sync, branch dev. HEAD inicial 7c3649c; na verificação
+final passou a 772d43e755f9c6755e704520f4b6410989e85e35 por operação externa a esta
+execução. Nenhum comando Git de escrita foi executado pelo agente. Registros,
+rascunhos e evidência do probe anterior preservados; não repetir gates concluídos.
+automation_remote_runner_validated e probe transacional continuam GREEN.
+Baseline 9/11/8 usado apenas como contexto, sem nova conexão ao staging.
+
+Decisão humana adicional, obtida por esclarecimento de política: EXIGIR PROVA
+DA ORIGEM CRON, mesmo quando a chamada falsa ocorra depois de uma liberação
+válida. Não se aceitou que um UUID público e o estado released autorizem o
+chamador HTTP. Wake-only para iniciar dispatch foi rejeitado; header X-Cron,
+IP compartilhado, bearer permanente, nonce copiado da fila e integridade de
+uma mensagem sem resistência à corrida de replay não satisfazem o requisito.
+Referências oficiais de visibilidade/default grants pg_net foram reconsultadas.
+
+Pacote corrente preparado em drafts/cron_controlled_dispatch/redesign/:
+- edge/dispatch.mjs: wake público sem ledger/transport/PAT, retorna 403; handler
+  de dispatch exige verificador independente antes da claim. Grant vinculado
+  a UUID/release/repo/workflow/dev/SHA/janela curta; sem autenticação baseada em
+  bearer global, header declarado pelo cliente ou conhecimento do identificador.
+- edge/ledger.mjs: adapter de identidade PostgreSQL dedicada, somente três SQLs
+  fixos parametrizados, conexão/transação independente por chamada, COMMIT
+  confirmado antes do retorno e confirmação READ ONLY. Sem service_role,
+  PostgREST público, retries, logs ou detalhes de erros do driver.
+- sql/10_control.draft.sql e 20_routines.draft.sql: schema privado novo, owner
+  NOLOGIN/NOBYPASSRLS sem privilégios amplos, capacidade Edge NOLOGIN com USAGE
+  e somente EXECUTE de claim/confirm/finish. Release/cancel só operador, tabela
+  inacessível diretamente à Edge, trigger/invariantes contra rearme. Sem xids
+  como prova de commit. Instalação nova, não alteração do probe ou das migrations.
+- sql/30_audit_readonly.sql: catálogo de owners/roles/ACL/EXECUTE/schemas, não
+  executado. SQLs mutáveis abortam incondicionalmente antes de DDL.
+
+Repo DungeonCodes/sheets-supabase-sync, workflow scheduled-sync.yml e ref dev
+fixos. GitHub fetch com timeout 15s, redirect:error e sem retry. HTTP 200 só é
+accepted com run_id/URLs correspondentes; 204, timeout, falha de rede ou corpo
+inválido são ambíguos. Auditoria guarda somente status/contadores/IDs sanitizados;
+falha de auditoria não autoriza novo envio. PAT futuro só no secret store Edge,
+granular Actions:write/repo único/validade limitada; nenhuma credencial criada.
+
+Bloqueio explícito: verificador real da origem Cron NÃO implementado/provisionado.
+Mocks de verificação não provam identidade. Nenhuma identidade nativa pg_net foi
+presumida. Driver vivo, identidade LOGIN dedicada, TLS/binding staging e grants
+PUBLIC herdados exigem revisão futura; um LOGIN novo pode acessar net por PUBLIC.
+Não há enqueue/job/ativação v2 porque ligá-los a wake-only violaria a decisão.
+Entrypoints antigo e novo abortam; removido wiring antigo de service_role e
+bearer reutilizável. Handler/RPC antigos mantidos como fixtures rejeitadas dos
+testes históricos, sem importação operacional. A cadeia completa não está pronta.
+
+Exceção de leitores administrativos do probe sintético não foi estendida a
+segredos, capabilities ou dados reais de autorização. Ledger novo não contém
+campos de token, senha, DSN, chave, corpo HTTP ou dados pessoais. Owner restrito
+e REVOKE não isolam a plataforma/superusuário/read-all; classificação dos metadados
+reais e identidade de ingresso precisam revisão antes de implantação.
+
+Testes offline: 68 Node aprovados (33 novos + 35 anteriores), oito contratos
+Python aprovados; Deno check --no-remote --no-config dos dois entrypoints passou.
+Testes cobrem falso/antecipado/expirado, binding incorreto, ausência de verificador,
+replay, 32 concorrentes, ausência de rearme, commit incerto, rede/timeout/redirect,
+200 inválido/204, auditoria falha, SQL parametrizado e ausência de logs/leaks.
+Casos anteriores preservados; verificações do entrypoint foram fortalecidas para
+exigir ausência de env/listener amplo. Não foi repetida a suíte extensa de 241
+testes nem qualquer gate remoto. SQL novo tem contratos textuais, não validação
+em servidor; o modelo ledger e os mocks não substituem prova da integração.
+
+ADR específica criada, índice de decisões e README atualizados. Nenhum SQL,
+extensão, Edge, token/PAT, Vault, GitHub Secret, Cron/job, workflow_dispatch,
+sincronização, Migration 5, produção, benchmark, commit ou push. Próxima aprovação:
+APROVAR REVISÃO DA FRONTEIRA DE INGRESSO COM PROVA DE ORIGEM CRON. Não é aprovação
+de implantação; manter travas até mecanismo concreto revisado. Risco MEDIUM do
+desenho ainda incompleto, sem impacto operacional neste gate.
+
+Verificador documental e git diff --check aprovados (avisos apenas LF/CRLF).
+Scan local sanitizado dos oito arquivos novos de pacote/teste: zero assinaturas
+de credenciais; valores usados nos mocks são artificiais. Scanner por padrões
+não constitui prova absoluta de ausência de segredo.
+
+## 2026-10-19 — CRON_STAGING_TRANSACTIONAL_PROBE_RESUME (GREEN somente transacional)
+
+Autorização humana específica: retomar o probe aceitando exclusivamente leitura
+dos estados sintéticos pelos papéis administrativos internos do Supabase.
+Exceção NÃO abrange tokens, credenciais, dados operacionais nem desenho futuro.
+Repositório sheets-supabase-sync, branch dev, HEAD
+7c3649cf676f2aee010a7a1156f2aee7a91616cf; alterações locais anteriores preservadas.
+Runbook e quatro SQLs do probe revistos, sem mudar o SQL aprovado. Nenhum script
+de setup/armamento do pacote Cron foi utilizado; suas travas permanecem intactas.
+
+Preflight READ ONLY em 14:12:39 UTC: staging guard existente aprovado, usuário
+postgres/banco postgres, CREATE no banco e USAGE em plpgsql presentes, schema
+cron_tx_probe ausente. Atributos efetivos: supabase_read_only_user e
+supabase_etl_admin têm LOGIN=true, SUPERUSER=false, BYPASSRLS=true e herança
+pg_read_all_data=true. Acesso de leitura desses papéis foi aceito apenas para
+este conteúdo sintético. Nenhum atributo, membership ou privilégio global mudou.
+service_role também tem BYPASSRLS, porém sem acesso efetivo ao schema/tabelas
+ou EXECUTE do probe após instalação; BYPASSRLS não substitui privilégios SQL.
+
+Execução supervisionada única em 14:14:04–14:14:11 UTC (11:14 BRT), com três
+conexões persistentes independentes: A=109087, B=109098, C=109099. Evidência local:
+drafts/cron_controlled_dispatch/probe/execution_20261019_sanitized.json.
+Baseline READ ONLY imediatamente anterior: sync_runs=9, raw_import_rows=11,
+raw_current_rows=8. O setup aprovado foi executado uma vez, transacionalmente.
+
+Objetos criados somente no schema cron_tx_probe, owner postgres: control e
+permits (duas tabelas), claim(text) e no_rearm() (duas funções SECURITY INVOKER,
+search_path=pg_catalog), trigger no_rearm e índices implícitos de duas PKs.
+São quatro linhas: um controle e casos rollback/race/expired. Conteúdo apenas
+sintético: nomes de casos, ref dev, estados 0/1, timestamps e PIDs; não há
+tokens, passwords, URLs, connection strings, identificadores de autorização real,
+dados de alunos/clientes ou referências a fontes. Nenhuma dependência HTTP.
+
+Ownership, ACLs e funções verificados antes das claims. PUBLIC sem EXECUTE;
+anon/authenticated/service_role sem USAGE, SELECT/UPDATE ou EXECUTE; demais
+LOGIN não administrativos sem alteração/EXECUTE. Os dois leitores internos
+autorizados têm USAGE/SELECT, mas UPDATE=false e claim EXECUTE=false.
+postgres e o superusuário gerenciado supabase_admin permanecem privilegiados;
+não se afirma isolamento contra o administrador da plataforma.
+
+Resultados reais PostgreSQL, sem mocks:
+
+- Claim rollback em A retornou true dentro de transação; C viu contador zero.
+- SELECT 1/0 injetou falha deliberada SQLSTATE 22012 antes da confirmação;
+  ROLLBACK em A; C confirmou contador zero, sem consumo persistente.
+- B consumiu rollback e fez COMMIT; C viu contador um, claimant de outro backend.
+- Replay do caso confirmado retornou false, sem reset ou novo consumo.
+- A consumiu race sem confirmar; B tentou simultaneamente. C comprovou
+  A=ANY(pg_blocking_pids(B))=true e ainda viu race=0, sem ler texto de queries.
+- Após COMMIT de A, B retornou false e confirmou sua transação sem consumir.
+  C viu race=1. Houve exatamente um vencedor confirmado entre os concorrentes.
+- Replay de race, caso expired e caso inexistente retornaram false.
+- Verificador final: exactly_three_cases/two_consumed/expired_unused/
+  bounded_claims/no_definer_functions todos true. Sem pg_xact_status/claim_xid.
+
+Encerramento: 30_disable.draft.sql executado uma vez, com disabled=true;
+nova tentativa autorizada de claim após desativação retornou false. Estado
+preservado: rollback=1, race=1, expired=0; control.enabled=false. Nenhum DROP,
+DELETE, reset de autorização ou remoção de evidência. Todas as conexões fechadas.
+Inspeção READ ONLY adicional de todos os papéis confirmou EXECUTE nas duas
+funções apenas para postgres e supabase_admin; desativação reconfirmada.
+Objetos/índices e quatro linhas sintéticas permanecem para auditoria; nenhuma
+rotina executada em background e nenhum job criado.
+
+Reconciliação efetivamente medida após desativação: sync_runs=9,
+raw_import_rows=11, raw_current_rows=8; deltas operacionais 0/0/0.
+Lista/versões de extensões idênticas antes/depois. Toda escrita executada
+foi limitada ao schema sintético; tabelas operacionais receberam somente as
+consultas de contagem em READ ONLY. Não houve requisição HTTP, fonte Google,
+API GitHub/Supabase Management, uso de Cron/net/Vault, produção, Edge, PAT,
+secret, workflow_dispatch, sincronização, Migration 5, benchmark, commit ou push.
+Somente a autenticação PostgreSQL já autorizada foi usada; nenhum valor de
+credencial foi registrado nem colocado nos objetos/evidências.
+
+Limites: GREEN valida apenas atomicidade, visibilidade, bloqueio concorrente,
+rollback, expiração e replay observados neste modelo reduzido. Não valida
+PostgREST, comportamento de Cron/Edge/HTTP, isolamento de secrets, exactly-once,
+durabilidade após restore/failover ou o sistema completo. Leitores privilegiados
+e superusuário continuam parte explícita da fronteira de confiança. O pacote
+Cron permanece YELLOW; automation_remote_runner_validated permanece GREEN.
+Risco do probe encerrado LOW. Próximo gate: CRON_EDGE_AUTHORIZATION_REDESIGN,
+não iniciado. Nenhuma nova execução autorizada por este resultado.
+
+## 2026-10-19 — CRON_STAGING_TRANSACTIONAL_PROBE: preflight bloqueado (YELLOW)
+
+Autorização humana específica recebida: APROVAR PROBE TRANSACIONAL ISOLADO EM
+STAGING. Raiz sheets-supabase-sync, branch dev, HEAD
+7c3649cf676f2aee010a7a1156f2aee7a91616cf. Alterações locais anteriores
+preservadas. Runbook, revisão de segurança e quatro SQLs do probe lidos
+integralmente; nenhum SQL do pacote operacional foi selecionado para execução.
+
+Preflight real em 19/10/2026, 14:05:34–14:05:35 UTC (11:05 BRT), pela conexão
+PostgreSQL staging existente, validada por validate_staging_access com destino
+e project ref permitidos. Não houve autenticação Management API. Três conexões
+simultâneas verificadas em READ ONLY: backends 108394, 108397 e 108398, usuário
+postgres, banco postgres, permissões CREATE no banco e USAGE de plpgsql presentes.
+cron_tx_probe ausente nas três conexões. Nenhum conflito de objeto encontrado.
+Baseline READ ONLY: sync_runs=9, raw_import_rows=11, raw_current_rows=8.
+Catálogo de extensões: pg_stat_statements 1.11, pgcrypto 1.3, plpgsql 1.0,
+supabase_vault 0.3.1 e uuid-ossp 1.1. Somente metadados do catálogo foram lidos;
+nenhum objeto ou segredo Vault consultado, nenhuma extensão instalada.
+
+Auditoria adicional READ ONLY dos atributos/memberships efetivos encontrou
+supabase_read_only_user e supabase_etl_admin com LOGIN e USAGE efetivo de
+pg_read_all_data. Ambos não são superuser nem herdam postgres, segundo a
+consulta. Não se presumiu que sejam papéis administrativos autorizados pelo
+limite de confiança do runbook. Demais papéis cliente anon/authenticated/
+service_role não apresentaram essa herança.
+
+Bloqueio: o runbook exige parar se houver acesso não administrativo ao
+schema/tabelas/função. pg_read_all_data concede SELECT geral e USAGE em schemas,
+mesmo sem grants explícitos; o setup aprovado não habilita RLS. Portanto, suas
+revogações locais não demonstrariam a fronteira de leitura exigida. Trata-se
+de conclusão sobre privilégios herdados documentados, não de um teste de
+exposição sobre tabelas criadas (nenhuma foi criada). Referência oficial:
+https://www.postgresql.org/docs/current/predefined-roles.html
+
+Preflight completo: BLOCKED. Conforme a ordem de parar quando qualquer condição
+falhar, nenhuma instalação ou escrita SQL foi iniciada. Cenários A–G,
+concorrência, visibilidade de commit, replay e expiração NÃO executados.
+Baseline posterior não coletado após a interrupção; não alegar reconciliação
+antes/depois nem deltas medidos. Todos os comandos remotos executados foram
+transações READ ONLY e consultas de metadados/contagens. Conexões encerradas.
+
+Objetos criados: zero. Objetos do probe remanescentes: zero. Desativação e
+rollback lógico não necessários nem executados, pois não houve instalação.
+Nenhuma função SECURITY DEFINER, extensão, job, recorrência, Edge, PAT, secret,
+workflow_dispatch, sincronização, Migration 5, benchmark, commit ou push.
+Não houve acesso a produção, API GitHub, fontes Google ou valores Vault.
+Somente a credencial de conexão PostgreSQL já autorizada foi usada; nenhum
+valor de credencial, connection string, chave ou dado privado foi registrado.
+
+automation_remote_runner_validated permanece GREEN; pacote Cron permanece
+YELLOW. Risco operacional deste gate LOW, sem escrita. Próximo gate recomendado:
+CRON_PROBE_PRIVILEGE_BOUNDARY_REVIEW. Revisar humanamente a classificação dos
+papéis administrativos confiáveis ou preparar proteção local adicional para
+nova revisão; não revogar memberships nem mudar privilégios globais. Esta
+autorização não permite alterar o desenho para contornar a condição de parada.
+Nenhum próximo gate iniciado automaticamente.
+
+## 2026-10-19 — CRON_STAGING_INACTIVE_PREPARATION_REVIEW (YELLOW)
+
+Raiz Git confirmada, dev em 7c3649cf676f2aee010a7a1156f2aee7a91616cf.
+Alterações documentais e rascunhos locais anteriores preservados. Nenhum fetch,
+commit, push ou acesso operacional remoto. automation_remote_runner_validated
+permanece GREEN, run 39247320871, sem repetir teste; baseline 9/11/8 é apenas
+contexto anterior, não nova medição. Segurança anterior permanece MITIGATED.
+
+README, oito SQLs, três arquivos Edge, testes Node/Python, fragmento workflow,
+ADR e registros atuais auditados. Revisão em drafts/cron_controlled_dispatch/REVIEW.md.
+Documentação oficial atual confirma que REVOKE net por postgres pode não remover
+grants de supabase_admin e que restrição de ACL/RLS por projeto não é suportada.
+Não aceitar segredo reutilizável na fila como isolado; papéis LOGIN podem ler e
+alterar fila. A chave ampla service_role no adapter não é mínimo privilégio.
+Capability por autorização/janela/operação e identidade restrita foram propostas,
+mas não implementadas/provisionadas. A integração completa continua bloqueada.
+
+Cinco scripts operacionais 10/20/30/40/50 receberam abort explícito inicial;
+entrypoint Edge também bloqueado antes de env/serve. Implementações anteriores
+mantidas para revisão, rollback 70 preservado, nenhum script aplicado. Novo
+inventário READ ONLY cobre LOGIN, memberships, owners, EXECUTE, Vault/net e
+schemas expostos; não executado. Ausência de configuração visível não prova
+ausência de exposição Data API; exige conferência humana futura.
+
+Probe novo em drafts/cron_controlled_dispatch/probe: schema cron_tx_probe,
+duas tabelas (quatro linhas sintéticas), duas funções SECURITY INVOKER, trigger,
+três conexões independentes, guardas, timeouts, observação e rollback lógico.
+Sem extensões, jobs, HTTP, credenciais, Edge ou tabelas do sincronizador.
+Runbook manual comprovará visibilidade antes/depois de commit e rollback,
+bloqueio concorrente, único vencedor, expiração e replay; nenhum probe executado.
+pg_xact_status não é fonte de atomicidade nem necessário sob observação
+independente comprovada; a implementação operacional ainda precisa de revisão.
+
+Testes offline direcionados: 35 Node aprovados (27 mocks anteriores + oito
+contratos de revisão/probe), oito contratos Python aprovados. Nomes de dois
+testes Python corrigidos para não sugerir comprovação de privilégios/commit
+operacionais. Nenhuma suíte extensa, integração ou benchmark repetido. Mocks e
+contratos textuais não provam sintaxe/semântica SQL ou segurança implantada.
+
+Nenhum SQL/extensão/job/deploy/token/secret/dispatch/migration/produção/recorrência.
+As sete GitHub Secrets não foram acessadas nem alteradas. Próxima aprovação
+somente APROVAR PROBE TRANSACIONAL ISOLADO EM STAGING. Risco MEDIUM para a
+integração pendente; prova de banco ainda não realizada.
+
+Deno check --no-remote --no-config e verificador documental aprovados; git diff
+--check sem erro (apenas aviso de normalização LF/CRLF do run_log). Scan local
+sanitizado em 23 arquivos de artefatos/testes: zero assinaturas de credenciais
+após distinguir um falso positivo em identificador de método de teste. Revisão
+manual encontrou apenas valores artificiais de mocks, não credenciais reais.
+Scanner por padrões não prova ausência absoluta de segredo. Nenhum valor ou
+fragmento confidencial foi mostrado. Resultados de testes direcionados
+reconfirmados após ajustes finais; a suíte extensa anterior não foi repetida.
+
+## 2026-10-19 — CRON_CONTROLLED_DISPATCH_SQL_PREPARATION (YELLOW)
+
+Repositório descoberto por git rev-parse, dev em 7c3649c. As alterações
+pré-existentes em run_log.md e a proposta documental ainda não versionada foram
+preservadas. automation_remote_runner_validated continua GREEN, run 39247320871;
+nenhuma repetição ou reabertura do teste remoto. Baseline de contexto: 9/11/8,
+sem nova consulta ao banco ou chamada operacional externa neste gate.
+
+Revisão crítica com fontes primárias: CALL top-level no caminho libpq do
+pg_cron 1.6.4 permite COMMIT real sob as restrições PostgreSQL. Porém http 1.6
+força redirects e não permite desligá-los pelas curlopts expostas; pg_net direto
+não garante envio único sob falha do worker e colocaria PAT GitHub na fila.
+A recomendação foi corrigida e registrada na revisão vigente da ADR, mantendo
+o diagnóstico anterior como histórico.
+
+Arquitetura proposta: pg_cron -> pg_net -> Edge Function mínima -> GitHub.
+GitHub PAT somente no secret store Edge; Vault guarda apenas credencial distinta
+para o gatilho. pg_net terá ACLs restritas antes de qualquer segredo; formatos
+impedem confundir PAT com credencial do gatilho. Revisão dos privilégios usa
+como evidência a auditoria READ ONLY anterior (service_role podia ler Vault),
+e prepara consultas novas de metadados, sem executá-las neste gate.
+
+Autorização única: claim com lock em RPC normal, synchronous_commit=on;
+segunda RPC verifica pg_xact_status(claim_xid)=committed antes do único POST
+GitHub. Não há COMMIT interno numa função SECURITY DEFINER. Não há retry de
+claim, confirmação, HTTP ou auditoria; timeout/ambiguidade não rearmam permissão.
+São aceitas perda do envio e necessidade de investigação, sem afirmar
+exactly-once. Headers e corpos de erro não são registrados. O retorno 200 com
+workflow_run_id/URLs é correlacionado, mas ainda exige observar dispatcher e
+reconciliar staging para comprovar sucesso ponta a ponta.
+
+Pacote preparado em drafts/cron_controlled_dispatch: oito SQLs separados para
+inspeção, extensões, ACL/controle privado, rotinas, configuração INATIVA,
+armamento com aprovação distinta, validação READ ONLY e rollback sem DELETE ou
+DROP. Inclui handler/adapters Edge sem dependências npm e fragmento de workflow
+para UUID, ref dev, SHA aprovado e bloqueio de rerun. O workflow real e o
+sincronizador Python não foram modificados. Não foi alterada Migration 5,
+Analytics ou qualquer migration aplicada.
+
+Testes offline: 27 testes Node passaram com mocks HTTP/GitHub e ledger de
+política, incluindo 32 entregas concorrentes/replay, expiração, consumo prévio,
+commit não confirmado, falha após commit, timeout, erros, 200 inválido/204,
+branch incorreta, troca de categorias de credencial e ausência de leaks.
+O handler e os adapters testados são os mesmos arquivos do rascunho.
+
+Python: 196 testes unitários (incluindo oito contratos estáticos novos), dois
+de segurança, dois de contrato, 25 de test_sync e 16 de instituição isolada
+passaram: 241 aprovados. Um teste end-to-end dependente de integração foi
+pulado. Os oito contratos dos SQLs foram reexecutados após a última etapa e
+passaram. Nenhuma suíte de performance/benchmark ou integração remota executada.
+Deno check --no-remote --no-config passou; verificador documental passou.
+
+Limites: nenhum SQL foi aplicado, nem mesmo localmente. Não houve parser ou
+servidor PostgreSQL validando sintaxe/semântica dos scripts. Docker não estava
+acessível; mocks não comprovam ACL/atomicidade implantadas. Há probe de commit
+RPC sem GitHub preparado para revisão futura, não executado. Deno check é
+verificação estática, não execução hospedada Supabase. Risco MEDIUM; status
+YELLOW até revisão humana, isolamento, implantação e prova autorizada.
+
+Nenhuma extensão instalada, job Cron criado/ativado, PAT/segredo criado,
+Vault gravado, workflow disparado, produção acessada, benchmark iniciado,
+commit ou push feito. As sete GitHub Secrets permanecem intactas. Próxima
+aprovação: revisão dos arquivos e preparação INATIVA/isolamento e probe sem
+dispatch; criar credenciais e armar um único teste exigem autorizações distintas.
+
+## 2026-10-19 — SUPABASE_CRON_SINGLE_CONTROLLED_DISPATCH: diagnóstico (YELLOW)
+
+Repositório descoberto por git rev-parse; dev local e remota em
+7c3649cf676f2aee010a7a1156f2aee7a91616cf, worktree inicialmente limpa. Desde o
+SHA do gate remoto, somente run_log.md mudou. automation_remote_runner_validated
+permanece concluído: run 39247320871 consultada apenas por metadados, success.
+Não houve repetição do teste remoto nem investigação dos tokens revogados.
+
+Inspeção PostgreSQL staging READ ONLY em 2026-10-19T12:26:12.384503+00:00:
+pg_cron 1.6.4 e pg_net 0.20.4 disponíveis, não instalados; catálogos cron/net
+inexistentes, sem jobs pg_cron neste banco. Vault 0.3.1 instalado, zero secrets.
+service_role tem acesso efetivo à view de segredos descriptografados; revisar
+ACLs antes de inserir PAT GitHub. anon/authenticated não possuem esse acesso.
+Papel atual postgres não é superuser; instalação exige caminho administrativo
+suportado e revisão humana. Nenhuma extensão foi criada ou habilitada.
+
+Baseline preservado: sync_runs=9, raw_import_rows=11, raw_current_rows=8.
+Seleção somente leitura: uma demo, sources_due=0, sources_failed=0, skipped=1.
+Intervalo 180 minutos; próxima elegibilidade natural prevista para
+2026-10-19T14:48:49.361510+00:00, salvo execução posterior. Não forçar due.
+
+Proposta registrada em docs/decisions/20261019_cron_single_controlled_dispatch_design.md.
+PAT GitHub granular, repo único, Actions: write, validade curta, criação humana
+e Vault após isolamento; sete GitHub Secrets preservadas. API workflow_dispatch
+com ref dev e return_run_details permite correlacionar run_id, sem considerar
+HTTP 200 como conclusão do Python.
+
+pg_net permite limitar enfileiramento, mas seu worker faz HTTP antes do COMMIT
+do consumo da fila: risco de repetição após falha inferido do código oficial,
+sem teste de falha no ambiente. Recomendação proposta: procedimento Cron com
+consumo durável da autorização e desativação do job antes de HTTP síncrono.
+Extensão http 1.6 disponível e não instalada; cron.use_background_workers=off.
+Controle transacional/top-level CALL precisa de revisão antes de implantação.
+Nenhuma chamada manual HTTP será aceita como prova de execução Cron.
+
+Free: recursos/egress/pausa e recomendação de até oito jobs concorrentes
+registrados no desenho, com fontes oficiais; plano de faturamento não foi
+reconsultado via Management API. GitHub repo público, runner padrão gratuito.
+Sem upgrade, contratação ou nova plataforma paga proposta.
+
+Resultado YELLOW: faltam aprovação do desenho, revisão SQL/ACL, instalação
+administrativa e credencial futura. Próxima aprovação: desenho com HTTP
+síncrono e preparação do SQL para revisão humana, sem aplicar, criar segredo,
+criar job ou disparar. Nenhum Cron, recorrência, token, workflow, migration,
+sincronizador, produção, benchmark, commit ou push foi criado/alterado/executado.
+Somente documentação local alterada; registros anteriores preservados.
+
+## 2026-10-19 — AUTOMATION_REMOTE_RUNNER_EXECUTION (GREEN)
+
+Classificação: automation_remote_runner_validated. O usuário autorizou
+explicitamente UMA execução manual staging neste gate. Segurança permanece
+MITIGATED: os dois tokens Legacy foram revogados pelo usuário; nenhum PAT
+revogado foi utilizado, nenhum token foi criado e nenhuma chamada à Management
+API Supabase foi feita. Sem evidência de exposição das sete GitHub Secrets.
+
+Revalidação imediata: repositório DungeonCodes/sheets-supabase-sync, branch dev,
+HEAD local e remoto 1e0d21831bfba3f6b98b1d7598272988ef372cac. Workflow
+staging-dispatch ativo, exclusivamente manual e idêntico ao arquivo local.
+Environment staging com uma única política de branch dev, sem política de tags.
+Os sete nomes de secrets foram conferidos, sem acesso a valores. Zero runs
+anteriores desse workflow e nenhuma execução concorrente do repositório nos
+estados consultados. A fonte de demonstração única, habilitada e ativa,
+correspondeu integralmente à configuração operacional. Staging guard aprovado.
+Dry-selection oficial: sources_total=1, sources_due=1, sources_failed=0,
+sources_executed=0, sources_busy_deferred=0; nenhuma chamada Google local.
+
+Baseline imediato em 2026-10-19T11:48:00.477637+00:00, via PostgreSQL staging
+já autorizado: SELECT 1 passou, transação READ ONLY, TLS cliente ativo e zero
+runs planned/running. Totais: sync_runs=8, raw_import_rows=11,
+raw_current_rows=8. No escopo demo: duas runs, três eventos insert, três estados
+atuais e zero tombstones; demais tipos de eventos zero.
+
+Comando executado exatamente uma vez, sem retry:
+gh workflow run scheduled-sync.yml --repo DungeonCodes/sheets-supabase-sync --ref dev
+
+GitHub run_id=39247320871, run_attempt=1, event=workflow_dispatch, headBranch=dev,
+headSha=1e0d21831bfba3f6b98b1d7598272988ef372cac, conclusion=success.
+URL: https://github.com/DungeonCodes/sheets-supabase-sync/actions/runs/39247320871
+Job dispatch=118042313121, GitHub-hosted runner (grupo GitHub Actions,
+ubuntu-latest); deployment=7172925346, environment=staging, ref=dev e SHA
+aprovado, confirmado pelas statuses de deployment vinculadas ao mesmo job.
+
+Evidências do runner: checkout dev e SHA aprovado; Python 3.13.16 efetivo;
+instalação do projeto/dependências concluída; materialização temporária,
+staging guard, batch_cli/dispatcher e remoção de arquivos temporários passaram.
+Os logs foram processados em memória, com saída restrita a campos permitidos,
+sem imprimir ou persistir logs brutos nesta análise. O mascaramento do GitHub
+substituiu também delimitadores JSON; contadores e status foram extraídos por
+campos estritos e reconciliados independentemente no banco.
+
+Resumo do dispatcher: sources_total=1, sources_due=1, sources_executed=1,
+sources_failed=0, sources_busy_deferred=0, sources_no_changes=1,
+sources_skipped=0; único status individual: demo autorizada -> no_changes.
+
+Reconciliação em 2026-10-19T11:50:31.624321+00:00, somente PostgreSQL staging,
+transação READ ONLY: sync_runs=9, raw_import_rows=11, raw_current_rows=8.
+Deltas globais: +1, 0, 0. Exatamente uma nova run da demo, status applied,
+iniciada e concluída em 2026-10-19T11:48:49.361510+00:00, com inserts=0,
+updates=0, tombstones=0, restores=0 e unchanged=3. Nenhuma run nova de outra
+fonte; zero planned/running. Estado da fonte: enabled=true,
+lifecycle_status=active, consecutive_failures=0.
+
+Totais da demo após execução: três runs, três eventos insert, três estados
+atuais e zero tombstones. Deltas de eventos insert/update/tombstone/restore=0;
+fingerprint agregado do estado (chaves/conteúdos já em hash, versões e flags
+de exclusão) idêntico antes/depois. Efeitos compatíveis com no_changes: nova
+run auditável, sem eventos raw nem alteração de estado. Nenhuma divergência
+inesperada. Consulta final GitHub confirmou exatamente uma run, attempt=1.
+
+Limites residuais já documentados: revogação não comprova ausência de uso
+indevido passado; TLS ativo não comprova verificação de identidade do servidor.
+Nenhuma política SSL/TLS foi alterada. Nenhuma produção acessada, recorrência
+habilitada, migration aplicada, secret alterada, benchmark iniciado, código
+Python modificado, commit ou push realizado. A única alteração local foi
+adicionar este registro a docs/run_log.md, preservando entradas anteriores.
+
+Próximo gate: SUPABASE_CRON_SINGLE_CONTROLLED_DISPATCH, NÃO iniciado.
+Risco de prazo: LOW, sem bloqueio técnico observado para concluir este gate.
+A autorização deste gate foi consumida; nova execução exige nova autorização.
+
+## 2026-10-19 — revalidação do REMOTE_RUNNER_FINAL_PREFLIGHT (GREEN)
+
+PRE_DISPATCH_SECURITY_TRIAGE: MITIGATED. O usuário confirmou a revogação manual
+dos dois tokens Legacy no Dashboard. Não houve nova investigação dos tokens,
+criação de PAT, autenticação Supabase ou uso da Management API. Não há evidência
+de exposição das sete GitHub Secrets. Risco residual: a revogação não demonstra
+ausência de uso indevido anterior nem elimina cópias históricas; não houve
+rotação das credenciais sem relação demonstrada com o incidente.
+
+Repositório descoberto por git rev-parse: branch dev, HEAD 1e0d218. Após fetch,
+origin/dev...HEAD = 0/0, também confirmado pela referência remota. A alteração
+local pendente era somente docs/run_log.md, incluindo registro anterior de
+preflight; todas as entradas existentes foram preservadas nesta revalidação.
+
+GitHub: staging-dispatch ativo (scheduled-sync.yml), sem execuções registradas.
+Workflow disponível em main e dev, com conteúdo idêntico ao arquivo local.
+Environment staging usa custom_branch_policies e possui uma única regra:
+branch dev, sem política de tags. Conferida somente a presença dos sete nomes:
+APP_ENV, SUPABASE_PROJECT_REF, SUPABASE_ALLOWED_PROJECT_REF, SUPABASE_URL,
+SUPABASE_DB_URL, GOOGLE_SERVICE_ACCOUNT_JSON e STAGING_SYNC_CONFIG_JSON.
+Os valores das secrets não foram acessados.
+
+Staging guard aprovado para leitura e para a validação de escrita confirmada;
+a validação de escrita sem confirmação foi bloqueada, sem tentativa de escrita.
+A configuração local contém somente a fonte de demonstração já autorizada,
+habilitada e correspondente ao estado operacional. A configuração Google foi
+validada localmente, sem chamadas de rede Google. Não houve acesso a produção.
+
+Baseline anterior à seleção: 2026-10-19T11:17:47.075046+00:00. Baseline posterior:
+2026-10-19T11:17:50.928658+00:00. SELECT 1 passou em transação READ ONLY,
+transaction_read_only=on, conexão cliente com TLS ativo. Contadores globais:
+sync_runs=8, raw_import_rows=11, raw_current_rows=8; runs planned/running=0.
+No escopo da demonstração: uma fonte, duas runs, três eventos raw e três estados
+atuais. Deltas globais zero contra 18/10 e contra o preflight já registrado em
+19/10; deltas zero antes/depois do dry-select. Nenhuma divergência inesperada.
+
+Comando oficial executado: python -m sheets_supabase_sync.batch_cli --config
+runtime/forms_demo.config.json --dry-select, com READ ONLY e timeouts impostos
+às conexões por PGOPTIONS/PGCONNECT_TIMEOUT. Resultado: sources_total=1,
+sources_due=1, sources_failed=0, sources_executed=0, sources_skipped=0 e
+sources_busy_deferred=0. O primeiro diagnóstico auxiliar falhou apenas ao
+consultar o atributo de TLS do cliente; corrigido para conn.pgconn.ssl_in_use,
+sem mudança no código do projeto e sem alteração de SSL/TLS.
+
+Limites: presença de secrets não valida seus conteúdos; a configuração efetiva
+do runner e a conectividade Google remota permanecem para a execução aprovada.
+TLS ativo não comprova verificação da identidade do servidor; a pendência TLS
+anterior permanece documentada, sem alterações neste gate.
+
+Preflight GREEN, aguardando APROVAR 1 EXECUÇÃO MANUAL STAGING. Comando apenas
+preparado, NÃO executado:
+gh workflow run scheduled-sync.yml --repo DungeonCodes/sheets-supabase-sync --ref dev
+
+Nenhum workflow_dispatch, sincronização real, escrita no banco, alteração de
+secrets, migration, Cron, commit ou push. automation_remote_runner_validated
+permanece pendente até execução única aprovada e reconciliação posterior.
+
+## 2026-10-19 — preflight final do runner remoto (GREEN, aguardando aprovação)
+
+Gate REMOTE_RUNNER_FINAL_PREFLIGHT. Segurança: o usuário confirmou a revogação
+dos dois tokens Legacy; a triagem foi encerrada como MITIGATED com risco
+residual documentado. Nenhum token novo, nenhum uso de PAT, nenhuma chamada à
+Management API.
+
+Preflight: `dev` em `1e0d218`, igual a `origin/dev` pela API do GitHub, sem
+merge/rebase; única alteração local é este arquivo. O workflow `staging-dispatch`
+(`scheduled-sync.yml`) está ativo, somente `workflow_dispatch`, sem execuções, e
+o conteúdo remoto em `dev` é idêntico ao local. O Environment `staging` tem as sete
+secrets, permite só a branch `dev`, sem revisores obrigatórios e com bypass de
+administradores. O staging guard local passou com `APP_ENV=staging` e bloqueou
+escrita sem confirmação. A configuração local tem uma fonte habilitada
+(`forms_demo`); o conteúdo da secret `STAGING_SYNC_CONFIG_JSON` não é legível e
+será conferido pelo resumo da primeira execução.
+
+Baseline READ ONLY em `2026-10-19T11:14:45Z`: `SELECT 1` passou,
+`transaction_read_only=on`, TLS no cliente ativo. O dry-select oficial retornou
+`sources_total=1`, `sources_due=1`, `sources_failed=0`, `sources_executed=0`.
+Contadores: `sync_runs=8` (todas `applied`), `raw_import_rows=11`,
+`raw_current_rows=8`; iguais ao baseline de 18/10 e com deltas zero antes/depois
+do dry-select (`n_tup_ins/upd/del` zero nas tabelas do escopo). Investigado:
+`data_sources=2` porque `fixture_raw_staging` existe desde 13/08 (6 runs, última
+em 17/08), fora da configuração e portanto fora do dispatcher; não é mudança.
+O `ssl=false` de `pg_stat_ssl` mede o trecho pooler→Postgres, não o cliente.
+
+Nenhum dispatch, sincronização, escrita, alteração de secrets, migration, Cron,
+acesso a produção, commit ou push. Próxima aprovação: APROVAR 1 EXECUÇÃO MANUAL
+STAGING. Este registro não autoriza execução.
+
+## 2026-10-19 — preparação de rotação de tokens Supabase (YELLOW)
+
+Gate SUPABASE_TOKEN_ROTATION_PREPARATION: inventário de PATs da conta não
+acessível por canal autenticado seguro nesta sessão. A descoberta encontrou
+plugin Supabase não conectado, sem capacidade de inventário de PATs confirmada.
+Não foram utilizados tokens suspeitos nem reabertos históricos de credenciais.
+Nenhum nome, data, tipo ou escopo de token da conta foi confirmado.
+
+Os dois workflows versionados não referenciam SUPABASE_ACCESS_TOKEN nem
+comandos da CLI Supabase; o dispatcher referencia sete secrets operacionais.
+Não foi encontrada a variável de PAT nos ambientes de processo, usuário ou
+máquina, nem o arquivo de fallback padrão da CLI. Isso não exclui credencial
+no armazenamento nativo, perfis alternativos ou integrações externas.
+
+Intervenção necessária: consultar manualmente Account > Access Tokens no
+Dashboard e fornecer somente nomes, criação, expiração, Legacy/Scoped,
+escopos e dependências conhecidas. Não copiar valores nem criar novos tokens.
+Após o inventário, selecionar conservadoramente candidatos Legacy relacionados
+à CLI de 18/10 e sem necessidade operacional confirmada, avaliar interrupções
+e obter aprovação nominal antes de qualquer revogação. Tokens sem relação
+demonstrada e as sete GitHub Secrets devem ser preservados.
+
+Nenhum PAT novo é necessário para os workflows inspecionados. Se a CLI de
+gerenciamento continuar necessária após a revogação, propor separadamente PAT
+Scoped somente para staging, com permissões e validade mínimas. Evitar o fluxo
+de login da CLI pelo navegador, que cria token clássico. Referência oficial:
+https://supabase.com/docs/guides/platform/personal-access-tokens
+
+Resultado YELLOW: candidatos e dependências externas ainda não identificados.
+Nenhuma credencial criada, revogada, exibida ou testada; nenhum acesso a
+produção, dispatch, alteração de secrets, migration, Cron, commit ou push.
+Próxima aprovação: APROVAR REVOGAÇÃO CONTROLADA, condicionada à lista nominal
+de candidatos e à avaliação das dependências. Este registro não autoriza execução.
+
+## 2026-10-19 — resolução da sincronização Git
+
+A branch dev foi atualizada por fast-forward para origin/dev (14b6672).
+Os registros remotos de 18/10 e o registro local de 16/10 foram preservados
+no mesmo arquivo, em ordem cronológica decrescente. Não houve commit, push,
+pull, rebase ou alteração de código. Validação documental: diff sem erros
+de whitespace, ausência de conflitos no índice e preservação das entradas.
+
 ## 2026-10-18 — retomada autorizada do staging e conectividade recuperada
 
 Após aprovação explícita para reativar exclusivamente staging, a autenticação
@@ -57,6 +1030,36 @@ Classificação: `automation_remote_runner_validation_blocked_connectivity`.
 Próximo passo: recuperar conectividade PostgreSQL staging, repetir baseline e
 dry-select read-only e somente então solicitar aprovação para uma execução remota.
 O gate `automation_remote_runner_validated` permanece não atingido.
+
+## 2026-10-16 — preflight do GitHub Actions remoto bloqueado
+
+A raiz foi descoberta por `git rev-parse --show-toplevel`. O preflight confirmou
+branch `dev`, worktree limpo e HEAD `edf4737`; após `git fetch origin`,
+`origin/dev...dev` retornou `0/0`. Os documentos e entrypoints do gate foram
+inspecionados, sem reabrir gates anteriores.
+
+O workflow `scheduled-sync.yml` contém somente `workflow_dispatch`, runner
+`ubuntu-latest`, environment `staging`, concorrência por ref com
+`cancel-in-progress: false` e timeout de 20 minutos. Prepara Python 3.13,
+instala o projeto e chama `python -m sheets_supabase_sync.batch_cli`; o YAML
+limita-se à preparação operacional, sem lógica de seleção/sincronização.
+Não foram identificados valores de secrets hardcoded. O workflow exige
+`APP_ENV=staging` e executa o guard antes do dispatcher; o guard vincula
+ambiente, project ref permitido e destinos Supabase/PostgreSQL. Os valores
+remotos efetivos não puderam ser confirmados.
+
+GitHub CLI 2.102.0 está disponível, mas `gh auth status` informou ausência de
+autenticação. `gh workflow list` e `gh secret list` falharam por esse motivo;
+a existência dos sete nomes esperados permanece não verificada, sem afirmar
+que estejam ausentes.
+
+Resultado: gate YELLOW, bloqueio de autenticação GitHub no preflight.
+`automation_remote_runner_validated` não pode ser atribuída. Nenhum baseline,
+disparo remoto, acesso Google/Supabase, migration, alteração de secrets,
+recorrência, Cron, commit ou push foi executado. Nenhum segredo foi exibido.
+Próximo passo: autenticação humana do GitHub CLI e retomada deste mesmo gate,
+incluindo verificação das secrets, destino staging, baseline e uma única
+execução manual, seguidos de reconciliação e revisão humana.
 
 ## 2026-10-02 — dispatcher central de staging v0.2
 
