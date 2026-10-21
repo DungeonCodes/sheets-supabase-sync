@@ -1,0 +1,172 @@
+# OFFLINE REVIEW CANDIDATE ONLY.
+name: staging-dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      execution_mode:
+        type: choice
+        options: [manual, scheduled]
+        default: manual
+      approved_dev_sha:
+        type: string
+        default: ""
+      clock_run_id:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-dispatch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - name: Authorize revision before checkout or credentials
+        shell: bash
+        env:
+          EXECUTION_MODE: ${{ inputs.execution_mode }}
+          APPROVED_INPUT_SHA: ${{ inputs.approved_dev_sha }}
+          APPROVED_DEV_SHA: ${{ vars.STAGING_CLOCK_APPROVED_DEV_SHA }}
+          SCHEDULE_ENABLED: ${{ vars.STAGING_CLOCK_SCHEDULE_ENABLED }}
+          CLOCK_RUN_ID: ${{ inputs.clock_run_id }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'GUARD_JS'
+          // EXECUTOR_GUARD_BEGIN
+          const e=process.env;
+          const scheduled=e.EXECUTION_MODE==='scheduled';
+          let code=null;
+          if(e.GITHUB_REPOSITORY!=='DungeonCodes/sheets-supabase-sync' || e.GITHUB_REF!=='refs/heads/dev' ||
+             e.GITHUB_EVENT_NAME!=='workflow_dispatch' || e.GITHUB_WORKFLOW_REF!=='DungeonCodes/sheets-supabase-sync/.github/workflows/scheduled-sync.yml@refs/heads/dev') code='WRONG_EXECUTOR_IDENTITY';
+          else if(!['','manual','scheduled'].includes(e.EXECUTION_MODE??'')) code='INVALID_MODE';
+          else if(scheduled && (e.SCHEDULE_ENABLED!=='true' || e.GITHUB_RUN_ATTEMPT!=='1')) code='SCHEDULE_NOT_AUTHORIZED';
+          else if(scheduled && (!/^[0-9a-f]{40}$/.test(e.APPROVED_DEV_SHA??'') ||
+            e.APPROVED_INPUT_SHA!==e.APPROVED_DEV_SHA || e.GITHUB_SHA!==e.APPROVED_DEV_SHA)) code='EXECUTED_REVISION_NOT_APPROVED';
+          else if(scheduled && !/^[1-9]\d*$/.test(e.CLOCK_RUN_ID??'')) code='CLOCK_CORRELATION_INVALID';
+          console.log(JSON.stringify({state:code?'EXECUTOR_FAILED':'REVISION_AUTHORIZED',code,
+            mode:scheduled?'scheduled':'manual',actual_at:new Date().toISOString(),
+            clock_run_id:scheduled && /^[1-9]\d*$/.test(e.CLOCK_RUN_ID??'')?e.CLOCK_RUN_ID:null,
+            executor_run_id:/^\d+$/.test(e.GITHUB_RUN_ID??'')?e.GITHUB_RUN_ID:null,
+            sha:/^[0-9a-f]{40}$/.test(e.GITHUB_SHA??'')?e.GITHUB_SHA:null}));
+          if(code) process.exitCode=1;
+          // EXECUTOR_GUARD_END
+          GUARD_JS
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify checkout revision
+        env:
+          EXECUTED_SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXECUTED_SHA"
+
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Materialize ephemeral staging configuration
+        env:
+          APP_ENV: ${{ secrets.APP_ENV }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ALLOWED_PROJECT_REF: ${{ secrets.SUPABASE_ALLOWED_PROJECT_REF }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          STAGING_SYNC_CONFIG_JSON: ${{ secrets.STAGING_SYNC_CONFIG_JSON }}
+        run: |
+          set -euo pipefail
+          : "${APP_ENV:?APP_ENV is required}"
+          : "${SUPABASE_PROJECT_REF:?SUPABASE_PROJECT_REF is required}"
+          : "${SUPABASE_ALLOWED_PROJECT_REF:?SUPABASE_ALLOWED_PROJECT_REF is required}"
+          : "${SUPABASE_URL:?SUPABASE_URL is required}"
+          : "${SUPABASE_DB_URL:?SUPABASE_DB_URL is required}"
+          : "${GOOGLE_SERVICE_ACCOUNT_JSON:?GOOGLE_SERVICE_ACCOUNT_JSON is required}"
+          : "${STAGING_SYNC_CONFIG_JSON:?STAGING_SYNC_CONFIG_JSON is required}"
+          test "$APP_ENV" = staging
+          umask 077
+          printf '%s\n' \
+            "APP_ENV=$APP_ENV" \
+            "SUPABASE_PROJECT_REF=$SUPABASE_PROJECT_REF" \
+            "SUPABASE_ALLOWED_PROJECT_REF=$SUPABASE_ALLOWED_PROJECT_REF" \
+            "SUPABASE_URL=$SUPABASE_URL" \
+            "SUPABASE_DB_URL=$SUPABASE_DB_URL" \
+            "GOOGLE_SERVICE_ACCOUNT_FILE=$RUNNER_TEMP/google-service-account.json" \
+            > .env.local
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/google-service-account.json"
+          printf '%s' "$STAGING_SYNC_CONFIG_JSON" > runtime/staging.config.json
+
+      - name: Validate staging guard
+        run: >-
+          python -c "from pathlib import Path; from sheets_supabase_sync.environment import load_environment;
+          from sheets_supabase_sync.staging_guard import validate_staging_access;
+          validate_staging_access(load_environment(Path.cwd()), write_requested=True, confirmed=True)"
+
+      - name: Dispatch due staging sources
+        env:
+          EXECUTION_MODE: ${{ inputs.execution_mode }}
+          CLOCK_RUN_ID: ${{ inputs.clock_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          # EXECUTOR_SUMMARY_BEGIN
+          import json
+          import sys
+          import os
+          import re
+          import time
+          import logging
+          from datetime import UTC, datetime
+          from sheets_supabase_sync.batch_cli import run_cli
+          outputs = []
+          started = time.monotonic()
+          # Public runner: keep detailed evidence in staging, never print source identities.
+          logging.disable(logging.CRITICAL)
+          code = run_cli(["--config", "runtime/staging.config.json", "--confirm-staging"], emit=outputs.append)
+          finished_at = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+          def safe_env(name, pattern):
+              value = os.environ.get(name, "")
+              return value if re.fullmatch(pattern, value) else None
+          context = {"mode": "scheduled" if os.environ.get("EXECUTION_MODE") == "scheduled" else "manual",
+              "expected_at": None, "actual_at": finished_at,
+              "clock_run_id": safe_env("CLOCK_RUN_ID", r"[1-9]\d*"),
+              "executor_run_id": safe_env("GITHUB_RUN_ID", r"[1-9]\d*"),
+              "executor_sha": safe_env("GITHUB_SHA", r"[0-9a-f]{40}"),
+              "duration_seconds": round(time.monotonic() - started, 3), "last_success_at": None}
+          fields = ("sources_total", "sources_due", "sources_executed", "sources_failed", "sources_busy_deferred", "sources_no_changes", "sources_skipped")
+          try:
+              summary = json.loads(outputs[-1])
+              counts = {key: summary[key] for key in fields}
+              if any(type(value) is not int or value < 0 for value in counts.values()):
+                  raise ValueError("invalid counts")
+              state = "EXECUTOR_PARTIAL_FAILURE" if counts["sources_failed"] else "CLOCK_BUSY" if counts["sources_busy_deferred"] else "CLOCK_SKIPPED_NO_DUE" if not counts["sources_due"] else "EXECUTOR_SUCCESS"
+              if code and not counts["sources_failed"]:
+                  state = "EXECUTOR_FAILED"
+              if state in {"EXECUTOR_SUCCESS", "CLOCK_SKIPPED_NO_DUE"}:
+                  context["last_success_at"] = finished_at
+              print(json.dumps({"state": state, **context, **counts}, sort_keys=True))
+              if counts["sources_failed"]:
+                  code = 1
+          except (IndexError, KeyError, TypeError, ValueError):
+              print(json.dumps({"state": "EXECUTOR_FAILED" if code else "EXECUTOR_UNKNOWN", "code": "SUMMARY_UNAVAILABLE", **context}))
+              code = code or 2
+          sys.exit(code)
+          # EXECUTOR_SUMMARY_END
+          PY
+
+      - name: Remove ephemeral files
+        if: always()
+        run: rm -f .env.local runtime/staging.config.json "$RUNNER_TEMP/google-service-account.json"

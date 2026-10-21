@@ -1,0 +1,12 @@
+﻿import test from 'node:test';
+import assert from 'node:assert/strict';
+import {publicObservation,executorState,OPERATIONAL_STATES} from './observation.mjs';
+const summary={sources_total:1,sources_due:1,sources_executed:1,sources_failed:0,sources_busy_deferred:0};
+test('all requested operational states are representable',()=>{assert.equal(OPERATIONAL_STATES.length,10); for(const state of OPERATIONAL_STATES) assert.equal(publicObservation({state}).state,state);});
+test('contract strips arbitrary private payloads',()=>{const record=publicObservation({state:'EXECUTOR_SUCCESS',token:'synthetic-private',sources:[{pii:'synthetic-private'}],clock_run_id:'synthetic-private',executor_sha:'synthetic-private',actual_at:'synthetic-private'});assert(!JSON.stringify(record).includes('synthetic-private'));assert.equal(record.sources_due,null);});
+test('contract preserves valid aggregates and correlation',()=>{const r=publicObservation({...summary,mode:'scheduled',clock_run_id:'123',executor_run_id:'456',executor_sha:'a'.repeat(40),actual_at:'2026-10-21T12:00:00Z'});assert.equal(r.sources_total,1);assert.equal(r.clock_run_id,'123');assert.equal(r.executor_sha,'a'.repeat(40));});
+test('missing evidence is unknown',()=>assert.equal(executorState(null,null,null),'EXECUTOR_UNKNOWN'));
+test('proven failure distinct from missing summary',()=>assert.equal(executorState(null,2,'failure'),'EXECUTOR_FAILED'));
+test('partial failures detected with legacy zero exit',()=>assert.equal(executorState({...summary,sources_failed:1},0,'success'),'EXECUTOR_PARTIAL_FAILURE'));
+test('no due, busy, success remain separate',()=>{assert.equal(executorState({...summary,sources_due:0,sources_executed:0},0,'success'),'CLOCK_SKIPPED_NO_DUE');assert.equal(executorState({...summary,sources_busy_deferred:1},0,'success'),'CLOCK_BUSY');assert.equal(executorState(summary,0,'success'),'EXECUTOR_SUCCESS');});
+test('cancelled without summary does not prove source failure',()=>assert.equal(executorState(null,null,'cancelled'),'EXECUTOR_UNKNOWN'));

@@ -962,3 +962,33 @@ O domínio já possui `due_sources`, mas a seleção é parcial: o staging CLI n
 carrega estado operacional atualizado de `last_sync_at` nem consulta agenda no
 banco. O futuro Cron global depende de dispatcher Python central; quantidade de
 fontes e capacidade permanecem decisão pendente do Eric.
+
+## 2026-10-21 — GITHUB_CLOCK_RECURRENCE_READINESS_REVIEW
+
+Preparacao offline YELLOW; detalhes em
+`drafts/github-clock-recurrence/README.md` e decisao
+`docs/decisions/20261021_github_clock_recurrence_readiness.md`.
+Preflight somente leitura via GitHub CLI: repositorio publico/main, refs remotas,
+workflows, variables vazias, staging limitado a dev e secrets somente nomes.
+HEAD local dev 14b6672908fddf688905d8a96d66e78d78b9851d, worktree inicial limpo.
+Runs anteriores somente metadados consultados, nunca repetidos.
+35 testes Node offline passaram; nenhuma alteracao operacional/remota, dependencia,
+SQL, commit/push, acesso Google/Supabase/producao ou demandas_inicie.
+Opt-in separado ausente; cron nao selecionado. Monitor e modelo nao conectado.
+Pendencias humanas e rollback documentados. Trabalho encerra apos testes offline.
+
+## 2026-10-21 — GITHUB_CLOCK_SCHEDULE_PUBLICATION_PREPARATION
+
+Preflight renovado por leitura: main 80cdde4bb79506deecb3d37f0e9894fba03739ac,
+dev remoto 294dceb07ad131a0b45f84b79b611b126e0e9558; refs origin coincidem.
+HEAD local dev 14b6672908fddf688905d8a96d66e78d78b9851d, 8 commits atras;
+nenhum pull/fetch/checkout, alteracoes e drafts anteriores preservados.
+Preparados somente em drafts candidatos clock/executor, guard SHA pre-credenciais,
+patch CLI minimo e wrapper agregado para falhas parciais/privacidade, contrato e testes.
+59 Node +12 Python candidatos +7 Python existentes passaram offline.
+Plano/rollback em drafts/github-clock-recurrence/PUBLICATION_REVIEW.md e decisao
+20261021_github_clock_publication_preparation.md. Status YELLOW, artefatos prontos
+para revisao; cadencia 60 min nao aprovada, dono e governanca dev pendentes.
+Nenhum workflow disparado/publicado, src operacional alterado, variavel/secret ou
+staging modificado, SQL/sync/benchmark/producao ou commit/push. Encerrar e aguardar
+revisao humana no gate GITHUB_CLOCK_SCHEDULE_PUBLICATION_REVIEW.

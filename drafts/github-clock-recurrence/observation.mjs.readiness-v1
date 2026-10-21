@@ -1,0 +1,17 @@
+﻿/** Evaluate only sanitized executor summaries; exit zero is insufficient. */
+export function assessExecution(summary, exitCode, conclusion) {
+  const fields = ['sources_due','sources_executed','sources_failed','sources_busy_deferred'];
+  if (!summary || fields.some(k => !Number.isSafeInteger(summary[k]) || summary[k]<0)) return 'unknown_alert';
+  if (exitCode!==0 || conclusion!=='success' || summary.sources_failed>0) return 'failure_alert';
+  if (summary.sources_busy_deferred>0) return 'busy_reconcile';
+  return summary.sources_due===0 ? 'no_eligible_sources' : 'success';
+}
+/** Expected slot supplied by approved cadence; never inferred from receipt time. */
+export function assessTick({enabled, workflowActive, expectedAt, observedAt, now, toleranceMs}) {
+  if (!enabled) return 'disabled';
+  if (!workflowActive) return 'workflow_disabled_alert';
+  if (![expectedAt,now,toleranceMs].every(Number.isFinite) || toleranceMs<0) return 'unknown_alert';
+  if (observedAt==null) return now>expectedAt+toleranceMs ? 'missing_alert' : 'waiting';
+  if (!Number.isFinite(observedAt)) return 'unknown_alert';
+  return observedAt>expectedAt+toleranceMs ? 'late_alert' : 'on_time';
+}

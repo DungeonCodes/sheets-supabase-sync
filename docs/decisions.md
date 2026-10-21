@@ -76,3 +76,15 @@ seleção de agenda no YAML; rejeitadas neste gate.
 Impacto esperado: um workflow seguro e serializado para o primeiro disparo
 manual; o modelo de elegibilidade central permanece gate posterior. Detalhes em
 `docs/decisions/20260930_github_actions_staging_dispatch.md`.
+
+## 2026-10-21
+
+Decisao: preparar recorrencia GitHub Clock apenas em drafts, opt-in separado
+fail-closed e revisao autorizada por promocao proposta. Sem publicacao/ativacao.
+Detalhes: `docs/decisions/20261021_github_clock_recurrence_readiness.md`.
+
+## 2026-10-21 — preparo de publicacao do Clock
+
+SHA aprovado explicitamente, guard no filho antes das credenciais e patch isolado
+para sources_failed; candidatos offline em drafts. Piloto 60min nao aprovado.
+Detalhes em `docs/decisions/20261021_github_clock_publication_preparation.md`.

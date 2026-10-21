@@ -1,0 +1,11 @@
+--- a/src/sheets_supabase_sync/batch_cli.py
++++ b/src/sheets_supabase_sync/batch_cli.py
+@@ -62,7 +62,7 @@
+         emit(json.dumps({"status": "failed", "category": category}, sort_keys=True))
+         return 2
+     emit(json.dumps(_safe_summary(summary, statuses, dry_select=args.dry_select), sort_keys=True))
+-    return 0
++    return 1 if summary.sources_failed else 0
+ 
+ 
+ def _safe_summary(summary: DispatchSummary, statuses: list[dict[str, str]], *, dry_select: bool) -> dict[str, object]:

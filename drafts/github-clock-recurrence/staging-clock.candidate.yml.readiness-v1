@@ -1,0 +1,169 @@
+# OFFLINE CANDIDATE ONLY. No cron selected; schedule trigger intentionally absent.
+# MANUAL PREPARATION REVISION, 2026-10-20. v1/v2 remain preserved.
+# REVIEW DRAFT ONLY. Not loaded by Actions from drafts/.
+# No schedule expression is selected: client cadence/SLA requirements are pending.
+# Future publication/one manual test/recurrence each need separate human approval.
+name: staging-clock
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_dispatch:
+        description: Explicit approval for one controlled dispatch attempt
+        type: boolean
+        required: true
+        default: false
+      expected_dev_sha:
+        description: Reviewed dev commit; freeze dev during the controlled test
+        type: string
+        required: true
+      approval_expires_at:
+        description: UTC ISO expiry within 15 minutes; controlled-test window only
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: staging-clock
+  cancel-in-progress: false
+
+jobs:
+  clock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      # No checkout, third-party action, environment, Supabase or Google credential.
+      - name: Validate clock and dispatch once to dev
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCHEDULE_ENABLED: ${{ vars.STAGING_CLOCK_SCHEDULE_ENABLED }}
+          APPROVED_DEV_SHA: ${{ vars.STAGING_CLOCK_APPROVED_DEV_SHA }}
+          CLOCK_ENABLED: ${{ vars.STAGING_CLOCK_ENABLED }}
+          AUTHORIZED_RUN_NUMBER: ${{ vars.STAGING_CLOCK_AUTHORIZED_RUN_NUMBER }}
+          CONFIRM_DISPATCH: ${{ inputs.confirm_dispatch }}
+          EXPECTED_DEV_SHA: ${{ inputs.expected_dev_sha }}
+          APPROVAL_EXPIRES_AT: ${{ inputs.approval_expires_at }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'CLOCK_JS'
+          // CLOCK_PROGRAM_BEGIN -- offline tests execute this exact program with mocked fetch.
+          const env = process.env;
+          const repository = 'DungeonCodes/sheets-supabase-sync';
+          const workflow = 'scheduled-sync.yml';
+          const prefix = `/repos/${repository}`;
+          const workflowPath = `${prefix}/actions/workflows/${workflow}`;
+          const activeStates = new Set(['queued','in_progress','waiting','pending','requested']);
+          const scheduled = env.GITHUB_EVENT_NAME==='schedule';
+          const expectedSha = scheduled ? env.APPROVED_DEV_SHA : env.EXPECTED_DEV_SHA;
+          let dispatchAttempted = false;
+          let acceptedRunId = null;
+          let lastHttpStatus = null;
+          let dispatchStartedAt = null;
+          function record(status, fields={}) {
+            console.log(JSON.stringify({status,at:new Date(Date.now()).toISOString(),
+              clock_run_id:/^\d+$/.test(env.GITHUB_RUN_ID??'')?env.GITHUB_RUN_ID:null,
+              clock_run_number:/^\d+$/.test(env.GITHUB_RUN_NUMBER??'')?env.GITHUB_RUN_NUMBER:null,
+              mode:scheduled?'scheduled':'manual',expected_at:null,clock_branch:'main',target_branch:'dev',...fields}));
+          }
+          function stop(code) { const error = new Error('clock_stopped'); error.clockCode = code; throw error; }
+          function approvedWindow() {
+            if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(env.APPROVAL_EXPIRES_AT??'')) stop('APPROVAL_WINDOW_INVALID');
+            const expiry = Date.parse(env.APPROVAL_EXPIRES_AT);
+            const remaining = expiry-Date.now();
+            if (!Number.isFinite(expiry) || remaining<=0 || remaining>900000) stop('APPROVAL_WINDOW_INVALID');
+          }
+          async function api(path, method='GET', body) {
+            let response;
+            lastHttpStatus=null;
+            try {
+              response = await fetch(`https://api.github.com${path}`, {
+                method, redirect:'error', signal:AbortSignal.timeout(10000),
+                headers: {
+                  Authorization:`Bearer ${env.GH_TOKEN}`, Accept:'application/vnd.github+json',
+                  'Content-Type':'application/json', 'X-GitHub-Api-Version':'2026-03-10',
+                },
+                ...(body ? {body:JSON.stringify(body)} : {}),
+              });
+            } catch { stop(dispatchAttempted ? 'DISPATCH_OR_OBSERVATION_UNCERTAIN' : 'PREFLIGHT_TRANSPORT_FAILED'); }
+            lastHttpStatus=response.status;
+            if ([401,403].includes(response.status)) stop('AUTHORIZATION_DENIED');
+            if (method==='POST' && [404,422].includes(response.status)) stop('DISPATCH_REJECTED');
+            if (response.status!==200) stop(dispatchAttempted ? 'DISPATCH_OR_OBSERVATION_UNCERTAIN' : 'PREFLIGHT_HTTP_FAILED');
+            try { return await response.json(); }
+            catch { stop(dispatchAttempted ? 'DISPATCH_OR_OBSERVATION_UNCERTAIN' : 'PREFLIGHT_RESPONSE_INVALID'); }
+          }
+          async function runClock() {
+            if (env.GITHUB_REPOSITORY!==repository || env.GITHUB_REF!=='refs/heads/main') stop('WRONG_REPOSITORY_OR_REF');
+            if (!['workflow_dispatch','schedule'].includes(env.GITHUB_EVENT_NAME)) stop('WRONG_EVENT');
+            if (env.GITHUB_WORKFLOW_REF!==`${repository}/.github/workflows/staging-clock.yml@refs/heads/main`) stop('WRONG_CLOCK_WORKFLOW');
+            if (env.GITHUB_RUN_ATTEMPT!=='1') stop('RERUN_FORBIDDEN');
+            if (!/^\d+$/.test(env.GITHUB_RUN_ID??'')) stop('RUN_ID_INVALID');
+            if (!env.GH_TOKEN) stop('AUTOMATIC_TOKEN_MISSING');
+            if (scheduled) {
+              if (env.SCHEDULE_ENABLED!=='true') stop('SCHEDULE_DISABLED');
+              if (!/^[0-9a-f]{40}$/.test(expectedSha??'')) stop('APPROVED_SHA_INVALID');
+            } else {
+              if (!/^[1-9]\d*$/.test(env.AUTHORIZED_RUN_NUMBER??'') || env.GITHUB_RUN_NUMBER!==env.AUTHORIZED_RUN_NUMBER) stop('RUN_NOT_AUTHORIZED');
+              if (env.CLOCK_ENABLED!=='true') stop('CLOCK_DISABLED');
+              if (env.CONFIRM_DISPATCH!=='true') stop('CONFIRMATION_REQUIRED');
+              if (!/^[0-9a-f]{40}$/.test(expectedSha??'')) stop('EXPECTED_SHA_INVALID');
+              approvedWindow();
+            }
+            const target = await api(workflowPath);
+            if (target.state!=='active' || target.path!=='.github/workflows/scheduled-sync.yml' ||
+                !Number.isSafeInteger(target.id) || target.id<=0) stop('TARGET_WORKFLOW_INVALID');
+            const branch = await api(`${prefix}/git/ref/heads/dev`);
+            if (branch.object?.type!=='commit' || branch.object.sha!==expectedSha) stop('DEV_REVISION_CHANGED');
+            let complete = false;
+            for (let page=1;page<=10;page++) {
+              const list = await api(`${workflowPath}/runs?branch=dev&per_page=100&page=${page}`);
+              if (!Array.isArray(list.workflow_runs)) stop('RUN_LIST_INVALID');
+              if (list.workflow_runs.some(run=>run.head_branch==='dev' && activeStates.has(run.status))) {
+                record('busy_skip');
+                return;
+              }
+              if (list.workflow_runs.length<100) { complete=true;break; }
+            }
+            if (!complete) stop('CONCURRENCY_STATE_UNKNOWN');
+            if (!scheduled) approvedWindow();
+            const latest = await api(`${prefix}/git/ref/heads/dev`);
+            if (latest.object?.type!=='commit' || latest.object.sha!==expectedSha) stop('DEV_REVISION_CHANGED');
+            dispatchAttempted=true; // Never clear this and never retry the POST.
+            dispatchStartedAt=new Date(Date.now()).toISOString();
+            record('dispatch_attempt_started',{expected_dev_sha:expectedSha,
+              clock_sha:/^[0-9a-f]{40}$/.test(env.GITHUB_SHA??'')?env.GITHUB_SHA:null});
+            const result = await api(`${workflowPath}/dispatches`,'POST',{ref:'dev'});
+            record('dispatch_http_response',{http_status:lastHttpStatus});
+            const id = result.workflow_run_id;
+            if (!Number.isSafeInteger(id) || id<=0 ||
+                result.run_url!==`https://api.github.com${prefix}/actions/runs/${id}` ||
+                result.html_url!==`https://github.com/${repository}/actions/runs/${id}`) stop('DISPATCH_RESPONSE_AMBIGUOUS');
+            acceptedRunId=id;
+            const run = await api(`${prefix}/actions/runs/${id}`);
+            if (run.id!==id || run.workflow_id!==target.id || run.event!=='workflow_dispatch' ||
+                run.head_branch!=='dev' || run.head_sha!==expectedSha || run.run_attempt!==1) stop('DISPATCH_IDENTITY_MISMATCH');
+            // This proves acceptance/identity, NOT environment deployment or Python success.
+            record('dispatch_accepted_not_completed',{executor_run_id:id,
+              target_url:result.html_url,executor_sha:run.head_sha,expected_dev_sha:expectedSha,
+              executor_status:activeStates.has(run.status)||run.status==='completed'?run.status:null,
+              executor_conclusion:['success','failure','cancelled','timed_out','skipped','neutral','action_required','stale'].includes(run.conclusion)?run.conclusion:null,
+              dispatch_started_at:dispatchStartedAt});
+          }
+          try { await runClock(); }
+          catch (error) {
+            // Only codes thrown locally; never print HTTP bodies, token or error message.
+            const code = error?.message==='clock_stopped' ? error.clockCode : 'UNEXPECTED_CLOCK_FAILURE';
+            console.error(JSON.stringify({status:'blocked_or_ambiguous',code,
+              at:new Date(Date.now()).toISOString(),http_status:lastHttpStatus,
+              dispatch_started_at:dispatchStartedAt,
+              dispatch_attempted:dispatchAttempted,executor_run_id:acceptedRunId,
+              clock_run_id:/^\d+$/.test(env.GITHUB_RUN_ID??'')?env.GITHUB_RUN_ID:null}));
+            process.exitCode=1;
+          }
+          // CLOCK_PROGRAM_END
+          CLOCK_JS
