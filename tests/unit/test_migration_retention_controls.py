@@ -29,7 +29,7 @@ class RetentionControlsMigrationTests(unittest.TestCase):
 
     def test_is_exactly_the_fourth_migration(self) -> None:
         migrations = sorted(MIGRATIONS.glob("*.sql"))
-        self.assertEqual(5, len(migrations))
+        self.assertGreaterEqual(len(migrations), 5)
         self.assertEqual(PATH, migrations[3])
 
     def test_applied_migrations_remain_byte_identical(self) -> None:

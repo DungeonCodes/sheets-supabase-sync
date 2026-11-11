@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.next-playwright/
+.next-postgres-test/
+.next-build/
+*.tsbuildinfo
+playwright-report/
+test-results/
+.env*
