@@ -40,7 +40,7 @@ class PipelineTests(unittest.TestCase):
         with psycopg.connect(url) as connection:
             source_id = connection.execute('select id from public.data_sources where spreadsheet_id=%s and sheet_name=%s', (source.spreadsheet_id,source.sheet_name)).fetchone()[0]
             source_key = connection.execute('''insert into analytics.dim_source(data_source_id,source_ref,source_name,semantic_contract_version)
-                values (%s,%s,%s,%s) returning source_key''', (source_id, 'fixture_' + suffix, 'Fonte ficticia', 'category_score_v1')).fetchone()[0]
+                values (%s,%s,%s,%s) returning source_key''', (source_id, 'fixture_dashboard', 'Fonte ficticia', 'category_score_v1')).fetchone()[0]
             connection.execute('''insert into analytics.category_allowlist(source_key,normalized_category,category_label,category_code)
                 values (%s,%s,%s,%s),(%s,%s,%s,%s)''', (source_key,'categoria_x','Categoria X','categoria_x',source_key,'categoria_y','Categoria Y','categoria_y'))
         def refresh():
@@ -59,4 +59,4 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual((1,12), refresh())
         self.assertEqual(1, sync(changed).plan.counts['restored'])
         self.assertEqual((2,32), refresh())
-        print('Synthetic dashboard source_ref: fixture_' + suffix)
+        print('Synthetic dashboard source_ref: fixture_dashboard')

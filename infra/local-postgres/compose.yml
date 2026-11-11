@@ -1,0 +1,21 @@
+name: sheets-sync-local-pg
+services:
+  postgres:
+    image: postgres:17.11-alpine3.23
+    container_name: sheets-sync-local-postgres
+    environment:
+      POSTGRES_USER: local_admin
+      POSTGRES_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:?Defina LOCAL_POSTGRES_PASSWORD}
+      POSTGRES_DB: analytics_fixture
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - local_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U local_admin -d analytics_fixture"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  local_pg_data:
+    name: sheets-sync-local-pg-data

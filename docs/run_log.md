@@ -2088,3 +2088,67 @@ aprovados. SQL candidato e testes integrados preparados, sem aplicacao: exige
 revisao humana conforme AGENTS.md. Docker Desktop iniciado mas daemon retornou
 500; PostgreSQL local e E2E completo nao validados. Sem SQL remoto, staging,
 producao, sync, workflows, deploy, commit ou push.
+
+## 2026-11-11 - LOCAL_SUPABASE_DOCKER_BOOTSTRAP_AND_E2E
+
+Docker Desktop 4.99.0 / Engine 29.9.3 responde via WSL 2; Compose 5.7.0,
+12 CPUs e aproximadamente 7,7 GiB para o daemon. Nenhum container ativo e
+nenhum volume listado no diagnostico; portas padrao 54321-54324 livres. Um
+container preexistente parado foi preservado. Supabase CLI 2.98.2 disponivel;
+Node 24.14.0 e npm 11.9.0; .venv usa Python 3.12.1 e psycopg 3.3.4.
+Python 3.13 nao foi localizado e o comando python padrao falhou.
+
+Inicializacao interrompida antes de supabase start: aplicaria SQL automaticamente
+sem revisao humana exigida por AGENTS.md; a migration 20261111130000 declara-se
+candidata e requer revisao. Seed e SQL executado pelos testes tambem requerem
+revisao. Nenhum SQL foi aplicado; nenhum container ou volume criado. Testes
+unitarios: 200 passaram. Integracao real PostgreSQL e E2E nao executados; nao
+sao considerados aprovados. O teste end_to_end/test_local_flow.py e um marcador,
+nao evidencia de fluxo real. Dashboard existente possui modo demo e modo
+PostgreSQL dependente de banco analytics_fixture e SQL revisado; nao conectado.
+Proximo passo: revisao humana das migrations, seed e SQL dos testes; depois
+iniciar Supabase local e validar integracao e dashboard conforme escopo autorizado.
+
+## 2026-11-11 - SQL_REVIEW_AND_LOCAL_E2E_READINESS
+
+Auditoria estatica documentada em docs/local_sql_execution_review.md, com hashes
+SQL, destinos, efeitos, riscos e sequencia pretendida. Docker operacional;
+nenhuma migration, seed, SQL de teste ou criacao de banco executados. A descoberta
+atual inclui DELETE fisico e TRUNCATE em testes; RLS e papel minimo do dashboard
+nao estao definidos. O SQL de bootstrap da plataforma e o procedimento de criacao
+do banco dedicado e RBAC ainda nao compoem pacote fechado revisavel. E2E nao
+esta pronto; revisao humana continua pendente. Nenhum container, volume ou
+rede foi criado ou removido nesta execucao.
+
+## 2026-11-11 - LOCAL_POSTGRES_E2E_PACKAGE_FINALIZATION
+
+Contêiner PostgreSQL oficial 17.11-alpine3.23 criado, saudavel, com banco
+analytics_fixture inicial, bind 127.0.0.1:55432 e volume dedicado. Nenhuma
+migration, seed ou SQL da aplicacao executado; credencial local em runtime
+ignorado. SQL de roles e policies, runner nao destrutivo e manifesto preparado;
+revisao e aprovacao humanas pendentes. 204 testes unitarios, 2 de contrato,
+3 Playwright demo, build, lint, typecheck, Compose e diff check passaram.
+Nenhum teste PostgreSQL real foi executado; Supabase hospedado nao foi simulado.
+
+## 2026-11-11 - LOCAL_POSTGRES_AND_DASHBOARD_E2E
+
+Autorizacao recebida para manifesto SHA-256 77d658a61ece2ef21b1a8c0afb4e5b782546675ace0faee269e0b38a97087b78; hashes e bind validados antes da execucao. Roles, seis migrations, seed e policies aplicados em uma transacao no PostgreSQL dedicado analytics_fixture. Suite real executou 12 testes: 10 passaram, um falhou e um apresentou erro; nenhum skip. Pipeline analitico e verificacao de permissao/RLS passaram. O runner interrompeu antes do navegador.
+
+A perda simulada de confirmacao de commit foi reconciliada como aplicada, enquanto o teste esperava erro. A falha antes de commit foi classificada como SyncError, enquanto o teste esperava RuntimeError; esse teste nao chegou a conferir rollback nem os demais pontos de falha. As assercoes foram atualizadas sem alterar SQL literal, mas nao reexecutadas, respeitando a restricao de nao repetir operacoes apos falha ou resultado ambiguo. Manifesto aprovado nao corresponde mais ao arquivo de teste alterado; nao reaplicar o pacote automaticamente. 49 testes unitarios direcionados passaram.
+
+Playwright PostgreSQL executado separadamente contra fixture ja persistida: 1 passou, sem skip, confirmou 401 anonimo, login, categorias, valores e filtro. Dashboard local em 127.0.0.1:3219, leitura apenas pelo papel local restrito; verificacao HTTP 401 anonimo e 200 autenticado. Credenciais exclusivamente em runtime ignorado; nenhuma escrita remota, Google, limpeza fisica ou reset.
+
+## 2026-11-11 - LOCAL_E2E_REGRESSION_CLOSURE_PREPARATION
+
+Revisados os dois diffs de assercao; SQL literal identico, migrations, seed,
+roles, policies e runner original sem mudancas. Novo runner seleciona somente
+dois testes, verifica manifesto e destino e falha em skips; manifesto revisado
+f85e74b6dea38f85fe73d53f3f1114cbfda7ea22575c7290a04b1189690206ad.
+Quatro testes offline do runner passaram. Nenhuma conexao ao banco nem SQL foram
+executados nesta etapa. Revisao humana e autorizacao explicita ainda pendentes.
+
+## 2026-11-11 - LOCAL_POSTGRES_REGRESSION_EXECUTION
+
+Autorizado manifesto f85e74b6dea38f85fe73d53f3f1114cbfda7ea22575c7290a04b1189690206ad; 74 arquivos, delta das assercoes, SQL literal, migrations, roles, seed, contêiner e bind revalidados. Rodados somente os dois testes de regressao no banco local: 2 passaram, zero skips, em 0,329s. Nos quatro pontos injetados, SyncError DATABASE nao retryable e ausencia da nova source apos rollback foram conferidos por SELECT. No commit com confirmacao perdida, resultado APPLIED reconciliado; uma invocacao do ponto de falha, uma sync_run aplicada, um evento e versao 1 conferidos por SELECT. Nao comprova por si snapshot preexistente preservado em falha.
+
+Combinados aos dez testes reais que passaram na execucao anterior, os 12 casos selecionados passaram em duas execucoes; Playwright PostgreSQL passou anteriormente. MVP local GREEN para o escopo validado, nao equivalencia ao Supabase hospedado nem liberacao staging. Nenhuma migration ou seed reaplicados, nenhuma operacao destrutiva, banco remoto, deploy ou workflow. Plano consolidado em docs/local_demo_and_staging_validation_plan.md.

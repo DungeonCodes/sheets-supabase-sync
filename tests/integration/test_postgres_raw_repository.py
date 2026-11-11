@@ -113,8 +113,10 @@ class PostgresRawRepositoryIntegrationTests(unittest.TestCase):
                 if current == expected:
                     raise RuntimeError("controlled")
 
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(SyncError) as raised:
                 persist(contract, rows((2, "a", "one")), fail)
+            self.assertEqual(ErrorCode.DATABASE, raised.exception.code)
+            self.assertFalse(raised.exception.retryable)
             self.assertEqual(
                 0,
                 self.scalar(
@@ -208,7 +210,7 @@ class PostgresRawRepositoryIntegrationTests(unittest.TestCase):
         self.assertEqual(2, self.scalar("select version from public.raw_current_rows where data_source_id=%s", (data_source_id,)))
         self.assertEqual(2, self.scalar("select count(*) from public.sync_runs where data_source_id=%s and status='applied'", (data_source_id,)))
 
-    def test_commit_ack_loss_is_ambiguous_and_is_not_retried(self) -> None:
+    def test_commit_ack_loss_is_reconciled_without_retry(self) -> None:
         contract = source(f"ambiguous_{self.suffix}")
         failures = 0
 
@@ -218,9 +220,9 @@ class PostgresRawRepositoryIntegrationTests(unittest.TestCase):
                 failures += 1
                 raise OSError("controlled commit acknowledgement loss")
 
-        with self.assertRaises(SyncError) as raised:
-            persist(contract, rows((2, "a", "one")), lose_ack)
-        self.assertEqual(ErrorCode.AMBIGUOUS_OUTCOME, raised.exception.code)
+        result = persist(contract, rows((2, "a", "one")), lose_ack)
+        self.assertTrue(result.persisted)
+        self.assertEqual("applied", result.reconciliation)
         self.assertEqual(1, failures)
         data_source_id = self.source_id(contract)
         self.assertEqual(1, self.scalar("select count(*) from public.sync_runs where data_source_id=%s and status='applied'", (data_source_id,)))

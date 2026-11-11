@@ -11,6 +11,8 @@ test('fixture aggregates appear after authentication', async ({browser}) => {
   await expect(page.getByText('POSTGRES LOCAL')).toBeVisible();
   await expect(page.locator('tbody')).toContainText('Categoria X');
   await expect(page.locator('tbody')).toContainText('Categoria Y');
+  await expect(page.locator('tbody tr').filter({hasText:'Categoria X'})).toContainText('12');
+  await expect(page.locator('tbody tr').filter({hasText:'Categoria Y'})).toContainText('20');
   await page.getByLabel('Categoria').selectOption('Categoria X');
   await page.getByRole('button',{name:'Filtrar'}).click();
   await expect(page.locator('tbody tr')).toHaveCount(1);
