@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
-const yaml=readFileSync(new URL('../../drafts/github_scheduler/staging-clock-v2.draft.yml',import.meta.url),'utf8');
+const yaml=readFileSync(new URL('../../drafts/github_scheduler/staging-clock-v2.draft.yml',import.meta.url),'utf8').replace(/\r\n/g, '\n');
 const program=yaml.split('// CLOCK_PROGRAM_BEGIN')[1].split('// CLOCK_PROGRAM_END')[0]
   .split('\n').slice(1).map(line=>line.replace(/^          /,'')).join('\n');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
@@ -145,7 +145,7 @@ test('clock has only job-scoped permissions and no data secrets, environment or 
 });
 
 test('unchanged target still has staging environment, existing concurrency and Python entrypoint',()=>{
-  const target=readFileSync(new URL('../../.github/workflows/scheduled-sync.yml',import.meta.url),'utf8');
+  const target=readFileSync(new URL('../../.github/workflows/scheduled-sync.yml',import.meta.url),'utf8').replace(/\r\n/g, '\n');
   assert.match(target,/environment: staging/);assert.match(target,/group: staging-dispatch-\$\{\{ github.ref \}\}/);
   assert.match(target,/cancel-in-progress: false/);assert.match(target,/sheets_supabase_sync\.batch_cli/);
   assert.doesNotMatch(target,/^\s*schedule\s*:/m);
@@ -158,7 +158,7 @@ test('clock cannot invoke Python or request staging environment secrets',()=>{
   assert.match(yaml,/ref:'dev'/);
 });
 test('executor declares exactly seven environment secrets and validates staging before dispatch',()=>{
-  const target=readFileSync(new URL('../../.github/workflows/scheduled-sync.yml',import.meta.url),'utf8');
+  const target=readFileSync(new URL('../../.github/workflows/scheduled-sync.yml',import.meta.url),'utf8').replace(/\r\n/g, '\n');
   const names=[...target.matchAll(/secrets\.([A-Z_]+)/g)].map(match=>match[1]);
   assert.deepEqual(names.sort(),['APP_ENV','GOOGLE_SERVICE_ACCOUNT_JSON','STAGING_SYNC_CONFIG_JSON','SUPABASE_ALLOWED_PROJECT_REF','SUPABASE_DB_URL','SUPABASE_PROJECT_REF','SUPABASE_URL'].sort());
   assert.ok(target.indexOf('Validate staging guard')<target.indexOf('Dispatch due staging sources'));

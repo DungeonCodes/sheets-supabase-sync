@@ -1,0 +1,307 @@
+diff --git a/.github/workflows/scheduled-sync.yml b/.github/workflows/scheduled-sync.yml
+index 65d16e2..b66b595 100644
+--- a/.github/workflows/scheduled-sync.yml
++++ b/.github/workflows/scheduled-sync.yml
+@@ -1,22 +1,82 @@
++# OFFLINE REVIEW CANDIDATE ONLY.
+ name: staging-dispatch
+ 
+ on:
+   workflow_dispatch:
++    inputs:
++      execution_mode:
++        type: choice
++        options: [manual, scheduled]
++        default: manual
++      approved_dev_sha:
++        type: string
++        default: ""
++      clock_run_id:
++        type: string
++        default: ""
+ 
+-permissions:
+-  contents: read
++permissions: {}
+ 
+ concurrency:
+   group: staging-dispatch-${{ github.ref }}
+   cancel-in-progress: false
+ 
+ jobs:
++  preflight:
++    runs-on: ubuntu-latest
++    timeout-minutes: 3
++    steps:
++      - name: Authorize revision before checkout or credentials
++        shell: bash
++        env:
++          EXECUTION_MODE: ${{ inputs.execution_mode }}
++          APPROVED_INPUT_SHA: ${{ inputs.approved_dev_sha }}
++          APPROVED_DEV_SHA: ${{ vars.STAGING_CLOCK_APPROVED_DEV_SHA }}
++          SCHEDULE_ENABLED: ${{ vars.STAGING_CLOCK_SCHEDULE_ENABLED }}
++          CLOCK_RUN_ID: ${{ inputs.clock_run_id }}
++        run: |
++          set -euo pipefail
++          node --input-type=module <<'GUARD_JS'
++          // EXECUTOR_GUARD_BEGIN
++          const e=process.env;
++          const scheduled=e.EXECUTION_MODE==='scheduled';
++          let code=null;
++          if(e.GITHUB_REPOSITORY!=='DungeonCodes/sheets-supabase-sync' || e.GITHUB_REF!=='refs/heads/dev' ||
++             e.GITHUB_EVENT_NAME!=='workflow_dispatch' || e.GITHUB_WORKFLOW_REF!=='DungeonCodes/sheets-supabase-sync/.github/workflows/scheduled-sync.yml@refs/heads/dev') code='WRONG_EXECUTOR_IDENTITY';
++          else if(!['','manual','scheduled'].includes(e.EXECUTION_MODE??'')) code='INVALID_MODE';
++          else if(!/^[0-9a-f]{40}$/.test(e.GITHUB_SHA??'')) code='EXECUTED_REVISION_INVALID';
++          else if(!scheduled && (e.APPROVED_INPUT_SHA || e.CLOCK_RUN_ID)) code='MANUAL_INPUTS_INVALID';
++          else if(scheduled && (e.SCHEDULE_ENABLED!=='true' || e.GITHUB_RUN_ATTEMPT!=='1')) code='SCHEDULE_NOT_AUTHORIZED';
++          else if(scheduled && (!/^[0-9a-f]{40}$/.test(e.APPROVED_DEV_SHA??'') ||
++            e.APPROVED_INPUT_SHA!==e.APPROVED_DEV_SHA || e.GITHUB_SHA!==e.APPROVED_DEV_SHA)) code='EXECUTED_REVISION_NOT_APPROVED';
++          else if(scheduled && !/^[1-9]\d*$/.test(e.CLOCK_RUN_ID??'')) code='CLOCK_CORRELATION_INVALID';
++          console.log(JSON.stringify({state:code?'EXECUTOR_FAILED':'REVISION_AUTHORIZED',code,
++            mode:scheduled?'scheduled':'manual',actual_at:new Date().toISOString(),
++            clock_run_id:scheduled && /^[1-9]\d*$/.test(e.CLOCK_RUN_ID??'')?e.CLOCK_RUN_ID:null,
++            executor_run_id:/^\d+$/.test(e.GITHUB_RUN_ID??'')?e.GITHUB_RUN_ID:null,
++            sha:/^[0-9a-f]{40}$/.test(e.GITHUB_SHA??'')?e.GITHUB_SHA:null}));
++          if(code) process.exitCode=1;
++          // EXECUTOR_GUARD_END
++          GUARD_JS
++
+   dispatch:
++    needs: preflight
+     runs-on: ubuntu-latest
+     timeout-minutes: 20
+     environment: staging
++    permissions:
++      contents: read
+     steps:
+       - uses: actions/checkout@v4
++        with:
++          ref: ${{ github.sha }}
++          persist-credentials: false
++
++      - name: Verify checkout revision
++        env:
++          EXECUTED_SHA: ${{ github.sha }}
++        run: test "$(git rev-parse HEAD)" = "$EXECUTED_SHA"
++
+ 
+       - uses: actions/setup-python@v5
+         with:
+@@ -63,9 +123,57 @@ jobs:
+           validate_staging_access(load_environment(Path.cwd()), write_requested=True, confirmed=True)"
+ 
+       - name: Dispatch due staging sources
+-        run: >-
+-          python -m sheets_supabase_sync.batch_cli --config runtime/staging.config.json
+-          --confirm-staging
++        env:
++          EXECUTION_MODE: ${{ inputs.execution_mode }}
++          CLOCK_RUN_ID: ${{ inputs.clock_run_id }}
++        shell: bash
++        run: |
++          set -euo pipefail
++          python - <<'PY'
++          # EXECUTOR_SUMMARY_BEGIN
++          import json
++          import sys
++          import os
++          import re
++          import time
++          import logging
++          from datetime import UTC, datetime
++          from sheets_supabase_sync.batch_cli import run_cli
++          outputs = []
++          started = time.monotonic()
++          # Public runner: keep detailed evidence in staging, never print source identities.
++          logging.disable(logging.CRITICAL)
++          code = run_cli(["--config", "runtime/staging.config.json", "--confirm-staging"], emit=outputs.append)
++          finished_at = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
++          def safe_env(name, pattern):
++              value = os.environ.get(name, "")
++              return value if re.fullmatch(pattern, value) else None
++          context = {"mode": "scheduled" if os.environ.get("EXECUTION_MODE") == "scheduled" else "manual",
++              "expected_at": None, "actual_at": finished_at,
++              "clock_run_id": safe_env("CLOCK_RUN_ID", r"[1-9]\d*"),
++              "executor_run_id": safe_env("GITHUB_RUN_ID", r"[1-9]\d*"),
++              "executor_sha": safe_env("GITHUB_SHA", r"[0-9a-f]{40}"),
++              "duration_seconds": round(time.monotonic() - started, 3), "last_success_at": None}
++          fields = ("sources_total", "sources_due", "sources_executed", "sources_failed", "sources_busy_deferred", "sources_no_changes", "sources_skipped")
++          try:
++              summary = json.loads(outputs[-1])
++              counts = {key: summary[key] for key in fields}
++              if any(type(value) is not int or value < 0 for value in counts.values()):
++                  raise ValueError("invalid counts")
++              state = "EXECUTOR_PARTIAL_FAILURE" if counts["sources_failed"] else "CLOCK_BUSY" if counts["sources_busy_deferred"] else "CLOCK_SKIPPED_NO_DUE" if not counts["sources_due"] else "EXECUTOR_SUCCESS"
++              if code and not counts["sources_failed"]:
++                  state = "EXECUTOR_FAILED"
++              if state in {"EXECUTOR_SUCCESS", "CLOCK_SKIPPED_NO_DUE"}:
++                  context["last_success_at"] = finished_at
++              print(json.dumps({"state": state, **context, **counts}, sort_keys=True))
++              if counts["sources_failed"]:
++                  code = 1
++          except (IndexError, KeyError, TypeError, ValueError):
++              print(json.dumps({"state": "EXECUTOR_FAILED" if code else "EXECUTOR_UNKNOWN", "code": "SUMMARY_UNAVAILABLE", **context}))
++              code = code or 2
++          sys.exit(code)
++          # EXECUTOR_SUMMARY_END
++          PY
+ 
+       - name: Remove ephemeral files
+         if: always()
+diff --git a/src/sheets_supabase_sync/batch_cli.py b/src/sheets_supabase_sync/batch_cli.py
+index 9c7107e..545ccde 100644
+--- a/src/sheets_supabase_sync/batch_cli.py
++++ b/src/sheets_supabase_sync/batch_cli.py
+@@ -62,7 +62,7 @@ def run_cli(
+         emit(json.dumps({"status": "failed", "category": category}, sort_keys=True))
+         return 2
+     emit(json.dumps(_safe_summary(summary, statuses, dry_select=args.dry_select), sort_keys=True))
+-    return 0
++    return 1 if summary.sources_failed else 0
+ 
+ 
+ def _safe_summary(summary: DispatchSummary, statuses: list[dict[str, str]], *, dry_select: bool) -> dict[str, object]:
+diff --git a/tests/unit/test_dispatcher.py b/tests/unit/test_dispatcher.py
+index 70375ab..8148140 100644
+--- a/tests/unit/test_dispatcher.py
++++ b/tests/unit/test_dispatcher.py
+@@ -92,6 +92,27 @@ class DueSelectionTests(unittest.TestCase):
+ 
+ 
+ class BatchCliTests(unittest.TestCase):
++    def test_no_changes_and_busy_do_not_return_failure(self) -> None:
++        configured = source("one")
++        config = InstitutionConfig("fixture", "isolated", (configured,))
++        for kind in ("no_changes", "busy"):
++            with self.subTest(kind=kind):
++                output: list[str] = []
++                def operation(*_):
++                    if kind == "busy":
++                        raise SyncError(ErrorCode.BUSY, "controlled")
++                    return type("Result", (), {"plan": type("Plan", (), {"counts": {"new": 0, "changed": 0, "removed": 0, "restored": 0}})(), "persisted": True})()
++                code = run_cli(
++                    ["--config", "fixture.json", "--confirm-staging"], root=Path("repository"),
++                    environment_loader=lambda _: environment(), institution_loader=lambda _: config,
++                    state_loader=lambda _, sources: {item.name: state(item) for item in sources},
++                    operation=operation, now=lambda: NOW, emit=output.append,
++                )
++                summary = json.loads(output[-1])
++                self.assertEqual(0, code)
++                self.assertEqual(0, summary["sources_failed"])
++                self.assertEqual(1, summary["sources_no_changes" if kind == "no_changes" else "sources_busy_deferred"])
++
+     def test_dry_selection_is_zero_write_and_does_not_run_sources(self) -> None:
+         configured = source("one")
+         config = InstitutionConfig("fixture", "isolated", (configured,))
+@@ -131,7 +152,7 @@ class BatchCliTests(unittest.TestCase):
+             root=Path("repository"), environment_loader=lambda _: environment(), institution_loader=lambda _: config,
+             state_loader=lambda _, sources: {item.name: state(item) for item in sources}, operation=operation, now=lambda: NOW, emit=outputs.append,
+         )
+-        self.assertEqual(0, code)
++        self.assertEqual(1, code)
+         self.assertEqual(["first", "second"], executed)
+         self.assertEqual(1, json.loads(outputs[0])["sources_failed"])
+ 
+diff --git a/tests/unit/test_staging_executor_summary.py b/tests/unit/test_staging_executor_summary.py
+new file mode 100644
+index 0000000..722dc1c
+--- /dev/null
++++ b/tests/unit/test_staging_executor_summary.py
+@@ -0,0 +1,47 @@
++"""Exercise the actual workflow's public summary adapter without network access."""
++import json
++from pathlib import Path
++import unittest
++from unittest.mock import patch
++
++from sheets_supabase_sync import batch_cli
++
++WORKFLOW = Path(__file__).resolve().parents[2] / '.github/workflows/scheduled-sync.yml'
++
++
++def execute(summary, exit_code):
++    content = WORKFLOW.read_text(encoding='utf-8')
++    block = content.split('# EXECUTOR_SUMMARY_BEGIN\n')[1].split('# EXECUTOR_SUMMARY_END')[0]
++    code = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())
++    printed = []
++    def fake_run(_args, *, emit):
++        emit(json.dumps(summary))
++        return exit_code
++    with patch.object(batch_cli, 'run_cli', fake_run), patch('builtins.print', side_effect=printed.append), patch('logging.disable'):
++        with unittest.TestCase().assertRaises(SystemExit) as result:
++            exec(compile(code, 'workflow-adapter', 'exec'), {})
++    return result.exception.code, json.loads(printed[-1])
++
++
++class ExecutorSummaryTests(unittest.TestCase):
++    def test_aggregate_partial_and_privacy(self):
++        summary = dict(sources_total=1, sources_due=1, sources_executed=1, sources_failed=1,
++                       sources_busy_deferred=0, sources_no_changes=0, sources_skipped=0,
++                       sources=[{'source': 'synthetic-private'}])
++        code, public = execute(summary, 0)
++        self.assertEqual((1, 'EXECUTOR_PARTIAL_FAILURE'), (code, public['state']))
++        self.assertNotIn('synthetic-private', json.dumps(public))
++
++    def test_missing_summary_cannot_be_success(self):
++        code, public = execute({}, 0)
++        self.assertEqual((2, 'EXECUTOR_UNKNOWN'), (code, public['state']))
++
++    def test_no_changes_busy_and_no_due(self):
++        base = dict(sources_total=1, sources_due=1, sources_executed=1, sources_failed=0,
++                    sources_busy_deferred=0, sources_no_changes=0, sources_skipped=0)
++        for changes, expected in [({'sources_no_changes': 1}, 'EXECUTOR_SUCCESS'),
++                                  ({'sources_busy_deferred': 1}, 'CLOCK_BUSY'),
++                                  ({'sources_due': 0, 'sources_executed': 0}, 'CLOCK_SKIPPED_NO_DUE')]:
++            with self.subTest(expected=expected):
++                code, public = execute({**base, **changes}, 0)
++                self.assertEqual((0, expected), (code, public['state']))
+diff --git a/tests/cron_dispatch/staging-executor.test.mjs b/tests/cron_dispatch/staging-executor.test.mjs
+new file mode 100644
+index 0000000..98555fd
+--- /dev/null
++++ b/tests/cron_dispatch/staging-executor.test.mjs
+@@ -0,0 +1,44 @@
++import fs from 'node:fs';
++import assert from 'node:assert/strict';
++import test from 'node:test';
++
++const yaml=fs.readFileSync(new URL('../../.github/workflows/scheduled-sync.yml',import.meta.url),'utf8').replace(/\r\n/g,'\n');
++const program=yaml.split('// EXECUTOR_GUARD_BEGIN')[1].split('// EXECUTOR_GUARD_END')[0].split('\n').slice(1).map(x=>x.replace(/^          /,'')).join('\n');
++const repository=yaml.match(/GITHUB_REPOSITORY!=='([^']+)'/)[1];
++const sha='a'.repeat(40);
++const base={GITHUB_REPOSITORY:repository,GITHUB_REF:'refs/heads/dev',GITHUB_WORKFLOW_REF:`${repository}/.github/workflows/scheduled-sync.yml@refs/heads/dev`,GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_SHA:sha,GITHUB_RUN_ID:'456',GITHUB_RUN_ATTEMPT:'1',CLOCK_RUN_ID:'123',EXECUTION_MODE:'scheduled',APPROVED_DEV_SHA:sha,APPROVED_INPUT_SHA:sha,SCHEDULE_ENABLED:'true'};
++function guard(patch={}) {
++ const process={env:{...base,...patch},exitCode:0}, logs=[];
++ new Function('process','console',program)(process,{log:x=>logs.push(JSON.parse(x))});
++ return {code:process.exitCode,logs};
++}
++test('scheduled approved revision and manual without new variables',()=>{
++ assert.equal(guard().code,0);
++ for (const mode of ['', 'manual']) assert.equal(guard({EXECUTION_MODE:mode,SCHEDULE_ENABLED:'',APPROVED_DEV_SHA:'',APPROVED_INPUT_SHA:'',CLOCK_RUN_ID:''}).code,0);
++});
++for(const [name,patch] of [
++ ['sha mismatch',{GITHUB_SHA:'b'.repeat(40)}], ['approved missing',{APPROVED_DEV_SHA:''}],
++ ['input mismatch',{APPROVED_INPUT_SHA:'b'.repeat(40)}], ['opt-in unset',{SCHEDULE_ENABLED:''}],
++ ['opt-in false',{SCHEDULE_ENABLED:'false'}], ['rerun',{GITHUB_RUN_ATTEMPT:'2'}],
++ ['branch',{GITHUB_REF:'refs/heads/main'}], ['mode',{EXECUTION_MODE:'other'}], ['clock id',{CLOCK_RUN_ID:''}],
++ ['invalid execution sha',{GITHUB_SHA:''}],
++]) test(name,()=>assert.equal(guard(patch).code,1));
++test('manual cannot retain scheduled correlation fields, but mode is not authentication',()=>{
++ assert.equal(guard({EXECUTION_MODE:'manual'}).code,1);
++ assert.equal(guard({EXECUTION_MODE:'manual',APPROVED_INPUT_SHA:'',CLOCK_RUN_ID:'',SCHEDULE_ENABLED:'',APPROVED_DEV_SHA:''}).code,0);
++});
++test('guard before checkout, verification and secrets with staging guard',()=>{
++ const before=(a,b)=>assert(yaml.indexOf(a)>=0 && yaml.indexOf(a)<yaml.indexOf(b));
++ before('EXECUTOR_GUARD_BEGIN','actions/checkout'); before('EXECUTOR_GUARD_BEGIN','secrets.');
++ before('Verify checkout revision','secrets.'); before('Validate staging guard','Dispatch due staging sources');
++ assert.match(yaml,/ref: \$\{\{ github.sha \}\}/); assert.match(yaml,/persist-credentials: false/);
++ const [preflight, dispatch] = yaml.split('\n  dispatch:\n');
++ assert.match(preflight,/\n  preflight:\n/); assert.doesNotMatch(preflight,/environment:\s*staging|secrets\./);
++ assert.match(dispatch,/needs: preflight/); assert.match(dispatch,/environment: staging/);
++ assert.doesNotMatch(dispatch.split('\n    steps:')[0],/\bif:\s*.*(?:always|failure|cancelled)\s*\(/);
++ assert.match(dispatch,/permissions:\s+contents: read/); assert.match(yaml,/permissions: \{\}/);
++});
++test('guard never emits untrusted input',()=>{
++ const result=guard({APPROVED_INPUT_SHA:'synthetic-private',CLOCK_RUN_ID:'synthetic-private'});
++ assert(!JSON.stringify(result).includes('synthetic-private'));
++});

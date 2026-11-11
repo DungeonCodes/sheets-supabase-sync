@@ -66,7 +66,7 @@ class CliRegression(unittest.TestCase):
         self.assertEqual((0, "selected", []), (code, summary["status"], executed))
     def test_patch_is_only_exit_code_change(self):
         original = (ROOT.parent.parent / "src/sheets_supabase_sync/batch_cli.py").read_text(encoding="utf-8")
-        self.assertEqual(original.replace("    return 0\n", "    return 1 if summary.sources_failed else 0\n"), (ROOT/"batch_cli.candidate.py").read_text(encoding="utf-8"))
+        self.assertEqual(original, (ROOT/"batch_cli.candidate.py").read_text(encoding="utf-8"))
 
 class PublicSummaryAdapter(unittest.TestCase):
     def execute_adapter(self, summary, code):

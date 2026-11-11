@@ -1995,3 +1995,82 @@ para revisao; cadencia 60 min nao aprovada, dono e governanca dev pendentes.
 Nenhum workflow disparado/publicado, src operacional alterado, variavel/secret ou
 staging modificado, SQL/sync/benchmark/producao ou commit/push. Encerrar e aguardar
 revisao humana no gate GITHUB_CLOCK_SCHEDULE_PUBLICATION_REVIEW.
+
+## 2026-11-11 — STAGING_AUTOMATION_IMPLEMENTATION_AND_RELEASE_READINESS
+
+Estado inicial limpo em dev 4e18a977fef7f9b00211cbc0a1da235ad368b395;
+refs remotas consultadas somente leitura: dev igual e main 80cdde4bb79506deecb3d37f0e9894fba03739ac.
+PR mais recente #5 mergeado; commits de preparacao posteriores ao relatorio anterior
+ja existiam. Executor e CLI alterados localmente; clock em worktree separado na base
+main, com proposta cron 17 * * * *. Nada publicado ou ativado.
+Python: 241 testes, 30 pulados, sem falhas; 12 testes candidatos aprovados.
+Node: 271 aprovados, incluindo guard, privacidade e concorrencia simulada.
+PyYAML analisou ambos workflows; actionlint e validacao hospedada pendentes.
+Diff --check passou nos dois worktrees. Gerador testado com quatro linhas apenas;
+sem benchmark. Evidencia local sanitizada nao e monitor externo nem detecta silencio.
+Release parcial: ver docs/release_staging_preparation.md. Sem sync, SQL, producao,
+credenciais, alteracoes remotas, commit ou push.
+
+## 2026-11-11 ? STAGING_OFFLINE_COMPLETION
+
+Refs remotas lidas: dev 4e18a977fef7f9b00211cbc0a1da235ad368b395 e main
+80cdde4bb79506deecb3d37f0e9894fba03739ac, iguais aos worktrees preparados.
+Leitor local correlaciona evid?ncias sanitizadas e mant?m resultados incompletos
+ou amb?guos sem sucesso; n?o ? monitor independente. Gerador sint?tico em fluxo
+recebe cen?rios e retomada; somente testes pequenos, sem benchmark.
+Python: 241 testes, 30 skips, zero falhas/erros; mais 12 regress?es de publica??o e
+4 testes do gerador aprovados. Node: 278 aprovados. Skips classificados em
+docs/staging_offline_validation.md. Actionlint 1.7.12 de release oficial, attestation
+verificada: ambos workflows sem achados. Valida??o hospedada pendente.
+Plano A?F e governan?a detalhados; main permanece worktree separado com cron proposto.
+Nenhuma publica??o, Actions, altera??o remota, sincroniza??o, SQL, produ??o, PAT,
+benchmark, commit ou push.
+
+## 2026-11-11 ? STAGING_CHECKPOINT_A_PUBLICATION_REVIEW
+
+Somente leitura: dev 4e18a977fef7f9b00211cbc0a1da235ad368b395 e main
+80cdde4bb79506deecb3d37f0e9894fba03739ac; sem prote??o de branch nem ruleset
+efetivo; staging limitado a dev, sem aprovador retornado. Variables repo e
+staging sem nomes listados. Pacote local de cinco arquivos em
+drafts/checkpoint-a-review/checkpoint-a.patch e MANIFEST.md; sem stage ou commit.
+81 testes Python e 12 Node direcionados passaram, actionlint passou, diff check e
+checagem do patch no ?ndice e no worktree passaram. Modo manual preserva execu??o
+sem novas variables, mas resumo p?blico muda; modo manual n?o obriga SHA aprovado.
+Token autom?tico GitHub existe no job; secrets staging s?o materializados ap?s o
+guard. Piloto recorrente bloqueado por governan?a. Push/PR futuro pode iniciar CI.
+Sem Actions, sync, SQL, produ??o, altera??es remotas, commit, push ou merge.
+
+## 2026-11-11 - STAGING_CHECKPOINT_A_SECURITY_FINALIZATION
+
+Base dev remota e local 4e18a977fef7f9b00211cbc0a1da235ad368b395.
+Preflight separado sem environment; dispatch precisa de preflight aprovado e
+utiliza staging, checkout fixo e staging guard. Campos agendados em modo manual
+sao rejeitados, mas modo nao autentica origem: bypass permanece se omitidos.
+Decisao humana sobre contrato manual ou controle externo efetivo pendente.
+CI atual inicia em push/PR, sem referencia a staging ou secrets de dados; instala
+pacotes e executa codigo do checkout. Nenhuma Action foi executada neste gate.
+Python 81 testes aprovados; Node 16 aprovados; actionlint e diff check aprovados.
+Patch atualizado com cinco caminhos; versao anterior preservada. Sem commit, push,
+PR, alteracao remota, sync, producao, SQL ou alteracao do relogio main.
+
+## 2026-11-11 - STAGING_CHECKPOINT_A_AUTHORIZATION_CONTRACT
+
+Refs local e remota dev 4e18a977fef7f9b00211cbc0a1da235ad368b395. Guard
+comum exige SHA aprovado, workflow SHA e SHA executado iguais em todos os modos.
+Autorizacao por numero de run, validade maxima 15 minutos e tentativa 1 em todos
+os modos; validade novamente verificada ao iniciar dispatch. Revogacao apos uso
+e humana: variables nao sao alteradas neste gate. Modo nao autentica origem e a
+recorrencia autonoma atual nao satisfaz autorizacao por run; governanca pendente.
+81 testes Python e 26 Node aprovados; actionlint e diff check aprovados; patch de
+cinco arquivos atualizado, versao anterior preservada. Sem Actions, sync, variables
+remotas, producao, SQL, commit, push ou alteracao do clock main.
+
+## 2026-11-11 - STAGING_CHECKPOINT_A_FINAL_SCOPE
+
+Refs revalidadas: dev 4e18a977fef7f9b00211cbc0a1da235ad368b395, main
+80cdde4bb79506deecb3d37f0e9894fba03739ac. Escopo manual protegido, SHA e
+autorizacao temporaria obrigatorios, modo scheduled bloqueado. Clock main nao
+alterado; origem humana nao pode ser provada pelo modo. Governanca nao efetiva.
+11 testes Python e 22 Node direcionados passaram; actionlint passou. Patch de
+cinco arquivos atualizado; versao anterior preservada. Nenhum commit, push, PR,
+Action, dispatch, sync, SQL, mudanca remota ou acesso a producao.

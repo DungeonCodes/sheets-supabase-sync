@@ -92,6 +92,27 @@ class DueSelectionTests(unittest.TestCase):
 
 
 class BatchCliTests(unittest.TestCase):
+    def test_no_changes_and_busy_do_not_return_failure(self) -> None:
+        configured = source("one")
+        config = InstitutionConfig("fixture", "isolated", (configured,))
+        for kind in ("no_changes", "busy"):
+            with self.subTest(kind=kind):
+                output: list[str] = []
+                def operation(*_):
+                    if kind == "busy":
+                        raise SyncError(ErrorCode.BUSY, "controlled")
+                    return type("Result", (), {"plan": type("Plan", (), {"counts": {"new": 0, "changed": 0, "removed": 0, "restored": 0}})(), "persisted": True})()
+                code = run_cli(
+                    ["--config", "fixture.json", "--confirm-staging"], root=Path("repository"),
+                    environment_loader=lambda _: environment(), institution_loader=lambda _: config,
+                    state_loader=lambda _, sources: {item.name: state(item) for item in sources},
+                    operation=operation, now=lambda: NOW, emit=output.append,
+                )
+                summary = json.loads(output[-1])
+                self.assertEqual(0, code)
+                self.assertEqual(0, summary["sources_failed"])
+                self.assertEqual(1, summary["sources_no_changes" if kind == "no_changes" else "sources_busy_deferred"])
+
     def test_dry_selection_is_zero_write_and_does_not_run_sources(self) -> None:
         configured = source("one")
         config = InstitutionConfig("fixture", "isolated", (configured,))
@@ -131,7 +152,7 @@ class BatchCliTests(unittest.TestCase):
             root=Path("repository"), environment_loader=lambda _: environment(), institution_loader=lambda _: config,
             state_loader=lambda _, sources: {item.name: state(item) for item in sources}, operation=operation, now=lambda: NOW, emit=outputs.append,
         )
-        self.assertEqual(0, code)
+        self.assertEqual(1, code)
         self.assertEqual(["first", "second"], executed)
         self.assertEqual(1, json.loads(outputs[0])["sources_failed"])
 
